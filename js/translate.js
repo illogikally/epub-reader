@@ -16,6 +16,7 @@ import {
   MODELS, MAX_TOKENS,
 } from './state.js';
 
+const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
 const popupOut = $('popup-out');
 const popupForm = $('popup-form');
@@ -122,7 +123,7 @@ const translateBubble = $('translate-bubble');
 const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
 export function isPopupVisible() {
-  return popup.classList.contains('visible');
+  return popupWrapper.classList.contains('visible');
 }
 
 function popupWrite(text, cls, opts) {
@@ -149,26 +150,24 @@ function isMobileViewport() {
 
 export function showPopupAt(rect) {
   if (isMobileViewport()) {
-    popup.classList.add('mobile');
+    popupWrapper.classList.add('mobile');
     popup.style.left = '';
     popup.style.right = '';
     popup.style.top = '';
     popup.style.width = '';
-    popup.classList.add('visible');
+    popupWrapper.classList.add('visible');
     return;
   }
   popup.classList.remove('mobile');
   // Make sure offsetHeight is meaningful for height-based placement.
   const wasHidden = !popup.classList.contains('visible');
   if (wasHidden) {
-    popup.style.visibility = 'hidden';
-    popup.classList.add('visible');
+    popupWrapper.classList.add('visible');
   }
   const W = popup.offsetWidth || 420;
   const H = popup.offsetHeight || 200;
   if (wasHidden) {
-    popup.classList.remove('visible');
-    popup.style.visibility = '';
+    popupWrapper.classList.remove('visible');
   }
   const margin = 12;
   let left = rect.left + rect.width / 2 - W / 2;
@@ -189,11 +188,11 @@ export function showPopupAt(rect) {
   }
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
-  popup.classList.add('visible');
+  popupWrapper.classList.add('visible');
 }
 
 export function hidePopup() {
-  popup.classList.remove('visible');
+  popupWrapper.classList.remove('visible');
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
@@ -625,9 +624,9 @@ export function initTranslateEvents() {
     if (!popupForm.hidden) popupInput.focus();
   });
 
-  document.addEventListener('mousedown',  handleOutsideClick);
-  document.addEventListener('touchstart', handleOutsideClick, { passive: true });
-  document.addEventListener('pointerdown', handleOutsideClick);
+  popupWrapper.addEventListener('mousedown',  handleOutsideClick);
+  popupWrapper.addEventListener('touchstart', handleOutsideClick, { passive: true });
+  popupWrapper.addEventListener('pointerdown', handleOutsideClick);
 
   popupForm.addEventListener('submit', e => {
     e.preventDefault();

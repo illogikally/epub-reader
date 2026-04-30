@@ -248,22 +248,24 @@ p { /* ... */ }"></textarea>
   </aside>
 
   <!-- translation popup -->
-  <div id="popup">
-    <div class="pop-bar">
-      <div class="pop-actions" id="popup-actions"></div>
-      <span class="pop-bar-spacer"></span>
-      <button class="pop-bar-icon icon-circle-btn" id="popup-toggle-input" title="Ask follow-up">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      </button>
-      <button class="pop-bar-icon icon-circle-btn" id="popup-close" title="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>
+  <div id="popup-wrapper">
+    <div id="popup">
+      <div class="pop-bar">
+        <div class="pop-actions" id="popup-actions"></div>
+        <span class="pop-bar-spacer"></span>
+        <button class="pop-bar-icon icon-circle-btn" id="popup-toggle-input" title="Ask follow-up">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </button>
+        <button class="pop-bar-icon icon-circle-btn" id="popup-close" title="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div id="popup-out"></div>
+      <form id="popup-form" hidden>
+        <span class="prompt">&gt;</span>
+        <input id="popup-input" type="text" autocomplete="off" placeholder="ask follow-up…">
+      </form>
     </div>
-    <div id="popup-out"></div>
-    <form id="popup-form" hidden>
-      <span class="prompt">&gt;</span>
-      <input id="popup-input" type="text" autocomplete="off" placeholder="ask follow-up…">
-    </form>
   </div>
 </div>
 
