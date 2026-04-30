@@ -1,0 +1,750 @@
+/* ============================================================
+   Fonts
+   ============================================================ */
+@font-face {
+  font-family: 'Seravek';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('../Seravek.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Seravek';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('../Seravek-Itatlic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Seravek';
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+  src: url('../Seravek-BoldItalic.otf') format('opentype');
+}
+@font-face {
+  font-family: 'Seravek';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('../Seravek-Medium.otf') format('opentype');
+}
+
+/* ============================================================
+   Theme variables
+   ============================================================ */
+:root {
+  --bg: #faf6ef;
+  --fg: #2a2520;
+  --chrome-fg: #5a544c;
+  --chrome-hover: #2a2520;
+  --border: rgba(0, 0, 0, 0.08);
+  --accent: #8a6d3b;
+  --side-padding: 32px;
+  --pad-top: 44px;
+  --pad-bottom: 44px;
+  --pad-left: 24px;
+  --pad-right: 24px;
+  /* Slider track colors — Apple-style: filled portion uses fg, unfilled is faded */
+  --slider-fill: rgba(0, 0, 0, 0.55);
+  --slider-empty: rgba(0, 0, 0, 0.12);
+  /* Surface tint used for soft button backgrounds (icon-circle-btn etc) */
+  --surface-soft: rgba(0, 0, 0, 0.06);
+  --surface-soft-hover: rgba(0, 0, 0, 0.12);
+}
+body.dark-chrome {
+  --slider-fill: rgba(255, 255, 255, 0.7);
+  --slider-empty: rgba(255, 255, 255, 0.15);
+  --surface-soft: rgba(255, 255, 255, 0.1);
+  --surface-soft-hover: rgba(255, 255, 255, 0.18);
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+html, body {
+  margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
+  background: var(--bg); color: var(--fg);
+  font-family: 'Seravek', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  transition: background 0.3s ease, color 0.3s ease;
+}
+button {
+  font-family: inherit; font-size: inherit; color: inherit;
+  background: transparent; border: none; cursor: pointer;
+}
+.icon {
+  width: 18px; height: 18px;
+  stroke: currentColor; stroke-width: 2;
+  stroke-linecap: round; stroke-linejoin: round;
+  fill: none; flex-shrink: 0;
+}
+
+/* ============================================================
+   Reusable: Apple-style circle icon button (close, +, etc.)
+   ============================================================ */
+.icon-circle-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--surface-soft);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--chrome-fg);
+  flex-shrink: 0;
+  padding: 0;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.icon-circle-btn:hover {
+  background: var(--surface-soft-hover);
+  color: var(--fg);
+}
+.icon-circle-btn svg {
+  width: 13px; height: 13px;
+}
+
+/* ============================================================
+   Library
+   ============================================================ */
+#library {
+  position: fixed; inset: 0; overflow-y: auto;
+  padding: 60px var(--side-padding) 80px;
+}
+#library.dragging::after {
+  content: 'Drop EPUB to add';
+  position: fixed; inset: 0;
+  background: rgba(138, 109, 59, 0.08); color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 22px; font-weight: 300; letter-spacing: 0.05em;
+  pointer-events: none; z-index: 100;
+}
+.library-header {
+  max-width: 1100px; margin: 0 auto 36px;
+  display: flex; align-items: baseline; justify-content: space-between;
+}
+.library-header h1 { margin: 0; font-weight: 300; font-size: 28px; letter-spacing: 0.02em; }
+.library-header .count { color: var(--chrome-fg); font-size: 13px; }
+
+.library-grid {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 24px;
+}
+.book-card {
+  cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+  transition: transform 0.15s ease; position: relative;
+}
+.book-card:hover { transform: translateY(-3px); }
+.book-cover {
+  aspect-ratio: 2 / 3; border-radius: 6px;
+  background: linear-gradient(135deg, #d4c8b5, #b8a890);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 11px; text-align: center; padding: 16px; line-height: 1.3;
+}
+.book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.book-title {
+  font-size: 13px; line-height: 1.35; color: var(--fg);
+  overflow: hidden; display: -webkit-box;
+  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.book-author {
+  font-size: 11px; color: var(--chrome-fg);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.book-delete {
+  position: absolute; top: 6px; right: 6px;
+  width: 22px; height: 22px; border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6); color: #fff;
+  display: none; align-items: center; justify-content: center; z-index: 2;
+}
+.book-card:hover .book-delete { display: flex; }
+.book-delete:hover { background: rgba(220, 60, 60, 0.9); }
+.book-delete svg { width: 12px; height: 12px; }
+
+.add-card .book-cover {
+  background: transparent;
+  border: 1.5px dashed var(--border);
+  box-shadow: none;
+  color: var(--chrome-fg);
+}
+.add-card:hover .book-cover { border-color: var(--accent); color: var(--accent); }
+.add-card .book-cover svg { width: 32px; height: 32px; }
+
+/* ============================================================
+   Reader
+   ============================================================ */
+#reader { position: fixed; inset: 0; }
+#viewer {
+  position: absolute;
+  top: var(--pad-top);
+  bottom: var(--pad-bottom);
+  left: var(--pad-left);
+  right: var(--pad-right);
+  background: var(--bg);
+}
+#viewer iframe { border: none !important; }
+
+/* invisible click zones for page flipping */
+#zone-left, #zone-right {
+  position: absolute;
+  top: var(--pad-top);
+  bottom: var(--pad-bottom);
+  width: clamp(40px, 8vw, 80px);
+  z-index: 5;
+  cursor: pointer;
+}
+#zone-left  { left: 0; }
+#zone-right { right: 0; }
+
+/* Center tap zone — sits above the iframe like the edge zones.
+   On iOS Safari, touch events inside epub.js iframes don't fire
+   reliably, so this overlay catches center taps for chrome toggle. */
+#zone-center {
+  position: absolute;
+  top: var(--pad-top);
+  bottom: var(--pad-bottom);
+  left: clamp(40px, 8vw, 80px);
+  right: clamp(40px, 8vw, 80px);
+  z-index: 4;
+}
+/* On devices with a real mouse, the overlay would block text selection
+   and double-click word lookup. The overlay only exists to work around
+   unreliable touch events in epub.js iframes on iOS Safari, so let
+   mouse input fall through to the iframe and the in-iframe handlers
+   take over (including the deferred chrome toggle on single click). */
+@media (pointer: fine) {
+  #zone-center { pointer-events: none; }
+}
+
+/* ============================================================
+   Floating chrome controls (bottom-right)
+   ============================================================ */
+#chrome-controls {
+  position: fixed; right: 14px; bottom: 14px; z-index: 10;
+  display: flex; flex-direction: column; gap: 8px;
+  opacity: 0; pointer-events: none;
+  transform: translateY(6px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+body.chrome-visible #chrome-controls {
+  opacity: 1; pointer-events: auto; transform: translateY(0);
+}
+#chrome-controls button {
+  width: 40px; height: 40px; border-radius: 50%;
+  background: var(--bg);
+  color: var(--chrome-fg);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.15), 0 0 0 1px var(--border);
+  display: inline-flex; align-items: center; justify-content: center;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+#chrome-controls button:hover { color: var(--chrome-hover); transform: scale(1.05); }
+body.dark-chrome #chrome-controls button {
+  box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+}
+#chrome-controls button .icon { width: 18px; height: 18px; }
+
+/* book title hidden — kept for back-compat */
+#book-title { display: none; }
+
+#page-indicator {
+  position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
+  font-size: 11px; color: var(--chrome-fg); opacity: 0.4;
+  pointer-events: none; z-index: 5; user-select: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ============================================================
+   Drawers / modals
+   ============================================================ */
+#overlay {
+  position: fixed; inset: 0;
+  background: rgba(0, 0, 0, 0.25);
+  z-index: 20; opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease;
+}
+#overlay.visible { opacity: 1; pointer-events: auto; }
+
+.drawer {
+  position: fixed; top: 0; bottom: 0;
+  width: 340px; max-width: 90vw;
+  background: var(--bg); color: var(--fg); z-index: 30;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+  overflow-y: auto;
+  padding: 24px 24px 40px;
+  transition: transform 0.25s ease;
+}
+.drawer-left  { left: 0;  transform: translateX(-100%); }
+.drawer.visible { transform: translateX(0); }
+
+#toc-drawer { scrollbar-width: none; -ms-overflow-style: none; }
+#toc-drawer::-webkit-scrollbar { width: 0; height: 0; display: none; }
+
+.drawer h2 {
+  margin: 0 0 18px;
+  font-size: 13px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--chrome-fg);
+}
+.drawer-close {
+  position: absolute;
+  top: 14px;
+}
+.drawer-close[data-side="left"]  { right: 14px; }
+.drawer hr.section-divider {
+  border: none; border-top: 1px solid var(--border);
+  margin: 26px 0 18px;
+}
+
+/* ============================================================
+   Settings modal — centered card on desktop, bottom sheet on phone
+   ============================================================ */
+#settings-modal {
+  position: fixed; z-index: 30;
+  top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 8px));
+  width: 480px; max-width: calc(100vw - 24px);
+  max-height: 80vh;
+  background: var(--bg); color: var(--fg);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 0 0 1px var(--border);
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
+}
+#settings-modal.visible {
+  opacity: 1; pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
+
+#settings-tabs {
+  display: flex; align-items: center; gap: 2px;
+  padding: 10px 10px 0 10px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+#settings-tabs::-webkit-scrollbar { display: none; }
+#settings-tabs button.tab {
+  padding: 9px 14px; border-radius: 8px 8px 0 0;
+  font-size: 14px; font-weight: 500;
+  color: var(--chrome-fg);
+  white-space: nowrap;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+#settings-tabs button.tab:hover { color: var(--fg); }
+#settings-tabs button.tab.active {
+  color: var(--fg);
+  background: var(--surface-soft);
+}
+#settings-tabs .tab-spacer { flex: 1; }
+#settings-tabs .modal-close { margin-bottom: 6px; }
+
+.tab-panel { display: none; padding: 20px 24px 26px; overflow-y: auto; min-height: 0; }
+.tab-panel.active { display: block; flex: 1; }
+.tab-panel h2 {
+  margin: 0 0 14px;
+  font-size: 12px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.08em;
+  color: var(--chrome-fg);
+}
+
+#toc-list a {
+  display: block; padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+  color: inherit; text-decoration: none; cursor: pointer;
+  font-size: 14px; line-height: 1.4;
+  transition: color 0.12s ease;
+}
+#toc-list a:hover { color: var(--accent); }
+
+/* ============================================================
+   Setting row — slightly larger fonts
+   ============================================================ */
+.setting { margin-bottom: 22px; }
+.setting-label {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 13px; color: var(--chrome-fg);
+  margin-bottom: 10px;
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.setting-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--fg);
+  font-size: 13px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ============================================================
+   Apple-style sliders
+   filled portion (left of thumb) = solid; rest = faded.
+   thumb = white circle with subtle shadow.
+   --val is updated by JS (updateSliderFill) on input + on init.
+   ============================================================ */
+.setting input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;                  /* hit target */
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  margin: 4px 0;
+}
+.setting input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 2px;
+  background: linear-gradient(
+    to right,
+    var(--slider-fill) 0%,
+    var(--slider-fill) var(--val, 50%),
+    var(--slider-empty) var(--val, 50%),
+    var(--slider-empty) 100%
+  );
+}
+.setting input[type="range"]::-moz-range-track {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slider-empty);
+}
+.setting input[type="range"]::-moz-range-progress {
+  height: 4px;
+  border-radius: 2px;
+  background: var(--slider-fill);
+}
+.setting input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.06);
+  cursor: pointer;
+  border: none;
+  margin-top: -9px;
+}
+.setting input[type="range"]::-moz-range-thumb {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.06);
+  cursor: pointer;
+  border: none;
+}
+
+/* ============================================================
+   Inputs / selects / textarea — slightly larger, theme-aware
+   ============================================================ */
+.setting input[type="text"],
+.setting input[type="password"] {
+  width: 100%; padding: 9px 11px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--fg);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px; outline: none;
+}
+.setting input[type="password"]:focus,
+.setting input[type="text"]:focus { border-color: var(--accent); }
+
+.setting select {
+  width: 100%; padding: 9px 11px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--fg);
+  font-family: inherit; font-size: 15px; outline: none;
+}
+
+.setting textarea {
+  width: 100%; min-height: 200px;
+  padding: 11px 13px;
+  border: 1px solid var(--border); border-radius: 8px;
+  background: transparent; color: var(--fg);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 13px; line-height: 1.5; outline: none;
+  resize: vertical;
+}
+.setting textarea:focus { border-color: var(--accent); }
+
+.help-text {
+  font-size: 12px; color: var(--chrome-fg);
+  line-height: 1.5;
+  margin-top: -10px; margin-bottom: 16px;
+}
+
+/* ============================================================
+   Theme swatches (built-in + saved presets)
+   ============================================================ */
+.color-options {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.theme-swatch {
+  position: relative;
+  aspect-ratio: 1; border-radius: 10px;
+  border: 2px solid transparent;
+  font-family: inherit;
+  font-size: 18px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  display: flex; align-items: center; justify-content: center;
+  transition: border-color 0.15s ease, transform 0.1s ease;
+}
+.theme-swatch:hover { transform: scale(1.05); }
+.theme-swatch.active { border-color: var(--accent); }
+.theme-swatch .delete-preset {
+  position: absolute;
+  top: -6px; right: -6px;
+  width: 18px; height: 18px; border-radius: 50%;
+  background: rgba(0,0,0,0.7); color: #fff;
+  display: none; align-items: center; justify-content: center;
+  font-size: 12px; line-height: 1;
+  z-index: 2;
+}
+.theme-swatch:hover .delete-preset { display: flex; }
+.theme-swatch .delete-preset:hover { background: rgba(220,60,60,0.9); }
+
+.save-preset-row {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.save-preset-row input {
+  flex: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  background: var(--bg);
+  color: var(--fg);
+  border: 1px solid var(--border); border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  outline: none;
+  transition: border-color 0.12s ease;
+}
+.save-preset-row input::placeholder { color: var(--chrome-fg); }
+.save-preset-row input:focus { border-color: var(--accent); }
+
+.save-preset-btn {
+  flex-shrink: 0;
+  padding: 10px 16px;
+  border: 1px dashed var(--border); border-radius: 10px;
+  color: var(--chrome-fg);
+  font-size: 13px;
+  transition: color 0.12s ease, border-color 0.12s ease;
+}
+.save-preset-btn:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+/* Mobile selection bubble — tap to translate the active selection.
+   Hidden on (pointer: fine) where selection auto-fires on mouseup. */
+#translate-bubble {
+  position: fixed;
+  z-index: 8;
+  background: var(--bg);
+  color: var(--fg);
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  font-size: 14px;
+  font-weight: 500;
+  font-family: inherit;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  /* Position is set inline by JS. Below selection by default to avoid
+     colliding with iOS's native action bar (which appears above). */
+}
+@media (pointer: fine) {
+  #translate-bubble { display: none !important; }
+}
+
+.color-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.color-input-row input[type="color"] {
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: transparent;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.color-input-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
+.color-input-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
+.color-input-row input[type="text"] {
+  flex: 1;
+  text-transform: uppercase;
+}
+
+.mode-toggle {
+  display: flex;
+  background: var(--surface-soft);
+  border-radius: 9px; padding: 3px;
+}
+.mode-toggle button {
+  flex: 1; padding: 9px; border-radius: 7px;
+  font-size: 14px; transition: all 0.15s ease;
+}
+.mode-toggle button.active {
+  background: var(--bg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+/* ============================================================
+   Translation popup — theme-aware, no fade on close
+   ============================================================ */
+#popup {
+  position: fixed; z-index: 50;
+  width: 420px; max-width: calc(100vw - 24px);
+  background: var(--bg); color: var(--fg);
+  border-radius: 12px;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
+  font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  letter-spacing: -0.2px;
+  overflow: hidden; display: flex; flex-direction: column;
+  max-height: min(60vh, 480px);
+  /* No fade — visible state is binary, switches instantly when class toggled */
+  display: none;
+}
+#popup.visible { display: flex; }
+
+#popup .pop-bar {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 8px; border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+#popup .pop-bar-spacer { width: 4px; flex-shrink: 0; }
+
+/* Action buttons (5/10/15/syn/ant/ex/use/ety) live inline in the top bar
+   in a horizontally-scrollable row to the left of the close/+ buttons. */
+.pop-actions {
+  display: flex; gap: 4px;
+  flex: 1 1 auto; min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.pop-actions::-webkit-scrollbar { display: none; }
+.pop-actions a.action {
+  flex-shrink: 0;
+  padding: 4px 9px; border-radius: 6px;
+  font-size: 12px;
+  color: var(--chrome-fg);
+  text-decoration: none;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.pop-actions a.action:hover {
+  background: var(--surface-soft);
+  color: var(--fg);
+}
+.pop-actions a.action.used {
+  opacity: 0.4;
+}
+
+#popup-out {
+  flex: 1; overflow-y: auto; padding: 12px 14px;
+  white-space: pre-wrap; word-wrap: break-word;
+  scrollbar-width: none; /* Firefox */
+}
+#popup-out::-webkit-scrollbar { display: none; } /* Safari, Chrome */
+
+#popup-out strong { color: var(--fg); font-weight: 600; }
+#popup-out em { color: var(--accent); font-style: italic; }
+#popup-out .u { color: var(--accent); }
+#popup-out .a { color: var(--fg); cursor: text; }
+#popup-out .e { color: #c0392b; }
+#popup-out .sys { color: var(--chrome-fg); }
+#popup-out .meta { color: var(--chrome-fg); font-style: italic; font-size: 92%; }
+#popup-out ::selection { background: var(--accent); color: #fff; }
+#popup-out .cursor::after {
+  content: '\2588'; opacity: 0.5;
+  animation: blink 1s steps(2) infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+#popup-form {
+  display: flex; gap: 8px; align-items: center;
+  padding: 8px 12px; border-top: 1px solid var(--border);
+}
+#popup-form .prompt { color: var(--accent); }
+#popup-form input {
+  flex: 1; background: transparent; color: var(--fg);
+  border: none; font: inherit; outline: none;
+}
+#popup-form input:disabled { opacity: 0.5; }
+
+/* ============================================================
+   Loading
+   ============================================================ */
+#loading {
+  position: fixed; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg); color: var(--chrome-fg);
+  font-size: 13px; z-index: 100;
+  pointer-events: none; opacity: 0;
+  transition: opacity 0.2s ease;
+}
+#loading.visible { opacity: 1; pointer-events: auto; }
+
+/* ============================================================
+   Mobile tweaks
+   ============================================================ */
+@media (max-width: 599px), (pointer: coarse) {
+  :root { --side-padding: 18px; }
+
+  /* Settings modal hugs the bottom of the screen on phones, max 80vh */
+  #settings-modal {
+    top: auto; bottom: 0; left: 0;
+    transform: translate(0, 100%);
+    width: 100vw; max-width: 100vw;
+    max-height: 80vh;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
+  }
+  #settings-modal.visible {
+    transform: translate(0, 0);
+  }
+  #settings-tabs button.tab { font-size: 15px; padding: 10px 14px; }
+  .tab-panel { padding: 22px 22px 28px; }
+
+  /* Page number hidden on phones */
+  #page-indicator { display: none; }
+
+  /* Popup hugs the bottom of the screen, max 80vh */
+  #popup.mobile {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: 100vw !important;
+    max-width: 100vw;
+    max-height: 80vh;
+    border-radius: 14px 14px 0 0;
+    box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
+  }
+  #popup.mobile .pop-bar { padding: 8px 10px; gap: 6px; }
+  #popup.mobile .pop-actions a.action {
+    padding: 6px 11px;
+    font-size: 13px;
+  }
+  #popup.mobile #popup-out { font-size: 15px; padding: 14px; }
+  #popup.mobile #popup-form { padding: 10px 12px; }
+  #popup.mobile #popup-form input { font-size: 16px; } /* prevents iOS zoom */
+
+  /* drawers leave a tap strip on small screens so the overlay can dismiss */
+  .drawer { width: 88vw; max-width: 360px; }
+
+  /* library grid more compact */
+  .library-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
+  .book-delete { display: flex; opacity: 0.85; }
+
+  /* Theme swatch delete buttons — always visible on touch (no hover) */
+  .theme-swatch .delete-preset { display: flex; }
+}

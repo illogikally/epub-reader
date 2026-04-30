@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Reader">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#faf6ef">
+<link rel="icon" sizes="48x48" type="image/png" href="https://i.ibb.co/0yMG8rhY/Xulgon-Core.png">
+<link rel="apple-touch-icon" href="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='96' fill='%23faf6ef'/><path d='M128 112 h160 a64 64 0 0 1 64 64 v224 a48 48 0 0 0 -48 -48 H128 z' fill='none' stroke='%232a2520' stroke-width='14' stroke-linejoin='round'/><path d='M384 112 h-32' fill='none' stroke='%232a2520' stroke-width='14' stroke-linecap='round'/></svg>">
+<link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%7D">
+<title>Reader</title>
+<link rel="stylesheet" href="css/reader.css">
+</head>
+<body>
+
+<!-- ===== LIBRARY ===== -->
+<div id="library">
+  <div class="library-header">
+    <h1>Library</h1>
+    <span class="count" id="library-count"></span>
+  </div>
+  <div class="library-grid" id="library-grid"></div>
+  <input type="file" id="file-input" accept=".epub" hidden multiple>
+</div>
+
+<!-- ===== READER ===== -->
+<div id="reader" hidden>
+  <div id="viewer"></div>
+  <div id="zone-left" title="Previous page"></div>
+  <div id="zone-right" title="Next page"></div>
+  <div id="zone-center"></div>
+  <div id="page-indicator"></div>
+
+  <!-- Bottom-right floating controls (back / toc / settings).
+       Visible only when body.chrome-visible — toggled by tapping the center of the page. -->
+  <div id="chrome-controls">
+    <button id="btn-library" title="Library">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+    </button>
+    <button id="btn-toc" title="Contents">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+    </button>
+    <button id="btn-settings" title="Settings">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+    </button>
+  </div>
+
+  <!-- Mobile-only: appears near the active selection so the user can
+       fire a translation explicitly. Auto-fire-on-selection is desktop-only;
+       on touch it's too racy to detect "selection finished". -->
+  <button id="translate-bubble" type="button" hidden>Translate</button>
+
+  <!-- kept for any code that still references it; not displayed -->
+  <span id="book-title"></span>
+
+  <div id="overlay"></div>
+
+  <aside id="toc-drawer" class="drawer drawer-left">
+    <button class="drawer-close icon-circle-btn" data-side="left" title="Close">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+    </button>
+    <h2>Contents</h2>
+    <div id="toc-list"></div>
+  </aside>
+
+  <!-- Tabbed settings modal (centered on desktop, bottom-sheet on phone) -->
+  <aside id="settings-modal">
+    <div id="settings-tabs" role="tablist">
+      <button class="tab active" data-tab="font" type="button">Font</button>
+      <button class="tab" data-tab="layout" type="button">Layout</button>
+      <button class="tab" data-tab="color" type="button">Color</button>
+      <button class="tab" data-tab="translation" type="button">Translation</button>
+      <button class="tab" data-tab="css" type="button">CSS</button>
+      <span class="tab-spacer"></span>
+      <button class="modal-close icon-circle-btn" id="settings-close" type="button" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- FONT TAB -->
+    <div class="tab-panel active" data-panel="font">
+      <div class="setting">
+        <div class="setting-label">Font family</div>
+        <select id="font-family">
+          <option value="'Seravek', ui-sans-serif, system-ui, sans-serif">Seravek</option>
+          <option value="Georgia, 'Iowan Old Style', serif">Georgia</option>
+          <option value="'Iowan Old Style', Palatino, 'Palatino Linotype', serif">Iowan / Palatino</option>
+          <option value="ui-serif, 'Charter', 'Bitstream Charter', serif">Charter</option>
+          <option value="'Times New Roman', Times, serif">Times</option>
+          <option value="ui-sans-serif, system-ui, -apple-system, sans-serif">System sans</option>
+          <option value="'Helvetica Neue', Helvetica, Arial, sans-serif">Helvetica</option>
+          <option value="ui-monospace, 'SF Mono', Menlo, monospace">Mono</option>
+        </select>
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Font size</span>
+          <span class="setting-value" id="font-size-value">18px</span>
+        </div>
+        <input type="range" id="font-size" min="10" max="40" step="1" value="18">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Line height</span>
+          <span class="setting-value" id="line-height-value">1.5</span>
+        </div>
+        <input type="range" id="line-height" min="1" max="2.5" step="0.05" value="1.5">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Letter spacing</span>
+          <span class="setting-value" id="letter-spacing-value">0px</span>
+        </div>
+        <input type="range" id="letter-spacing" min="-1" max="6" step="0.1" value="0">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Word spacing</span>
+          <span class="setting-value" id="word-spacing-value">0px</span>
+        </div>
+        <input type="range" id="word-spacing" min="-2" max="20" step="0.5" value="0">
+      </div>
+    </div>
+
+    <!-- LAYOUT TAB -->
+    <div class="tab-panel" data-panel="layout">
+      <div class="setting">
+        <div class="setting-label">Layout</div>
+        <div class="mode-toggle" id="mode-toggle">
+          <button data-mode="single" class="active">Single page</button>
+          <button data-mode="dual">Dual page</button>
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Margin top</span>
+          <span class="setting-value" id="pad-top-value">44px</span>
+        </div>
+        <input type="range" id="pad-top" min="0" max="200" step="2" value="44">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Margin bottom</span>
+          <span class="setting-value" id="pad-bottom-value">44px</span>
+        </div>
+        <input type="range" id="pad-bottom" min="0" max="200" step="2" value="44">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Margin left</span>
+          <span class="setting-value" id="pad-left-value">24px</span>
+        </div>
+        <input type="range" id="pad-left" min="0" max="200" step="2" value="24">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Margin right</span>
+          <span class="setting-value" id="pad-right-value">24px</span>
+        </div>
+        <input type="range" id="pad-right" min="0" max="200" step="2" value="24">
+      </div>
+    </div>
+
+    <!-- COLOR TAB -->
+    <div class="tab-panel" data-panel="color">
+      <div class="setting">
+        <div class="setting-label">Theme</div>
+        <div class="color-options" id="color-options">
+          <!-- built-in themes -->
+          <button class="theme-swatch" data-bg="#faf6ef" data-fg="#2a2520" style="background:#faf6ef;color:#2a2520" title="Sepia">Aa</button>
+          <button class="theme-swatch" data-bg="#ffffff" data-fg="#1a1a1a" style="background:#ffffff;color:#1a1a1a;border:1px solid #ddd" title="Light">Aa</button>
+          <button class="theme-swatch" data-bg="#1a1a1a" data-fg="#d4d4d4" style="background:#1a1a1a;color:#d4d4d4" title="Dark">Aa</button>
+          <button class="theme-swatch" data-bg="#2b2724" data-fg="#d8cfc4" style="background:#2b2724;color:#d8cfc4" title="Warm dark">Aa</button>
+          <!-- saved presets injected by JS as additional .theme-swatch buttons -->
+        </div>
+        <div class="save-preset-row">
+          <input type="text" id="save-preset-name" placeholder="Preset name…" maxlength="40" autocomplete="off">
+          <button class="save-preset-btn" id="save-theme-preset" type="button" title="Save current bg + fg as a preset">＋ Save</button>
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">Background color</div>
+        <div class="color-input-row">
+          <input type="color" id="bg-color">
+          <input type="text" id="bg-color-hex" placeholder="#faf6ef" maxlength="7">
+        </div>
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">Text color</div>
+        <div class="color-input-row">
+          <input type="color" id="fg-color">
+          <input type="text" id="fg-color-hex" placeholder="#2a2520" maxlength="7">
+        </div>
+      </div>
+    </div>
+
+    <!-- TRANSLATION TAB -->
+    <div class="tab-panel" data-panel="translation">
+      <div class="setting">
+        <div class="setting-label">Model</div>
+        <select id="model-select"></select>
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">
+          <span>Context length</span>
+          <span class="setting-value" id="context-length-value">1 sentence</span>
+        </div>
+        <input type="range" id="context-length" min="0" max="10" step="1" value="1">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">Gemini API key</div>
+        <input type="password" id="key-gemini" placeholder="paste key">
+      </div>
+
+      <div class="setting">
+        <div class="setting-label">Groq API key</div>
+        <input type="password" id="key-groq" placeholder="paste key">
+      </div>
+
+      <p class="help-text">Keys live in this browser's localStorage. Requests stream straight from the page to Gemini / Groq — no backend.</p>
+    </div>
+
+    <!-- CUSTOM CSS TAB -->
+    <div class="tab-panel" data-panel="css">
+      <div class="setting">
+        <div class="setting-label">Custom CSS</div>
+        <textarea id="custom-css" placeholder="/* Your CSS rules — applied to the reader page and to book content. */
+body { /* ... */ }
+p { /* ... */ }"></textarea>
+        <p class="help-text" style="margin-top:8px">CSS is applied immediately as you type and persists across sessions. Both the reader UI and the rendered book content are styled.</p>
+      </div>
+    </div>
+  </aside>
+
+  <!-- translation popup -->
+  <div id="popup">
+    <div class="pop-bar">
+      <div class="pop-actions" id="popup-actions"></div>
+      <span class="pop-bar-spacer"></span>
+      <button class="pop-bar-icon icon-circle-btn" id="popup-toggle-input" title="Ask follow-up">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+      </button>
+      <button class="pop-bar-icon icon-circle-btn" id="popup-close" title="Close">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+      </button>
+    </div>
+    <div id="popup-out"></div>
+    <form id="popup-form" hidden>
+      <span class="prompt">&gt;</span>
+      <input id="popup-input" type="text" autocomplete="off" placeholder="ask follow-up…">
+    </form>
+  </div>
+</div>
+
+<!-- User custom CSS — written into here from the CSS tab. Applies to the reader UI;
+     book-content rules are also injected via rendition.themes.registerCss() in JS. -->
+<style id="user-custom-css"></style>
+
+<div id="loading">Loading…</div>
+
+<!-- Vendor libraries via CDN -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/epubjs@0.3.93/dist/epub.min.js"></script>
+
+<!-- App entry point (ES module) -->
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
