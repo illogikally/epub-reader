@@ -300,12 +300,24 @@ async function sendToLLM(text, metaLabel, followup, silent) {
     });
   }
 
+  function preventPopupOutOfView() {
+    requestAnimationFrame(() => {
+      const margin = 10;
+      const rect = popup.getBoundingClientRect();
+      if (rect.bottom > window.innerHeight - margin) {
+        const newTop = window.innerHeight - rect.height - margin;
+        popup.style.top = Math.max(margin, newTop) + 'px';
+      }
+    });
+  }
+
   try {
     for await (const chunk of llmStream(popupHistory, '')) {
       ensureReply();
       reply += chunk;
       replyDiv.innerHTML = renderMarkdown(reply.trim());
       scrollFollowReply();
+      preventPopupOutOfView()
     }
     if (!reply) {
       if (pending) pending.remove();
@@ -357,6 +369,9 @@ function renderActionsBar(phrase, context) {
   });
 
   // Short-label follow-up queries
+  if (phrase.trim().split(' ').length > 1) {
+    return;
+  }
   const items = [
     ['syn', 'List a few synonyms of "' + phrase + '".' + ctxNote + '.  Be concise.', 'Synonyms'],
     ['ant', 'List a few antonyms of "' + phrase + '".' + ctxNote + ' Be concise.', 'Antonyms'],
@@ -432,13 +447,11 @@ export function doLookup(phrase, range, sentenceCount) {
   popupActions.innerHTML = '';
   popupForm.hidden = true;
 
-  const prompt = local
+  const is_phrase = phrase.trim().split(' ').length > 1
+  const prompt = !is_phrase
     ? `Trả lời ngắn gọn theo mẫu sau về "${phrase}" trong đoạn "${local}":
 **Từ cần tra cứu** /IPA/: Nghĩa của từ phù hợp với ngữ cảnh`
-    : `Trả lời ngắn gọn theo mẫu sau về "${phrase}":
-**${phrase}** /IPA/: nghĩa của từ
-Một vài ghi chú ngắn về cách dùng phổ biến`;
-
+    : `Dịch đoạn sau "${phrase}" trong câu ${local}. Trả lời ngắn gọn, không nhắc lại câu hỏi`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }

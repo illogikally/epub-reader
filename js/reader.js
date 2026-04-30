@@ -141,7 +141,7 @@ let lastFlip = 0;
 export function flipPage(direction) {
   if (!runtime.rendition) return;
   const now = Date.now();
-  if (now - lastFlip < 220) return;
+  if (now - lastFlip < 50) return;
   lastFlip = now;
   if (direction > 0) runtime.rendition.next(); else runtime.rendition.prev();
 }

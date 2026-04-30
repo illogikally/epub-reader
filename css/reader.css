@@ -1,4 +1,4 @@
-/* ============================================================
+/* ============================================================`
    Fonts
    ============================================================ */
 @font-face {
@@ -600,7 +600,8 @@ body.dark-chrome #chrome-controls button {
    Translation popup — theme-aware, no fade on close
    ============================================================ */
 #popup {
-  position: fixed; z-index: 50;
+  position: fixed;
+  z-index: 50;
   width: 420px; max-width: calc(100vw - 24px);
   background: var(--bg); color: var(--fg);
   border-radius: 12px;
