@@ -67,6 +67,7 @@ async function* streamOpenAI(cfg, messages, system, apiKey) {
     max_tokens: MAX_TOKENS,
     messages: msgs,
     stream: true,
+    temperature: 0,
     reasoning_effort: 'low',
   };
   const headers = { Authorization: `Bearer ${apiKey}` };
@@ -446,11 +447,11 @@ export function doLookup(phrase, range, sentenceCount) {
   popupActions.innerHTML = '';
   popupForm.hidden = true;
 
-  const is_phrase = phrase.trim().split(' ').length > 1
-  const prompt = !is_phrase
-    ? `Trả lời ngắn gọn theo mẫu sau về "${phrase}" trong đoạn "${local}":
-**Từ cần tra cứu** /IPA/: Nghĩa của từ phù hợp với ngữ cảnh`
-    : `Dịch đoạn sau "${phrase}" trong câu ${local}. Trả lời ngắn gọn, không nhắc lại câu hỏi`
+  const is_a_word = phrase.trim().split(' ').length == 1
+  const prompt = is_a_word
+    ? `Những cụm từ trong [] chỉ dẫn, thay thế các chỉ dẫn này cùng [] với câu trả lời tương ứng, chỉ trả lời, không lặp lại chỉ dẫn. Trả lời cực kì ngắn gọn theo mẫu sau về nghĩa của từ <${phrase}> trong đoạn <${local}> theo mẫu sau:
+**${phrase}** /[IPA]/: [Nghĩa của từ]`
+    : `Trả lời ngắn gọn, đúng trọng tâm. Đừng thêm bất cứ từ gì ngoài nghĩa của đoạn dịch. Không thêm bất cứ từ gì, dịch word-by-word cho tao. Đoạn sau <${phrase}> trong câu <${local}> có nghĩa là ...`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }
@@ -460,7 +461,7 @@ function fireLookupForSelection(sel, doc, iframe) {
   if (isPopupVisible()) return;
   if (!sel || sel.isCollapsed) return;
   const phrase = sel.toString().trim();
-  if (!phrase || phrase.length > 200) return;
+  if (!phrase || phrase.length > 1000) return;
 
   let range;
   try { range = sel.getRangeAt(0); } catch { return; }
