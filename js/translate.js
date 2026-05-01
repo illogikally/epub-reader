@@ -312,7 +312,7 @@ async function sendToLLM(text, metaLabel, followup, silent) {
   }
 
   try {
-    for await (const chunk of llmStream(popupHistory, '')) {
+    for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables`)) {
       ensureReply();
       reply += chunk;
       replyDiv.innerHTML = renderMarkdown(reply.trim());
@@ -373,10 +373,12 @@ function renderActionsBar(phrase, context) {
     return;
   }
   const items = [
-    ['syn', 'List a few synonyms of "' + phrase + '".' + ctxNote + '.  Be concise.', 'Synonyms'],
-    ['ant', 'List a few antonyms of "' + phrase + '".' + ctxNote + ' Be concise.', 'Antonyms'],
-    ['ex',  'Give 3 short example sentences using "' + phrase + '".' + ctxNote + ' Be concise.', 'Examples'],
-    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English? Note its register. Be concise.', 'Usage frequency'],
+    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, the text inside [] is instructions, you should replace them with actual info: **Synonyms**: [synonyms separated by comma]. Be concise.`, 'Synonyms'],
+    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, the text inside [] is instructions, you should replace them with actual info: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
+    ['ex',  `Give 3 short example sentences using <${phrase}> in ${ctxNote} using this format, the text inside the [] is instructions, you should replace them with actual info:
+**Usage**:
+[3 examples one each line using - as bullet, the keyword should be bold]`, 'Examples'],
+    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise.', 'Usage frequency'],
     ['ety', 'Briefly explain the etymology of "' + phrase + '". Be concise.', 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
