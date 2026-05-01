@@ -353,6 +353,7 @@ function renderActionsBar(phrase, context) {
   popupActions.innerHTML = '';
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
 
+  const formatInstructions = 'The text inside the [] is instructions, you should replace them with actual info';
   // [5] [10] [15] — re-run lookup with N sentences of context
   [5, 10, 15].forEach(n => {
     const a = document.createElement('a');
@@ -373,13 +374,13 @@ function renderActionsBar(phrase, context) {
     return;
   }
   const items = [
-    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, the text inside [] is instructions, you should replace them with actual info: **Synonyms**: [synonyms separated by comma]. Be concise.`, 'Synonyms'],
-    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, the text inside [] is instructions, you should replace them with actual info: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
-    ['ex',  `Give 3 short example sentences using <${phrase}> in ${ctxNote} using this format, the text inside the [] is instructions, you should replace them with actual info:
+    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Synonyms**: [synonyms separated by comma]. Be concise.`, 'Synonyms'],
+    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
+    ['ex',  `Give 3 short example sentences using <${phrase}> in ${ctxNote} using this format, ${formatInstructions}:
 **Usage**:
 [3 examples one each line using - as bullet, the keyword should be bold]`, 'Examples'],
     ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise.', 'Usage frequency'],
-    ['ety', 'Briefly explain the etymology of "' + phrase + '". Be concise.', 'Etymology'],
+    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **Etymology**: [etymology]. Be concise.`, 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
     const a = document.createElement('a');
