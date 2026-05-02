@@ -6,28 +6,28 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  src: url('../Seravek.otf') format('opentype');
+  src: url('./Seravek.otf') format('opentype');
 }
 @font-face {
   font-family: 'Seravek';
   font-weight: 400;
   font-style: italic;
   font-display: swap;
-  src: url('../Seravek-Itatlic.otf') format('opentype');
+  src: url('./Seravek-Itatlic.otf') format('opentype');
 }
 @font-face {
   font-family: 'Seravek';
   font-weight: 700;
   font-style: italic;
   font-display: swap;
-  src: url('../Seravek-BoldItalic.otf') format('opentype');
+  src: url('./Seravek-BoldItalic.otf') format('opentype');
 }
 @font-face {
   font-family: 'Seravek';
   font-weight: 500;
   font-style: normal;
   font-display: swap;
-  src: url('../Seravek-Medium.otf') format('opentype');
+  src: url('./Seravek-Medium.otf') format('opentype');
 }
 
 /* ============================================================
@@ -188,7 +188,7 @@ button {
   position: absolute;
   top: var(--pad-top);
   bottom: var(--pad-bottom);
-  width: clamp(40px, 8vw, 80px);
+  width: clamp(10px, 8vw, 20px);
   z-index: 5;
   cursor: pointer;
 }
@@ -324,8 +324,9 @@ body.dark-chrome #chrome-controls button {
 }
 #settings-tabs::-webkit-scrollbar { display: none; }
 #settings-tabs button.tab {
-  padding: 9px 14px; border-radius: 8px 8px 0 0;
-  font-size: 14px; font-weight: 500;
+  padding: 9px 14px;
+  border-radius: 8px 8px 0 0;
+  font-size: 14px;
   color: var(--chrome-fg);
   white-space: nowrap;
   transition: background 0.12s ease, color 0.12s ease;

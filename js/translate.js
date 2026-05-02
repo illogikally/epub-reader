@@ -11,6 +11,7 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
+import { openBookFromDb } from './reader.js';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS,
@@ -61,15 +62,20 @@ async function* streamSSE(url, headers, body) {
 }
 
 async function* streamOpenAI(cfg, messages, system, apiKey) {
+  console.log(cfg);
   const msgs = system ? [{ role: 'system', content: system }, ...messages] : messages;
+  const reasoningEffort = 'none'
   const body = {
     model: cfg.model,
     max_tokens: MAX_TOKENS,
     messages: msgs,
     stream: true,
     temperature: 0,
-    reasoning_effort: 'low',
+    top_p: 1,
   };
+  if (!cfg.model.startsWith('llama')) {
+    body.reasoning_effort = cfg.model.startsWith('qwen') ? 'none' : 'low';
+  }
   const headers = { Authorization: `Bearer ${apiKey}` };
   for await (const evt of streamSSE(cfg.url, headers, body)) {
     const text = evt?.choices?.[0]?.delta?.content;
@@ -312,7 +318,7 @@ async function sendToLLM(text, metaLabel, followup, silent) {
   }
 
   try {
-    for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables`)) {
+    for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables. Be concise`)) {
       ensureReply();
       reply += chunk;
       replyDiv.innerHTML = renderMarkdown(reply.trim());
@@ -355,16 +361,23 @@ function renderActionsBar(phrase, context) {
 
   const formatInstructions = 'The text inside the [] is instructions, you should replace them with actual info';
   // [5] [10] [15] — re-run lookup with N sentences of context
-  [5, 10, 15].forEach(n => {
+  [5].forEach(n => {
     const a = document.createElement('a');
     a.href = '#';
     a.className = 'action';
     a.textContent = String(n);
     a.title = `Re-run with ${n} sentences of context`;
-    a.onclick = (e) => {
+    a.onclick = async (e) => {
       e.preventDefault();
       if (popupBusy || !lastLookup) return;
-      doLookup(lastLookup.phrase, lastLookup.range, n);
+      const context = extractContextFromRange(lastLookup.range, n);
+      const bookMetadata = await runtime.book.loaded.metadata;
+      const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, trả lời súc tích, ngắn gọn:
+      TÁC GIẢ: ${bookMetadata.creator}
+      TÁC PHẨM: ${bookMetadata.title}
+      TỪ/CỤM TỪ: ${phrase}
+      NGỮ CẢNH: ${context}`
+      sendToLLM(prompt, null, null, true);
     };
     popupActions.appendChild(a);
   });
@@ -377,7 +390,7 @@ function renderActionsBar(phrase, context) {
     ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Synonyms**: [synonyms separated by comma]. Be concise.`, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> in ${ctxNote} using this format, ${formatInstructions}:
-**Usage**:
+**Ex**:
 [3 examples one each line using - as bullet, the keyword should be bold]`, 'Examples'],
     ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise.', 'Usage frequency'],
     ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **Etymology**: [etymology]. Be concise.`, 'Etymology'],
@@ -452,9 +465,9 @@ export function doLookup(phrase, range, sentenceCount) {
 
   const is_a_word = phrase.trim().split(' ').length == 1
   const prompt = is_a_word
-    ? `Những cụm từ trong [] chỉ dẫn, thay thế các chỉ dẫn này cùng [] với câu trả lời tương ứng, chỉ trả lời, không lặp lại chỉ dẫn. Trả lời cực kì ngắn gọn theo mẫu sau về nghĩa của từ <${phrase}> trong đoạn <${local}> theo mẫu sau:
-**${phrase}** /[IPA]/: [Nghĩa của từ]`
-    : `Trả lời ngắn gọn, đúng trọng tâm. Đừng thêm bất cứ từ gì ngoài nghĩa của đoạn dịch. Không thêm bất cứ từ gì, dịch word-by-word cho tao. Đoạn sau <${phrase}> trong câu <${local}> có nghĩa là ...`
+    ? `Trả lời cực kì ngắn gọn theo mẫu sau về nghĩa của từ, chỉ nghĩa của từ này thôi, không phải cả đoạn <${phrase}/> trong đoạn <${local}/> theo mẫu sau, tuân thủ 100% theo mẫu, những từ trong [] là các chỉ dẫn, thay thế chúng và [] quanh chúng với câu thông tin tương ứng:
+**${phrase}** /[IPA của từ]/: [Nghĩa của từ]`
+    : `Trả lời ngắn gọn, đúng trọng tâm, đừng thêm bất cứ từ gì ngoài nghĩa của đoạn dịch, đừng có thêm 'Nghĩa là', 'Đây là' hay bất kì filler word gì vào cả. Không thêm bất cứ từ gì, dịch sát nghĩa nhất cho tao, chỉ dịch đoạn thôi, không dịch cả câu. Đoạn sau <${phrase}/> trong câu <${local}/> có nghĩa là ...`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }

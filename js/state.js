@@ -5,13 +5,6 @@
 
 export const MODELS = [
   {
-    name: 'gemini-3-flash-preview',
-    url: 'https://generativelanguage.googleapis.com/v1beta',
-    model: 'gemini-3-flash-preview',
-    format: 'google',
-    keyRef: 'GEMINI_API_KEY',
-  },
-  {
     name: 'groq · openai/gpt-oss-120b',
     url: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'openai/gpt-oss-120b',
@@ -19,16 +12,16 @@ export const MODELS = [
     keyRef: 'GROQ_API_KEY',
   },
   {
-    name: 'gemini-3.1-flash-lite-preview',
-    url: 'https://generativelanguage.googleapis.com/v1beta',
-    model: 'gemini-3.1-flash-lite-preview',
-    format: 'google',
-    keyRef: 'GEMINI_API_KEY',
-  },
-  {
     name: 'groq · qwen3-32b',
     url: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'qwen/qwen3-32b',
+    format: 'openai',
+    keyRef: 'GROQ_API_KEY',
+  },
+  {
+    name: 'groq · llama-3.3-70b-versatile',
+    url: 'https://api.groq.com/openai/v1/chat/completions',
+    model: 'llama-3.3-70b-versatile',
     format: 'openai',
     keyRef: 'GROQ_API_KEY',
   },

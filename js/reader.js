@@ -71,7 +71,9 @@ export async function openBookFromDb(id) {
 
     runtime.book = window.ePub(record.data);
     await runtime.book.ready;
-
+    runtime.book.loaded.metadata.then(metadata => {
+      document.title = metadata.title;
+    });
     $('book-title').textContent = record.title;
     runtime.currentBookKey = record.id;
 
@@ -105,6 +107,7 @@ export async function closeBook() {
   library.hidden = false;
   hidePopup();
   await renderLibrary();
+  document.title = 'Xulgon'
 }
 
 export function createRendition() {

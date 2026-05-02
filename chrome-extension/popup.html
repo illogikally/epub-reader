@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body {
+      width: 320px;
+      padding: 16px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      background: #faf6ef;
+      color: #2a2520;
+    }
+    h2 {
+      margin: 0 0 16px;
+      font-size: 16px;
+      font-weight: 600;
+    }
+    .setting {
+      margin-bottom: 16px;
+    }
+    .setting-label {
+      display: block;
+      font-size: 12px;
+      color: #5a544c;
+      margin-bottom: 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    select, input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 6px;
+      background: #fff;
+      font-size: 13px;
+      box-sizing: border-box;
+    }
+    input[type="range"] {
+      padding: 0;
+    }
+    .value-display {
+      float: right;
+      font-variant-numeric: tabular-nums;
+    }
+    .help-text {
+      font-size: 11px;
+      color: #5a544c;
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <h2>Translator Settings</h2>
+  
+  <div class="setting">
+    <label class="setting-label">Model</label>
+    <select id="model-select">
+      <option value="0">groq · openai/gpt-oss-120b</option>
+      <option value="1">groq · qwen3-32b</option>
+      <option value="2">groq · llama-3.3-70b-versatile</option>
+      <option value="3">google · gemini-2.0-flash</option>
+    </select>
+  </div>
+
+  <div class="setting">
+    <label class="setting-label">
+      Context length
+      <span class="value-display" id="context-val">1</span>
+    </label>
+    <input type="range" id="context-range" min="0" max="10" step="1">
+    <div class="help-text">Surrounding sentences to include for context.</div>
+  </div>
+
+  <div class="setting">
+    <label class="setting-label">Groq API Key</label>
+    <input type="password" id="key-groq" placeholder="Paste your Groq API key">
+  </div>
+
+  <div class="setting">
+    <label class="setting-label">Gemini API Key</label>
+    <input type="password" id="key-gemini" placeholder="Paste your Gemini API key">
+  </div>
+
+  <script src="js/popup.js"></script>
+</body>
+</html>
