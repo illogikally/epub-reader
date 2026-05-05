@@ -503,15 +503,22 @@ chúc may mắn`
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }
 
-function fireLookupForSelection(sel, doc, iframe) {
+// capturedRange: pre-cloned Range from pointerdown — used on mobile where iOS
+// may clear the iframe selection before the click event fires.
+function fireLookupForSelection(sel, doc, iframe, capturedRange) {
   if (popupBusy) return;
   if (isPopupVisible()) return;
-  if (!sel || sel.isCollapsed) return;
-  const phrase = sel.toString().trim();
-  if (!phrase || phrase.length > 1000) return;
 
-  let range;
-  try { range = sel.getRangeAt(0); } catch { return; }
+  let phrase, range;
+  if (capturedRange) {
+    phrase = capturedRange.toString().trim();
+    range = capturedRange;
+  } else {
+    if (!sel || sel.isCollapsed) return;
+    phrase = sel.toString().trim();
+    try { range = sel.getRangeAt(0); } catch { return; }
+  }
+  if (!phrase || phrase.length > 1000) return;
 
   const rect = range.getBoundingClientRect();
   const ifrRect = iframe ? iframe.getBoundingClientRect() : { left: 0, top: 0 };
@@ -524,8 +531,8 @@ function fireLookupForSelection(sel, doc, iframe) {
     height: rect.height,
   };
 
-  const savedRange = range.cloneRange();
-  try { sel.removeAllRanges(); } catch {}
+  const savedRange = capturedRange || range.cloneRange();
+  if (sel) { try { sel.removeAllRanges(); } catch {} }
   lastLookup = { phrase, range: savedRange, doc };
   hideBubble();
 
@@ -686,15 +693,35 @@ export function initTranslateEvents() {
 
   // Bubble — mobile path. Fires the lookup explicitly on tap.
   if (translateBubble) {
-    // Stop pointerdown from bubbling to the document-level outside-click
-    // handler (which would tear down popup state right before we open it).
-    translateBubble.addEventListener('pointerdown', e => e.stopPropagation());
-    translateBubble.addEventListener('mousedown',   e => e.stopPropagation());
-    translateBubble.addEventListener('touchstart',  e => e.stopPropagation(), { passive: true });
+    let capturedBubbleRange = null;
+    let capturedBubbleMeta  = null;
+
+    translateBubble.addEventListener('pointerdown', e => {
+      e.stopPropagation();
+      // Snapshot selection immediately — iOS may clear the iframe selection
+      // before the click event fires, so we capture it here while it's live.
+      const found = findActiveIframeSelection();
+      if (found) {
+        try {
+          capturedBubbleRange = found.sel.getRangeAt(0).cloneRange();
+          capturedBubbleMeta  = { doc: found.doc, ifr: found.ifr };
+        } catch { capturedBubbleRange = null; capturedBubbleMeta = null; }
+      }
+    });
+    translateBubble.addEventListener('mousedown',  e => e.stopPropagation());
+    translateBubble.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     translateBubble.addEventListener('click', e => {
       e.preventDefault();
       e.stopPropagation();
-      fireFromBubble();
+      const range = capturedBubbleRange;
+      const meta  = capturedBubbleMeta;
+      capturedBubbleRange = null;
+      capturedBubbleMeta  = null;
+      if (range && meta) {
+        fireLookupForSelection(null, meta.doc, meta.ifr, range);
+      } else {
+        fireFromBubble(); // fallback: live selection still available
+      }
     });
   }
 
