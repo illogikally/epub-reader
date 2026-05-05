@@ -551,8 +551,8 @@ body.dark-chrome #chrome-controls button {
   z-index: 8;
   background: var(--bg);
   color: var(--fg);
-  padding: 8px 16px;
-  border-radius: 999px;
+  padding: 7px 16px;
+  border-radius: 10px;
   border: 1px solid var(--border);
   font-size: 14px;
   font-weight: 500;
@@ -563,6 +563,23 @@ body.dark-chrome #chrome-controls button {
   -webkit-user-select: none;
   /* Position is set inline by JS. Below selection by default to avoid
      colliding with iOS's native action bar (which appears above). */
+}
+#translate-bubble::before {
+  content: '';
+  position: absolute;
+  width: 10px; height: 10px;
+  background: var(--bg);
+  left: 50%; margin-left: -5px;
+  transform: rotate(45deg);
+  pointer-events: none;
+}
+#translate-bubble.bubble-below::before {
+  top: -5px;
+  box-shadow: -1px -1px 0 var(--border);
+}
+#translate-bubble.bubble-above::before {
+  bottom: -5px;
+  box-shadow: 1px 1px 0 var(--border);
 }
 @media (pointer: fine) {
   #translate-bubble { display: none !important; }
@@ -689,7 +706,7 @@ body.dark-chrome #chrome-controls button {
 }
 
 #popup-out {
-  flex: 1; overflow-y: auto; padding: 12px 14px;
+  flex: 1; overflow-y: auto; padding: 12px 14px 20px;
   white-space: pre-wrap; word-wrap: break-word;
   scrollbar-width: none; /* Firefox */
 }
@@ -756,6 +773,13 @@ body.dark-chrome #chrome-controls button {
 
   /* Page number hidden on phones */
   #page-indicator { display: none; }
+
+  /* Chrome controls always visible on mobile — settings reachable directly */
+  #chrome-controls {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+  }
 
   /* Popup hugs the bottom of the screen, max 80vh */
   #popup.mobile {
