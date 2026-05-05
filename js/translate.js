@@ -713,24 +713,17 @@ export function initTranslateEvents() {
   // Bubble — mobile path. Fires the lookup explicitly on tap.
   // capturedBubbleRange / capturedBubbleMeta are module-scope and set by
   // updateBubble() so the range is available even if iOS cleared the selection.
+  //
+  // We use touchend (not click) because:
+  //   1. touchend fires immediately when the finger lifts, before any 200ms
+  //      polling tick can run updateBubble() → hideBubble() → hidden=true,
+  //      which would cancel a pending click on iOS.
+  //   2. It avoids the ~300ms synthetic-click delay on iOS.
   if (translateBubble) {
-    translateBubble.addEventListener('pointerdown', e => {
-      e.stopPropagation();
-      // Snapshot selection immediately — iOS may clear the iframe selection
-      // before the click event fires, so we capture it here while it's live.
-      const found = findActiveIframeSelection();
-      if (found) {
-        try {
-          capturedBubbleRange = found.sel.getRangeAt(0).cloneRange();
-          capturedBubbleMeta  = { doc: found.doc, ifr: found.ifr };
-        } catch { capturedBubbleRange = null; capturedBubbleMeta = null; }
-      }
-    });
-    translateBubble.addEventListener('mousedown',  e => e.stopPropagation());
     translateBubble.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-    translateBubble.addEventListener('click', e => {
-      e.preventDefault();
-      e.stopPropagation();
+    translateBubble.addEventListener('mousedown',  e => e.stopPropagation());
+
+    function fireBubbleLookup() {
       const range = capturedBubbleRange;
       const meta  = capturedBubbleMeta;
       capturedBubbleRange = null;
@@ -738,8 +731,22 @@ export function initTranslateEvents() {
       if (range && meta) {
         fireLookupForSelection(null, meta.doc, meta.ifr, range);
       } else {
-        fireFromBubble(); // fallback: live selection still available
+        fireFromBubble();
       }
+    }
+
+    // Primary path — touch devices
+    translateBubble.addEventListener('touchend', e => {
+      e.preventDefault();  // suppress synthetic click
+      e.stopPropagation();
+      fireBubbleLookup();
+    }, { passive: false });
+
+    // Fallback — non-touch (mouse click)
+    translateBubble.addEventListener('click', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fireBubbleLookup();
     });
   }
 
