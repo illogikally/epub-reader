@@ -14,9 +14,22 @@
 /* Translation popup — theme-aware, no fade on close */
 #llm-popup {
   all: initial;
-  position: fixed;
+  position: absolute;
   width: 420px;
   max-width: calc(100vw - 24px);
+  z-index: 2147483647;
+  display: none;
+  flex-direction: column;
+  /* Pointer events on the wrapper so we can have the arrow outside */
+  pointer-events: none;
+}
+
+#llm-popup.visible {
+  display: flex;
+}
+
+.llm-popup-content {
+  pointer-events: auto;
   background: var(--llm-bg);
   color: var(--llm-fg);
   border-radius: 12px;
@@ -24,14 +37,31 @@
   font: 14px/1.5 Consolas, ui-monospace, Menlo, monospace !important;
   letter-spacing: -1px;
   overflow: hidden;
-  display: none;
+  display: flex;
   flex-direction: column;
   max-height: min(60vh, 480px);
-  z-index: 2147483647;
 }
 
-#llm-popup.visible {
-  display: flex;
+.llm-popup-arrow {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  background: var(--llm-bg);
+  left: var(--arrow-x, 50%);
+  margin-left: -7px;
+  transform: rotate(45deg);
+  z-index: 1;
+  pointer-events: none;
+}
+
+#llm-popup.pos-above .llm-popup-arrow {
+  bottom: -7px;
+  box-shadow: 1px 1px 0 var(--llm-border);
+}
+
+#llm-popup.pos-below .llm-popup-arrow {
+  top: -7px;
+  box-shadow: -1px -1px 0 var(--llm-border);
 }
 
 #llm-popup .pop-bar {
@@ -84,7 +114,6 @@
   padding: 12px 14px;
   white-space: pre-wrap;
   word-wrap: break-word;
-  font-size: 105%;
   scrollbar-width: none;
   color: var(--llm-fg);
 }
@@ -108,7 +137,7 @@
   display: flex;
   gap: 8px;
   align-items: center;
-  padding: 8px 12px;
+  padding: 6px 12px;
   border-top: 1px solid var(--llm-border);
 }
 #llm-popup-form .prompt { color: var(--llm-accent); }
@@ -119,6 +148,9 @@
   border: none;
   font: inherit;
   outline: none;
+  margin: 0;
+  padding: 0;
+  line-height: 20px;
 }
 #llm-popup-form input:disabled { opacity: 0.5; }
 

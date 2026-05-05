@@ -387,7 +387,7 @@ function renderActionsBar(phrase, context) {
     return;
   }
   const items = [
-    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Synonyms**: [synonyms separated by comma]. Be concise.`, 'Synonyms'],
+    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Synonyms**: [synonyms and there nuanced distintions, each in a line with - as bullet, ending with when is ${phrase} prefered]. Be concise.`, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> in ${ctxNote} using this format, ${formatInstructions}:
 **Ex**:

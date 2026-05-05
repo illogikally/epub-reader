@@ -30,13 +30,6 @@ const MODELS = [
     format: 'openai',
     keyRef: 'GROQ_API_KEY',
   },
-  {
-    name: 'google · gemini-2.0-flash',
-    url: 'https://generativelanguage.googleapis.com',
-    model: 'gemini-2.0-flash',
-    format: 'google',
-    keyRef: 'GEMINI_API_KEY',
-  },
 ];
 
 const MAX_TOKENS = 1024;
@@ -44,21 +37,24 @@ const MAX_TOKENS = 1024;
 // Inject HTML
 const html = `
   <div id="llm-popup">
-    <div class="pop-bar">
-      <div class="llm-pop-actions" id="llm-popup-actions"></div>
-      <div class="pop-bar-spacer"></div>
-      <button class="llm-icon-circle-btn" id="llm-popup-toggle-input" title="Ask follow-up">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-      </button>
-      <button class="llm-icon-circle-btn" id="llm-popup-close" title="Close">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-      </button>
+    <div class="llm-popup-arrow"></div>
+    <div class="llm-popup-content">
+      <div class="pop-bar">
+        <div class="llm-pop-actions" id="llm-popup-actions"></div>
+        <div class="pop-bar-spacer"></div>
+        <button class="llm-icon-circle-btn" id="llm-popup-toggle-input" title="Ask follow-up">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
+        </button>
+        <button class="llm-icon-circle-btn" id="llm-popup-close" title="Close">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+        </button>
+      </div>
+      <div id="llm-popup-out"></div>
+      <form id="llm-popup-form" hidden>
+        <span class="prompt">&gt;</span>
+        <input id="llm-popup-input" type="text" autocomplete="off" placeholder="ask follow-up…">
+      </form>
     </div>
-    <div id="llm-popup-out"></div>
-    <form id="llm-popup-form" hidden>
-      <span class="prompt">&gt;</span>
-      <input id="llm-popup-input" type="text" autocomplete="off" placeholder="ask follow-up…">
-    </form>
   </div>
 `;
 
@@ -186,6 +182,7 @@ function popupWrite(text, cls, opts) {
   if (!opts || opts.scroll !== false) {
     popupOut.scrollTop = popupOut.scrollHeight;
   }
+  repositionPopup();
   return div;
 }
 
@@ -196,34 +193,70 @@ function renderMarkdown(text) {
   return h;
 }
 
+function repositionPopup(customRect) {
+  if (!isPopupVisible() || !lastLookup) return;
+  const rect = customRect || lastLookup.range.getBoundingClientRect();
+  const W = 420;
+  const H = popup.offsetHeight;
+  const margin = 12;
+  const gap = 12;
+
+  const selCenterX = rect.left + rect.width / 2;
+  const selCenterY = rect.top + rect.height / 2;
+  
+  const placeAbove = selCenterY > window.innerHeight / 2;
+  
+  popup.classList.toggle('pos-above', placeAbove);
+  popup.classList.toggle('pos-below', !placeAbove);
+
+  let left = selCenterX - W / 2;
+  left = Math.max(margin, Math.min(window.innerWidth - W - margin, left));
+  
+  let top;
+  if (placeAbove) {
+    top = rect.top - H - gap;
+    if (top < margin) top = margin;
+  } else {
+    top = rect.bottom + gap;
+    if (top + H > window.innerHeight - margin) {
+      top = Math.max(margin, window.innerHeight - H - margin);
+      if (top < rect.bottom + gap) top = rect.bottom + gap;
+    }
+  }
+  
+  popup.style.left = (left + window.scrollX) + 'px';
+  popup.style.top = (top + window.scrollY) + 'px';
+
+  let arrowX = selCenterX - left;
+  arrowX = Math.max(20, Math.min(W - 20, arrowX));
+  popup.style.setProperty('--arrow-x', arrowX + 'px');
+}
+
 function showPopupAt(rect) {
   const wasHidden = !isPopupVisible();
   if (wasHidden) {
+    // Start invisible but with display:flex so we can measure it
+    popup.style.visibility = 'hidden';
+    popup.style.opacity = '0';
     popup.classList.add('visible');
+    // Force a layout reflow so offsetHeight is populated
+    void popup.offsetHeight;
   }
-  const W = popup.offsetWidth || 420;
-  const H = popup.offsetHeight || 200;
   
-  const margin = 12;
-  let left = rect.left + rect.width / 2 - W / 2;
-  left = Math.max(margin, Math.min(window.innerWidth - W - margin, left));
-  const selCenterY = rect.top + rect.height / 2;
-  const placeAbove = selCenterY > window.innerHeight / 2;
-  let top;
-  if (placeAbove) {
-    top = rect.top - H - 8;
-    if (top < margin) top = margin;
-  } else {
-    top = rect.bottom + 8;
-    if (top + H > window.innerHeight - margin) {
-      top = Math.max(margin, window.innerHeight - H - margin);
-    }
+  repositionPopup(rect);
+
+  if (wasHidden) {
+    // Now that it's positioned, make it visible. 
+    // Opacity transition is handled by CSS if desired, 
+    // or we just snap it on.
+    popup.style.visibility = 'visible';
+    popup.style.opacity = '1';
   }
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
 }
 
-function hidePopup() {
+let lastCloseTime = 0;
+function hidePopup(clearSelection = false) {
+  if (!isPopupVisible()) return;
   popup.classList.remove('visible');
   popupHistory.length = 0;
   popupOut.innerHTML = '';
@@ -231,13 +264,20 @@ function hidePopup() {
   popupForm.hidden = true;
   popupInput.value = '';
   lastLookup = null;
+  lastCloseTime = Date.now();
+  if (clearSelection) {
+    try { window.getSelection()?.removeAllRanges(); } catch (e) {}
+  }
 }
 
 function handleOutsideClick(e) {
   if (!isPopupVisible()) return;
   const t = e.target;
   if (t && popup.contains(t)) return;
-  hidePopup();
+  // Clear selection on left-click outside to prevent re-triggering.
+  // Keep it for right-clicks to allow context menu (Copy, etc).
+  const isLeftClick = e.button === 0 || e.button === undefined;
+  hidePopup(isLeftClick);
 }
 
 // ============================================================
@@ -294,47 +334,60 @@ async function sendToLLM(text, metaLabel, followup, silent) {
     });
   }
 
-  function preventPopupOutOfView() {
-    requestAnimationFrame(() => {
-      const margin = 10;
-      const rect = popup.getBoundingClientRect();
-      if (rect.bottom > window.innerHeight - margin) {
-        const newTop = window.innerHeight - rect.height - margin;
-        popup.style.top = Math.max(margin, newTop) + 'px';
-      }
-    });
-  }
-
   try {
-    for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables. Be concise`)) {
-      ensureReply();
-      reply += chunk;
-      replyDiv.innerHTML = renderMarkdown(reply.trim());
-      scrollFollowReply();
-      preventPopupOutOfView()
+    let attempts = 0;
+    while (attempts < MODELS.length) {
+      try {
+        if (followup) renderActionsBar(followup.phrase, followup.context);
+        for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables. Be concise`)) {
+          ensureReply();
+          reply += chunk;
+          replyDiv.innerHTML = renderMarkdown(reply.trim());
+          repositionPopup();
+          scrollFollowReply();
+        }
+        if (!reply) {
+          if (pending) pending.remove();
+          popupWrite('(no response)\n\n', 'e');
+          popupHistory.pop();
+        } else {
+          replyDiv.classList.remove('cursor');
+          popupHistory.push({ role: 'assistant', content: reply });
+        }
+        break; // Success
+      } catch (err) {
+        const isRateLimit = err.message.includes('429') || err.message.toLowerCase().includes('rate limit');
+        if (isRateLimit && attempts < MODELS.length - 1) {
+          attempts++;
+          settings.selectedModelIdx = (settings.selectedModelIdx + 1) % MODELS.length;
+          chrome.storage.local.set({ selectedModelIdx: settings.selectedModelIdx });
+          
+          if (pending) pending.remove();
+          pending = popupWrite(`Rate limit. Trying ${MODELS[settings.selectedModelIdx].name}...`, 'sys');
+          
+          if (replyDiv) {
+            replyDiv.remove();
+            replyDiv = null;
+          }
+          reply = '';
+          continue;
+        }
+
+        if (pending) pending.remove();
+        if (replyDiv && reply) {
+          replyDiv.classList.remove('cursor');
+          replyDiv.innerHTML = renderMarkdown(reply) + '\n';
+          popupHistory.push({ role: 'assistant', content: reply });
+        } else if (replyDiv) {
+          replyDiv.remove();
+          popupHistory.pop();
+        } else {
+          popupHistory.pop();
+        }
+        popupWrite('error: ' + err.message + '\n\n', 'e');
+        break;
+      }
     }
-    if (!reply) {
-      if (pending) pending.remove();
-      popupWrite('(no response)\n\n', 'e');
-      popupHistory.pop();
-    } else {
-      replyDiv.classList.remove('cursor');
-      popupHistory.push({ role: 'assistant', content: reply });
-      if (followup) renderActionsBar(followup.phrase, followup.context);
-    }
-  } catch (err) {
-    if (pending) pending.remove();
-    if (replyDiv && reply) {
-      replyDiv.classList.remove('cursor');
-      replyDiv.innerHTML = renderMarkdown(reply) + '\n';
-      popupHistory.push({ role: 'assistant', content: reply });
-    } else if (replyDiv) {
-      replyDiv.remove();
-      popupHistory.pop();
-    } else {
-      popupHistory.pop();
-    }
-    popupWrite('error: ' + err.message + '\n\n', 'e');
   } finally {
     popupBusy = false;
     popupInput.disabled = false;
@@ -346,18 +399,17 @@ function renderActionsBar(phrase, context) {
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
   const formatInstructions = 'The text inside the [] is instructions, you should replace them with actual info';
 
-  [5].forEach(n => {
+  [3].forEach(n => {
     const a = document.createElement('a');
     a.href = '#';
     a.className = 'action';
-    a.textContent = String(n);
+    a.textContent = 'deep';
     a.title = `Re-run with ${n} sentences of context`;
     a.onclick = async (e) => {
       e.preventDefault();
       if (popupBusy || !lastLookup) return;
       const context = extractContextFromRange(lastLookup.range, n);
-      const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, trả lời súc tích, ngắn gọn, trong khoảng <3 câu:
-      TRANG: ${document.title}
+      const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, trả lời súc tích, ngắn gọn, nhiều nhất là 50 từ, viết liền mạch không xuống dòng:
       TỪ/CỤM TỪ: ${phrase}
       NGỮ CẢNH: ${context}`
       sendToLLM(prompt, null, null, true);
@@ -368,13 +420,16 @@ function renderActionsBar(phrase, context) {
   if (phrase.trim().split(' ').length > 1) return;
 
   const items = [
-    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Synonyms**: [synonyms separated by comma]. Be concise.`, 'Synonyms'],
-    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
+    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}>.
+    Compare them with <${phrase}>, highlighting nuanced distinctions and providing a short example for each (include <${phrase}> in the list). Be consise.
+    Format: **SYNONYM**: [one each line starting with •, nuance and example, the example should be itatlic].
+    `, 'Synonyms'],
+    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
-**Ex**:
-[3 examples one each line using - as bullet, the keyword should be bold]`, 'Examples'],
-    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise.', 'Usage frequency'],
-    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **Etymology**: [etymology]. Be concise.`, 'Etymology'],
+**EXAMPLE**:
+[3 examples one each line starting with •, the keyword should be bold]`, 'Examples'],
+    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise. Using this format: **USAGE**: frequency - register', 'Usage frequency'],
+    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **ETYMOLOGY**: [etymology]. Be concise.`, 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
     const a = document.createElement('a');
@@ -443,9 +498,29 @@ function doLookup(phrase, range, sentenceCount) {
 
   const is_a_word = phrase.trim().split(' ').length == 1
   const prompt = is_a_word
-    ? `Dịch từ <${phrase}/> trong đoạn <${local}/> theo mẫu sau, chỉ dịch từ thôi không phải cả đoạn tuân thủ 100% theo mẫu, những từ trong [] là các chỉ dẫn, thay thế chúng và [] quanh chúng với câu thông tin tương ứng:
-**${phrase}** /[IPA của từ]/: [Nghĩa của từ]`
-    : `Trả lời ngắn gọn, đúng trọng tâm, đừng thêm bất cứ từ gì ngoài nghĩa của đoạn dịch, đừng có thêm 'Nghĩa là', 'Đây là' hay bất kì filler word gì vào cả. Không thêm bất cứ từ gì, dịch sát nghĩa nhất cho tao, chỉ dịch đoạn thôi, không dịch cả câu, dịch gần như word-by-word. Đoạn sau <${phrase}/> trong câu <${local}/> có nghĩa là ...`
+    ? `Nhiệm vụ: Tra từ **${phrase}** xuất hiện trong đoạn văn sau và trả về đúng theo định dạng quy định.
+
+Đoạn văn ngữ cảnh:
+"""
+${local}
+"""
+
+Định dạng đầu ra BẮT BUỘC (chỉ trả về đúng dòng này, không thêm bất kỳ nội dung nào khác):
+**${phrase}** /IPA/:  Nghĩa
+
+Quy tắc:
+- Chỉ dịch từ "${phrase}", KHÔNG dịch cả đoạn văn
+- /IPA/: phiên âm IPA chuẩn của từ "${phrase}"
+- Nghĩa: nghĩa của TỪ "${phrase}" đứng một mình (không phải nghĩa của cả cụm)
+- KHÔNG viết thêm giải thích, tiêu đề, hay bất kỳ văn bản nào ngoài đúng 1 dòng định dạng trên
+
+Ví dụ output hợp lệ:
+**example** /ɪɡˈzɑːmpl/: ví dụ`
+    : `Trong câu sau: "${local}"
+Chỉ dịch đúng đoạn này (không dịch cả câu): "${phrase}"
+
+Ví dụ — nếu đoạn cần dịch là "break a leg", output đúng là:
+chúc may mắn`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }
@@ -508,7 +583,8 @@ popupForm.addEventListener('submit', e => {
   sendToLLM(text, null, null, false);
 });
 
-document.addEventListener('mouseup', () => {
+document.addEventListener('mouseup', e => {
+  if (e.button !== 0) return;
   setTimeout(() => {
     const sel = window.getSelection();
     if (!sel || sel.isCollapsed) return;
