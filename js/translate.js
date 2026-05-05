@@ -129,11 +129,15 @@ let lastLookup = null;
 const translateBubble = $('translate-bubble');
 const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
-// Captured when the bubble is shown (before iOS can clear the iframe selection
-// on tap). The click handler uses these so it works even if the selection is
-// gone by the time the tap fires.
+// Captured when the bubble is shown (before iOS can clear the iframe selection).
+let capturedBubbleText  = null;   // raw text — immune to Range/DOM state
 let capturedBubbleRange = null;
 let capturedBubbleMeta  = null;
+
+// Timestamp of the last showPopupAt() call — used to ignore synthetic
+// mousedown/pointerdown events that arrive ~300ms after a touch and would
+// immediately dismiss the popup.
+let popupOpenedAt = 0;
 
 export function isPopupVisible() {
   return popupWrapper.classList.contains('visible');
@@ -162,6 +166,7 @@ function isMobileViewport() {
 }
 
 export function showPopupAt(rect) {
+  popupOpenedAt = Date.now();
   if (isMobileViewport()) {
     popup.classList.add('mobile');
     popup.classList.remove('pos-above', 'pos-below');
@@ -234,6 +239,9 @@ export function hidePopup() {
 // ============================================================
 function handleOutsideClick(e) {
   if (!isPopupVisible()) return;
+  // Ignore synthetic mouse/pointer events that arrive ~300ms after a touch
+  // on the bubble — they'd immediately close the popup we just opened.
+  if (Date.now() - popupOpenedAt < 400) return;
   const t = e.target;
   if (t && popup.contains(t)) return;
   hidePopup();
@@ -431,6 +439,7 @@ function renderActionsBar(phrase, context) {
 // Selection → context extraction → lookup
 // ============================================================
 function extractContextFromRange(range, totalSentences) {
+  if (!range) return '';
   const total = Math.max(1, totalSentences | 0);
   let node = range.startContainer;
   if (node.nodeType === 3) node = node.parentNode;
@@ -603,12 +612,15 @@ function updateBubble() {
   const selBottom = rect.bottom + ifrRect.top;
   const selCenterX = rect.left + ifrRect.left + rect.width / 2;
 
-  // Capture range now — iOS Safari clears the iframe selection when the
-  // user taps the bubble, so we must snapshot it here while it's still live.
+  // Snapshot everything now — iOS/Android clears the iframe selection when
+  // the user taps the bubble, so we capture text + range + meta here while
+  // the selection is still live. Text string is the safest primary source.
   try {
+    capturedBubbleText  = found.sel.toString().trim();
     capturedBubbleRange = range.cloneRange();
     capturedBubbleMeta  = { doc: found.doc, ifr: found.ifr };
   } catch {
+    capturedBubbleText  = null;
     capturedBubbleRange = null;
     capturedBubbleMeta  = null;
   }
@@ -724,12 +736,29 @@ export function initTranslateEvents() {
     translateBubble.addEventListener('mousedown',  e => e.stopPropagation());
 
     function fireBubbleLookup() {
+      if (popupBusy || isPopupVisible()) return;
+      const text  = capturedBubbleText;
       const range = capturedBubbleRange;
       const meta  = capturedBubbleMeta;
+      capturedBubbleText  = null;
       capturedBubbleRange = null;
       capturedBubbleMeta  = null;
-      if (range && meta) {
-        fireLookupForSelection(null, meta.doc, meta.ifr, range);
+      if (text && meta) {
+        // Use saved text string — immune to iOS/Android clearing the selection.
+        // Range is kept for context extraction; rect doesn't matter on mobile
+        // (bottom-sheet popup ignores position).
+        lastLookup = { phrase: text, range, doc: meta.doc };
+        hideBubble();
+        let viewportRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+        if (range) {
+          try {
+            const r = range.getBoundingClientRect();
+            const ir = meta.ifr ? meta.ifr.getBoundingClientRect() : { left: 0, top: 0 };
+            viewportRect = { left: r.left + ir.left, top: r.top + ir.top, right: r.right + ir.left, bottom: r.bottom + ir.top, width: r.width, height: r.height };
+          } catch {}
+        }
+        showPopupAt(viewportRect);
+        doLookup(text, range, settings.contextSentences);
       } else {
         fireFromBubble();
       }
