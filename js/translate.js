@@ -409,9 +409,10 @@ function renderActionsBar(phrase, context) {
   }
   const items = [
     ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}>.
-    Compare them with <${phrase}>, highlighting nuanced distinctions and providing a short example for each (include <${phrase}> in the list). Be concise.
-    Format: **SYNONYM**: [one each line starting with •, nuance and example, the example should be italic].
-    `, 'Synonyms'],
+Compare each with <${phrase}>, highlighting nuanced distinctions and providing a short example (include <${phrase}> itself in the list). Be concise.
+
+Use this format (one synonym per line):
+**SYNONYM**: • [nuance] *[example]*`, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
 **EXAMPLE**:
