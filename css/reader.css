@@ -23,6 +23,13 @@
   src: url('./Seravek-BoldItalic.otf') format('opentype');
 }
 @font-face {
+  font-family: 'Consolas';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('./Consolas-Regular.ttf');
+}
+@font-face {
   font-family: 'Seravek';
   font-weight: 500;
   font-style: normal;
@@ -619,7 +626,7 @@ body.dark-chrome #chrome-controls button {
   background: var(--bg); color: var(--fg);
   border-radius: 12px;
   box-shadow: 0 14px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
-  font: 14px/1.5 ui-monospace, Menlo, Consolas, monospace;
+  font: 14px/1.5 consolas, Menlo, monospace;
   letter-spacing: -0.2px;
   display: flex; flex-direction: column;
   max-height: min(60vh, 480px);
