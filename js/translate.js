@@ -11,7 +11,7 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb, reArmCenterOverlay } from './reader.js';
+import { openBookFromDb } from './reader.js';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS,
@@ -129,6 +129,12 @@ let lastLookup = null;
 const translateBubble = $('translate-bubble');
 const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
+// Captured when the bubble is shown (before iOS can clear the iframe selection
+// on tap). The click handler uses these so it works even if the selection is
+// gone by the time the tap fires.
+let capturedBubbleRange = null;
+let capturedBubbleMeta  = null;
+
 export function isPopupVisible() {
   return popupWrapper.classList.contains('visible');
 }
@@ -221,7 +227,6 @@ export function hidePopup() {
       try { ifr.contentWindow && ifr.contentWindow.getSelection().removeAllRanges(); } catch {}
     });
   } catch {}
-  reArmCenterOverlay();
 }
 
 // ============================================================
@@ -598,6 +603,16 @@ function updateBubble() {
   const selBottom = rect.bottom + ifrRect.top;
   const selCenterX = rect.left + ifrRect.left + rect.width / 2;
 
+  // Capture range now — iOS Safari clears the iframe selection when the
+  // user taps the bubble, so we must snapshot it here while it's still live.
+  try {
+    capturedBubbleRange = range.cloneRange();
+    capturedBubbleMeta  = { doc: found.doc, ifr: found.ifr };
+  } catch {
+    capturedBubbleRange = null;
+    capturedBubbleMeta  = null;
+  }
+
   // Make visible first so we can measure. Position offscreen until measured
   // to avoid a frame of flicker at (0,0).
   translateBubble.style.left = '-9999px';
@@ -696,10 +711,9 @@ export function initTranslateEvents() {
   });
 
   // Bubble — mobile path. Fires the lookup explicitly on tap.
+  // capturedBubbleRange / capturedBubbleMeta are module-scope and set by
+  // updateBubble() so the range is available even if iOS cleared the selection.
   if (translateBubble) {
-    let capturedBubbleRange = null;
-    let capturedBubbleMeta  = null;
-
     translateBubble.addEventListener('pointerdown', e => {
       e.stopPropagation();
       // Snapshot selection immediately — iOS may clear the iframe selection

@@ -1,13 +1,10 @@
 // ============================================================
 // Book opening / rendition / page navigation / chrome controls.
 //
-// Fix #1 — center-tap chrome toggle:
-//   * On phones, click events synthesized from taps inside epub.js iframes
-//     are unreliable on iOS Safari. We track touchstart/touchend ourselves
-//     to detect a true tap (no movement, short duration) and fire instantly.
-//   * On desktop we still listen to `click`, but defer the toggle by ~230ms
-//     and cancel it if `dblclick` follows — this avoids a clash with text
-//     selection (double-click selects a word and triggers the lookup popup).
+// Chrome toggle:
+//   * Mobile: #chrome-dot (always-visible dot in bottom-right) toggles chrome.
+//   * Desktop: tap inside iframe toggles chrome (deferred 230ms to allow
+//     double-click word selection without false chrome toggles).
 // ============================================================
 
 import { settings, runtime, $, dbGet } from './state.js';
@@ -25,11 +22,6 @@ const reader = $('reader');
 const viewer = $('viewer');
 const pageIndicator = $('page-indicator');
 const loading = $('loading');
-
-let zoneCenter;
-export function reArmCenterOverlay() {
-  if (zoneCenter) zoneCenter.style.pointerEvents = '';
-}
 
 // ============================================================
 // Chrome controls (bottom-right floating buttons)
@@ -309,68 +301,11 @@ export function initReaderEvents() {
     }, { passive: false });
   });
 
-  // ============================================================
-  // Center-tap overlay — iOS Safari fallback
-  //
-  // Touch events inside epub.js iframes don't fire reliably on iOS
-  // Safari. #zone-center sits ON TOP of the iframe (like zone-left
-  // and zone-right) so it receives taps directly in the parent
-  // document, which is reliable across all browsers.
-  //
-  // Short taps (< 350ms, < 10px movement) toggle chrome.
-  // Long presses disable the overlay for 2s so the iframe
-  // underneath can handle text selection for translation.
-  // ============================================================
-  zoneCenter = $('zone-center');
-  let centerTouchStart = null;
-  let longPressTimer = null;
-
-  zoneCenter.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) { centerTouchStart = null; return; }
-    centerTouchStart = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      t: Date.now(),
-    };
-    // After 350ms, assume long press → hide overlay so the iframe
-    // can handle text selection for translation.
-    clearTimeout(longPressTimer);
-    longPressTimer = setTimeout(() => {
-      zoneCenter.style.pointerEvents = 'none';
-      // Safety cap — reArmCenterOverlay() re-enables it explicitly when the
-      // popup closes, so this only fires if the user never taps the bubble.
-      setTimeout(() => { zoneCenter.style.pointerEvents = ''; }, 15000);
-    }, 350);
-  }, { passive: true });
-
-  zoneCenter.addEventListener('touchend', e => {
-    clearTimeout(longPressTimer);
-    if (!centerTouchStart) return;
-    const c = e.changedTouches[0];
-    const dx = Math.abs(c.clientX - centerTouchStart.x);
-    const dy = Math.abs(c.clientY - centerTouchStart.y);
-    const dt = Date.now() - centerTouchStart.t;
-    centerTouchStart = null;
-    // Filter out drags / long presses
-    if (dt > 350 || dx > 10 || dy > 10) return;
-    // Dedup with in-iframe handler
-    const now = Date.now();
-    if (now - lastToggleTapTime < 400) return;
-    // Don't toggle while user has an active text selection
-    if (hasSelectionInAnyIframe()) return;
-    // Dismiss popup instead of toggling chrome
+  // Chrome-dot — persistent small button in bottom-right, always visible.
+  // Tapping it toggles the floating chrome controls (reliable: lives in the
+  // top document, not inside the epub.js iframe).
+  $('chrome-dot').addEventListener('click', () => {
     if (isPopupVisible()) { hidePopup(); return; }
-    lastToggleTapTime = now;
-    toggleChrome();
-  }, { passive: true });
-
-  // Also handle click for non-touch scenarios on this zone
-  zoneCenter.addEventListener('click', () => {
-    const now = Date.now();
-    if (now - lastToggleTapTime < 700) return;
-    if (hasSelectionInAnyIframe()) return;
-    if (isPopupVisible()) { hidePopup(); return; }
-    lastToggleTapTime = now;
     toggleChrome();
   });
 

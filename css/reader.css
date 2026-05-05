@@ -27,7 +27,7 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  src: url('./Consolas-Regular.ttf');
+  src: url('./CONSOLA.ttf');
 }
 @font-face {
   font-family: 'Seravek';
@@ -202,31 +202,22 @@ button {
 #zone-left  { left: 0; }
 #zone-right { right: 0; }
 
-/* Center tap zone — sits above the iframe like the edge zones.
-   On iOS Safari, touch events inside epub.js iframes don't fire
-   reliably, so this overlay catches center taps for chrome toggle. */
-#zone-center {
-  position: absolute;
-  top: var(--pad-top);
-  bottom: var(--pad-bottom);
-  left: clamp(40px, 8vw, 80px);
-  right: clamp(40px, 8vw, 80px);
-  z-index: 4;
-}
-/* On devices with a real mouse, the overlay would block text selection
-   and double-click word lookup. The overlay only exists to work around
-   unreliable touch events in epub.js iframes on iOS Safari, so let
-   mouse input fall through to the iframe and the in-iframe handlers
-   take over (including the deferred chrome toggle on single click). */
-@media (pointer: fine) {
-  #zone-center { pointer-events: none; }
-}
-
 /* ============================================================
    Floating chrome controls (bottom-right)
    ============================================================ */
+/* Persistent dot — always visible, tapping it shows/hides chrome-controls. */
+#chrome-dot {
+  position: fixed; right: 19px; bottom: 19px; z-index: 12;
+  width: 18px; height: 18px; border-radius: 50%; padding: 0; border: none;
+  background: var(--chrome-fg);
+  opacity: 0.22;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+#chrome-dot:hover, #chrome-dot:active, body.chrome-visible #chrome-dot { opacity: 0.5; }
+
 #chrome-controls {
-  position: fixed; right: 14px; bottom: 14px; z-index: 10;
+  position: fixed; right: 14px; bottom: 50px; z-index: 10;
   display: flex; flex-direction: column; gap: 8px;
   opacity: 0; pointer-events: none;
   transform: translateY(6px);
@@ -773,13 +764,6 @@ body.dark-chrome #chrome-controls button {
 
   /* Page number hidden on phones */
   #page-indicator { display: none; }
-
-  /* Chrome controls always visible on mobile — settings reachable directly */
-  #chrome-controls {
-    opacity: 1;
-    pointer-events: auto;
-    transform: translateY(0);
-  }
 
   /* Popup hugs the bottom of the screen, max 80vh */
   #popup.mobile {
