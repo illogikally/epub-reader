@@ -26,6 +26,11 @@ const viewer = $('viewer');
 const pageIndicator = $('page-indicator');
 const loading = $('loading');
 
+let zoneCenter;
+export function reArmCenterOverlay() {
+  if (zoneCenter) zoneCenter.style.pointerEvents = '';
+}
+
 // ============================================================
 // Chrome controls (bottom-right floating buttons)
 // ============================================================
@@ -316,7 +321,7 @@ export function initReaderEvents() {
   // Long presses disable the overlay for 2s so the iframe
   // underneath can handle text selection for translation.
   // ============================================================
-  const zoneCenter = $('zone-center');
+  zoneCenter = $('zone-center');
   let centerTouchStart = null;
   let longPressTimer = null;
 
@@ -332,8 +337,9 @@ export function initReaderEvents() {
     clearTimeout(longPressTimer);
     longPressTimer = setTimeout(() => {
       zoneCenter.style.pointerEvents = 'none';
-      // Re-arm after 2s
-      setTimeout(() => { zoneCenter.style.pointerEvents = ''; }, 2000);
+      // Safety cap — reArmCenterOverlay() re-enables it explicitly when the
+      // popup closes, so this only fires if the user never taps the bubble.
+      setTimeout(() => { zoneCenter.style.pointerEvents = ''; }, 15000);
     }, 350);
   }, { passive: true });
 

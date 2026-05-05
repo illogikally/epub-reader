@@ -11,7 +11,7 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js';
+import { openBookFromDb, reArmCenterOverlay } from './reader.js';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS,
@@ -157,7 +157,8 @@ function isMobileViewport() {
 
 export function showPopupAt(rect) {
   if (isMobileViewport()) {
-    popupWrapper.classList.add('mobile');
+    popup.classList.add('mobile');
+    popup.classList.remove('pos-above', 'pos-below');
     popup.style.left = '';
     popup.style.right = '';
     popup.style.top = '';
@@ -177,6 +178,7 @@ export function showPopupAt(rect) {
     popupWrapper.classList.remove('visible');
   }
   const margin = 12;
+  const gap = 12;
   let left = rect.left + rect.width / 2 - W / 2;
   left = Math.max(margin, Math.min(window.innerWidth - W - margin, left));
   // Place above the selection when its center is below the viewport midpoint —
@@ -185,16 +187,21 @@ export function showPopupAt(rect) {
   const placeAbove = selCenterY > window.innerHeight / 2;
   let top;
   if (placeAbove) {
-    top = rect.top - H - 8;
-    if (top < margin) top = margin; // not enough room above either, clamp
+    top = rect.top - H - gap;
+    if (top < margin) top = margin;
   } else {
-    top = rect.bottom + 8;
+    top = rect.bottom + gap;
     if (top + H > window.innerHeight - margin) {
       top = Math.max(margin, window.innerHeight - H - margin);
+      if (top < rect.bottom + gap) top = rect.bottom + gap;
     }
   }
   popup.style.left = left + 'px';
   popup.style.top = top + 'px';
+  popup.classList.toggle('pos-above', placeAbove);
+  popup.classList.toggle('pos-below', !placeAbove);
+  const arrowX = rect.left + rect.width / 2 - left;
+  popup.style.setProperty('--arrow-x', Math.max(20, Math.min(W - 20, arrowX)) + 'px');
   popupWrapper.classList.add('visible');
 }
 
@@ -214,6 +221,7 @@ export function hidePopup() {
       try { ifr.contentWindow && ifr.contentWindow.getSelection().removeAllRanges(); } catch {}
     });
   } catch {}
+  reArmCenterOverlay();
 }
 
 // ============================================================
@@ -387,13 +395,16 @@ function renderActionsBar(phrase, context) {
     return;
   }
   const items = [
-    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Synonyms**: [synonyms and there nuanced distintions, each in a line with - as bullet, ending with when is ${phrase} prefered]. Be concise.`, 'Synonyms'],
-    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **Antonyms**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
-    ['ex',  `Give 3 short example sentences using <${phrase}> in ${ctxNote} using this format, ${formatInstructions}:
-**Ex**:
-[3 examples one each line using - as bullet, the keyword should be bold]`, 'Examples'],
-    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise.', 'Usage frequency'],
-    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **Etymology**: [etymology]. Be concise.`, 'Etymology'],
+    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}>.
+    Compare them with <${phrase}>, highlighting nuanced distinctions and providing a short example for each (include <${phrase}> in the list). Be concise.
+    Format: **SYNONYM**: [one each line starting with •, nuance and example, the example should be italic].
+    `, 'Synonyms'],
+    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
+    ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
+**EXAMPLE**:
+[3 examples one each line starting with •, the keyword should be bold]`, 'Examples'],
+    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise. Using this format: **USAGE**: frequency - register', 'Usage frequency'],
+    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **ETYMOLOGY**: [etymology]. Be concise.`, 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
     const a = document.createElement('a');
@@ -465,9 +476,29 @@ export function doLookup(phrase, range, sentenceCount) {
 
   const is_a_word = phrase.trim().split(' ').length == 1
   const prompt = is_a_word
-    ? `Trả lời cực kì ngắn gọn theo mẫu sau về nghĩa của từ, chỉ nghĩa của từ này thôi, không phải cả đoạn <${phrase}/> trong đoạn <${local}/> theo mẫu sau, tuân thủ 100% theo mẫu, những từ trong [] là các chỉ dẫn, thay thế chúng và [] quanh chúng với câu thông tin tương ứng:
-**${phrase}** /[IPA của từ]/: [Nghĩa của từ]`
-    : `Trả lời ngắn gọn, đúng trọng tâm, đừng thêm bất cứ từ gì ngoài nghĩa của đoạn dịch, đừng có thêm 'Nghĩa là', 'Đây là' hay bất kì filler word gì vào cả. Không thêm bất cứ từ gì, dịch sát nghĩa nhất cho tao, chỉ dịch đoạn thôi, không dịch cả câu. Đoạn sau <${phrase}/> trong câu <${local}/> có nghĩa là ...`
+    ? `Nhiệm vụ: Tra từ **${phrase}** xuất hiện trong đoạn văn sau và trả về đúng theo định dạng quy định.
+
+Đoạn văn ngữ cảnh:
+"""
+${local}
+"""
+
+Định dạng đầu ra BẮT BUỘC (chỉ trả về đúng dòng này, không thêm bất kỳ nội dung nào khác):
+**${phrase}** /IPA/:  Nghĩa
+
+Quy tắc:
+- Chỉ dịch từ "${phrase}", KHÔNG dịch cả đoạn văn
+- /IPA/: phiên âm IPA chuẩn của từ "${phrase}"
+- Nghĩa: nghĩa của TỪ "${phrase}" đứng một mình (không phải nghĩa của cả cụm)
+- KHÔNG viết thêm giải thích, tiêu đề, hay bất kỳ văn bản nào ngoài đúng 1 dòng định dạng trên
+
+Ví dụ output hợp lệ:
+**example** /ɪɡˈzɑːmpl/: ví dụ`
+    : `Trong câu sau: "${local}"
+Chỉ dịch đúng đoạn này (không dịch cả câu): "${phrase}"
+
+Ví dụ — nếu đoạn cần dịch là "break a leg", output đúng là:
+chúc may mắn`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }
