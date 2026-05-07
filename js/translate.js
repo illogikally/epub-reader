@@ -14,7 +14,7 @@
 import { openBookFromDb } from './reader.js';
 import {
   $, escapeHtml, settings, runtime,
-  MODELS, MAX_TOKENS,
+  MODELS, MAX_TOKENS, attachPullToDismiss,
 } from './state.js';
 
 const popupWrapper = $('popup-wrapper')
@@ -721,6 +721,9 @@ export function initTranslateEvents() {
     popupForm.hidden = !popupForm.hidden;
     if (!popupForm.hidden) popupInput.focus();
   });
+
+  // Pull-down-to-dismiss when the result area is scrolled to the top
+  attachPullToDismiss(popup, () => popupOut, hidePopup);
 
   popupWrapper.addEventListener('mousedown',  handleOutsideClick);
   popupWrapper.addEventListener('touchstart', handleOutsideClick, { passive: true });

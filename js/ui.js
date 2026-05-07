@@ -11,7 +11,7 @@
 
 import {
   $, settings, runtime, persistSettings,
-  MODELS,
+  MODELS, attachPullToDismiss,
 } from './state.js';
 import {
   applyChromeTheme, applyAll, updateSliderFill,
@@ -239,6 +239,14 @@ export function initUI() {
   });
   const settingsCloseBtn = $('settings-close');
   if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', hideAllDrawers);
+
+  // Pull-down-to-dismiss for mobile bottom sheets
+  attachPullToDismiss(tocDrawer, () => $('toc-list'), hideAllDrawers);
+  attachPullToDismiss(
+    settingsModal,
+    () => settingsModal.querySelector('.tab-panel.active'),
+    hideAllDrawers,
+  );
 
   // Custom event from reader.js (Esc key) closes drawers
   document.addEventListener('reader:hideAllDrawers', hideAllDrawers);

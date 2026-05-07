@@ -91,6 +91,68 @@ export function escapeHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Pull-down-to-dismiss for mobile bottom sheets. When the inner scrollEl is at
+// the top and the user drags down past `threshold` pixels, slide the sheet out
+// and call onDismiss. Below threshold, snap back. Mobile-only.
+export function attachPullToDismiss(sheet, getScrollEl, onDismiss, threshold = 100) {
+  let startY = null;
+  let dragging = false;
+  let dy = 0;
+  const isMobile = () =>
+    window.matchMedia('(max-width: 599px), (pointer: coarse)').matches;
+
+  sheet.addEventListener('touchstart', (e) => {
+    if (!isMobile() || e.touches.length !== 1) { startY = null; return; }
+    const sc = getScrollEl();
+    if (sc && sc.scrollTop > 0) { startY = null; return; }
+    startY = e.touches[0].clientY;
+    dragging = false;
+    dy = 0;
+  }, { passive: true });
+
+  sheet.addEventListener('touchmove', (e) => {
+    if (startY === null) return;
+    dy = e.touches[0].clientY - startY;
+    if (dy <= 0) {
+      if (dragging) { sheet.style.transform = ''; dragging = false; }
+      return;
+    }
+    const sc = getScrollEl();
+    if (!dragging && sc && sc.scrollTop > 0) { startY = null; return; }
+    dragging = true;
+    sheet.style.transition = 'none';
+    sheet.style.transform = `translateY(${dy}px)`;
+  }, { passive: true });
+
+  const finish = () => {
+    if (startY === null) { return; }
+    if (dragging) {
+      if (dy > threshold) {
+        sheet.style.transition = 'transform 0.2s ease';
+        sheet.style.transform = 'translateY(100%)';
+        const onEnd = (ev) => {
+          if (ev.propertyName !== 'transform') return;
+          sheet.removeEventListener('transitionend', onEnd);
+          onDismiss();
+          sheet.style.transition = '';
+          sheet.style.transform = '';
+        };
+        sheet.addEventListener('transitionend', onEnd);
+      } else {
+        sheet.style.transition = 'transform 0.15s ease';
+        sheet.style.transform = '';
+        setTimeout(() => { sheet.style.transition = ''; }, 200);
+      }
+    }
+    startY = null; dragging = false; dy = 0;
+  };
+  sheet.addEventListener('touchend', finish, { passive: true });
+  sheet.addEventListener('touchcancel', () => {
+    if (dragging) { sheet.style.transition = ''; sheet.style.transform = ''; }
+    startY = null; dragging = false; dy = 0;
+  }, { passive: true });
+}
+
 // ============================================================
 // Color utilities
 // ============================================================
