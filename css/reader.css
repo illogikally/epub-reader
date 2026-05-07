@@ -517,11 +517,10 @@ body.dark-chrome #chrome-controls button {
   top: -6px; right: -6px;
   width: 18px; height: 18px; border-radius: 50%;
   background: rgba(0,0,0,0.7); color: #fff;
-  display: none; align-items: center; justify-content: center;
+  display: flex; align-items: center; justify-content: center;
   font-size: 12px; line-height: 1;
   z-index: 2;
 }
-.theme-swatch:hover .delete-preset { display: flex; }
 .theme-swatch .delete-preset:hover { background: rgba(220,60,60,0.9); }
 
 .save-preset-row {
@@ -529,23 +528,9 @@ body.dark-chrome #chrome-controls button {
   gap: 8px;
   align-items: stretch;
 }
-.save-preset-row input {
-  flex: 1;
-  min-width: 0;
-  padding: 10px 12px;
-  background: var(--bg);
-  color: var(--fg);
-  border: 1px solid var(--border); border-radius: 10px;
-  font-size: 14px;
-  font-family: inherit;
-  outline: none;
-  transition: border-color 0.12s ease;
-}
-.save-preset-row input::placeholder { color: var(--chrome-fg); }
-.save-preset-row input:focus { border-color: var(--accent); }
 
 .save-preset-btn {
-  flex-shrink: 0;
+  flex: 1;
   padding: 10px 16px;
   border: 1px dashed var(--border); border-radius: 10px;
   color: var(--chrome-fg);
@@ -824,7 +809,4 @@ body.dark-chrome #chrome-controls button {
   /* library grid more compact */
   .library-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
   .book-delete { display: flex; opacity: 0.85; }
-
-  /* Theme swatch delete buttons — always visible on touch (no hover) */
-  .theme-swatch .delete-preset { display: flex; }
 }

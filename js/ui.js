@@ -293,23 +293,14 @@ export function initUI() {
   renderThemeSwatches();
 
   // ---- Save current as preset ----
-  const presetNameInput = $('save-preset-name');
-  function saveCurrentPreset() {
-    const name = (presetNameInput.value || '').trim();
-    if (!name) { presetNameInput.focus(); return; }
+  $('save-theme-preset').addEventListener('click', () => {
     settings.customThemes.push({
-      name,
+      name: '',
       bg: settings.bg,
       fg: settings.fg,
     });
     persistSettings();
     renderThemeSwatches();
-    presetNameInput.value = '';
-    presetNameInput.blur();
-  }
-  $('save-theme-preset').addEventListener('click', saveCurrentPreset);
-  presetNameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveCurrentPreset(); }
   });
 
   // ---- Font select ----
