@@ -227,7 +227,13 @@ function attachInputHandlers(doc) {
     // generous to cover slow synthesis on older iOS.
     if (Date.now() - recentTouchTime < 700) return;
     if (!shouldToggleChrome(doc)) return;
-    // Defer so a dblclick (word-select for translation) can cancel us.
+    // If chrome is visible, hide immediately — defer is only needed when
+    // showing, so a dblclick (word-select for translation) can cancel.
+    if (document.body.classList.contains('chrome-visible')) {
+      if (pendingToggle) { clearTimeout(pendingToggle); pendingToggle = null; }
+      hideChrome();
+      return;
+    }
     if (pendingToggle) clearTimeout(pendingToggle);
     pendingToggle = setTimeout(() => {
       pendingToggle = null;

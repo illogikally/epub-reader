@@ -266,15 +266,20 @@ body.dark-chrome #chrome-controls button {
   width: 340px; max-width: 90vw;
   background: var(--bg); color: var(--fg); z-index: 30;
   box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
-  overflow-y: auto;
+  display: flex; flex-direction: column;
+  overflow: hidden;
   padding: 24px 24px 40px;
   transition: transform 0.25s ease;
 }
 .drawer-left  { left: 0;  transform: translateX(-100%); }
 .drawer.visible { transform: translateX(0); }
 
-#toc-drawer { scrollbar-width: none; -ms-overflow-style: none; }
-#toc-drawer::-webkit-scrollbar { width: 0; height: 0; display: none; }
+#toc-drawer .drawer-close, #toc-drawer h2 { flex-shrink: 0; }
+#toc-list {
+  flex: 1; min-height: 0; overflow-y: auto;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+#toc-list::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 .drawer h2 {
   margin: 0 0 18px;
@@ -314,7 +319,7 @@ body.dark-chrome #chrome-controls button {
 
 #settings-tabs {
   display: flex; align-items: center; gap: 2px;
-  padding: 10px 10px 0 10px;
+  padding: 10px 48px 0 10px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow-x: auto;
@@ -334,8 +339,12 @@ body.dark-chrome #chrome-controls button {
   color: var(--fg);
   background: var(--surface-soft);
 }
-#settings-tabs .tab-spacer { flex: 1; }
-#settings-tabs .modal-close { margin-bottom: 6px; }
+#settings-modal > #settings-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1;
+}
 
 .tab-panel { display: none; padding: 20px 24px 26px; overflow-y: auto; min-height: 0; }
 .tab-panel.active { display: block; flex: 1; }
