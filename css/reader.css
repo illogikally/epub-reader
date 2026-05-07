@@ -332,13 +332,15 @@ body.dark-chrome #chrome-controls button {
 
 #settings-tabs {
   display: flex; align-items: center; gap: 2px;
-  padding: 10px 56px 0 16px;
+  padding: 10px 0 0 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 #settings-tabs::-webkit-scrollbar { display: none; }
+/* Reserved space so tabs never scroll under the absolute-positioned X button. */
+#settings-tabs::after { content: ""; flex: 0 0 56px; }
 #settings-tabs button.tab {
   padding: 9px 14px;
   border-radius: 8px 8px 0 0;

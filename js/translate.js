@@ -175,6 +175,7 @@ export function showPopupAt(rect) {
     popup.style.top = '';
     popup.style.width = '';
     popupWrapper.classList.add('visible');
+    clearAllSelections();
     return;
   }
   popup.classList.remove('mobile');
@@ -214,6 +215,16 @@ export function showPopupAt(rect) {
   const arrowX = rect.left + rect.width / 2 - left;
   popup.style.setProperty('--arrow-x', Math.max(20, Math.min(W - 20, arrowX)) + 'px');
   popupWrapper.classList.add('visible');
+  clearAllSelections();
+}
+
+function clearAllSelections() {
+  try {
+    viewer.querySelectorAll('iframe').forEach(ifr => {
+      try { ifr.contentWindow && ifr.contentWindow.getSelection().removeAllRanges(); } catch {}
+    });
+    window.getSelection && window.getSelection().removeAllRanges();
+  } catch {}
 }
 
 export function hidePopup() {
