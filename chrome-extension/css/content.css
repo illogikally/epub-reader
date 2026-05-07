@@ -148,9 +148,14 @@
   border: none;
   font: inherit;
   outline: none;
+  box-shadow: none;
   margin: 0;
   padding: 0;
   line-height: 20px;
+}
+#llm-popup-form input:focus {
+  outline: none;
+  box-shadow: none;
 }
 #llm-popup-form input:disabled { opacity: 0.5; }
 
@@ -166,8 +171,13 @@
   flex-shrink: 0;
   padding: 0;
   border: none;
+  outline: none;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
+}
+.llm-icon-circle-btn:focus {
+  outline: none;
+  box-shadow: none;
 }
 .llm-icon-circle-btn:hover {
   background: var(--llm-surface-soft-hover);

@@ -397,7 +397,7 @@ async function sendToLLM(text, metaLabel, followup, silent) {
 function renderActionsBar(phrase, context) {
   popupActions.innerHTML = '';
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
-  const formatInstructions = 'The text inside the [] is instructions, you should replace them with actual info';
+  const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
 
   [3].forEach(n => {
     const a = document.createElement('a');
@@ -420,16 +420,17 @@ function renderActionsBar(phrase, context) {
   if (phrase.trim().split(' ').length > 1) return;
 
   const items = [
-    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}>.
-    Compare them with <${phrase}>, highlighting nuanced distinctions and providing a short example for each (include <${phrase}> in the list). Be consise.
-    Format: **SYNONYM**: [one each line starting with •, nuance and example, the example should be itatlic].
+    ['syn', `Liệt kê một số từ đồng nghĩa với nghĩa của <${phrase}> trong <${ctxNote}>.
+    So sánh ngắn gọn sự khác biệt giữa <${phrase}> và các từ đồng nghĩa theo mẫu sau, ${formatInstructions}:
+    **SYNONYM**:
+    [synonyms, one each line starting with •, nuance and example, the example should be itatlic].
     `, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
 **EXAMPLE**:
-[3 examples one each line starting with •, the keyword should be bold]`, 'Examples'],
-    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise. Using this format: **USAGE**: frequency - register', 'Usage frequency'],
-    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **ETYMOLOGY**: [etymology]. Be concise.`, 'Etymology'],
+3 examples one each line starting with •, the keyword should be bold]`, 'Examples'],
+    ['use', `Độ thông dụng của ${phrase} trong tiếng anh hiện đại là bao nhiêu (thang 1-100). Be concise. Using this format: **USAGE**: mức dộ - register`, 'Usage frequency'],
+    ['ety', `Giải thích ngắn gọn etymology của <${phrase}> sử dụng mẫu sau: **ETYMOLOGY**: etymology.`, 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
     const a = document.createElement('a');
@@ -511,7 +512,7 @@ ${local}
 Quy tắc:
 - Chỉ dịch từ "${phrase}", KHÔNG dịch cả đoạn văn
 - /IPA/: phiên âm IPA chuẩn của từ "${phrase}"
-- Nghĩa: nghĩa của TỪ "${phrase}" đứng một mình (không phải nghĩa của cả cụm)
+- Nghĩa: nghĩa của TỪ "${phrase}" ngữ cảnh
 - KHÔNG viết thêm giải thích, tiêu đề, hay bất kỳ văn bản nào ngoài đúng 1 dòng định dạng trên
 
 Ví dụ output hợp lệ:

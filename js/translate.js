@@ -412,7 +412,8 @@ function renderActionsBar(phrase, context) {
 Compare each with <${phrase}>, highlighting nuanced distinctions and providing a short example (include <${phrase}> itself in the list). Be concise.
 
 Use this format (one synonym per line):
-**SYNONYM**: • [nuance] *[example]*`, 'Synonyms'],
+**SYNONYM**:
+• [nuance] *[example]*`, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
 **EXAMPLE**:
