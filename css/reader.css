@@ -205,6 +205,15 @@ button {
 /* ============================================================
    Floating chrome controls (bottom-right)
    ============================================================ */
+/* Full-screen backdrop. Inert by default; activates when chrome-visible
+   so any tap outside the cluster (and outside the dot) dismisses chrome. */
+#chrome-backdrop {
+  position: fixed; inset: 0; z-index: 9;
+  background: transparent;
+  pointer-events: none;
+}
+body.chrome-visible #chrome-backdrop { pointer-events: auto; }
+
 /* Persistent dot — always visible, tapping it shows/hides chrome-controls. */
 #chrome-dot {
   position: fixed; right: 19px; bottom: 19px; z-index: 12;

@@ -315,13 +315,8 @@ export function initReaderEvents() {
     toggleChrome();
   });
 
-  // Tap anywhere outside the cluster (and outside the dot) dismisses chrome.
-  document.addEventListener('pointerdown', (e) => {
-    if (!document.body.classList.contains('chrome-visible')) return;
-    if (e.target.closest('#chrome-controls')) return;
-    if (e.target.closest('#chrome-dot')) return;
-    hideChrome();
-  });
+  // Full-screen backdrop catches any tap outside the cluster + dot and dismisses.
+  $('chrome-backdrop').addEventListener('click', hideChrome);
 
   // Window resize → relayout (debounced)
   let resizeTimer;
