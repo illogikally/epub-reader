@@ -309,6 +309,14 @@ export function initReaderEvents() {
     toggleChrome();
   });
 
+  // Tap anywhere outside the cluster (and outside the dot) dismisses chrome.
+  document.addEventListener('pointerdown', (e) => {
+    if (!document.body.classList.contains('chrome-visible')) return;
+    if (e.target.closest('#chrome-controls')) return;
+    if (e.target.closest('#chrome-dot')) return;
+    hideChrome();
+  });
+
   // Window resize → relayout (debounced)
   let resizeTimer;
   window.addEventListener('resize', () => {
