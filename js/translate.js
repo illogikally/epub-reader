@@ -391,7 +391,7 @@ function renderActionsBar(phrase, context) {
   popupActions.innerHTML = '';
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
 
-  const formatInstructions = 'The text inside the [] is instructions, you should replace them with actual info';
+  const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
   // [5] [10] [15] — re-run lookup with N sentences of context
   [5].forEach(n => {
     const a = document.createElement('a');
@@ -404,7 +404,7 @@ function renderActionsBar(phrase, context) {
       if (popupBusy || !lastLookup) return;
       const context = extractContextFromRange(lastLookup.range, n);
       const bookMetadata = await runtime.book.loaded.metadata;
-      const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, trả lời súc tích, ngắn gọn:
+      const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, tối đa 50 từ:
       TÁC GIẢ: ${bookMetadata.creator}
       TÁC PHẨM: ${bookMetadata.title}
       TỪ/CỤM TỪ: ${phrase}
@@ -419,18 +419,17 @@ function renderActionsBar(phrase, context) {
     return;
   }
   const items = [
-    ['syn', `List a few synonyms of <${phrase}> in <${ctxNote}>.
-Compare each with <${phrase}>, highlighting nuanced distinctions and providing a short example (include <${phrase}> itself in the list). Be concise.
-
-Use this format (one synonym per line):
-**SYNONYM**:
-• [nuance] *[example]*`, 'Synonyms'],
+    ['syn', `Liệt kê một số từ đồng nghĩa với nghĩa của <${phrase}> trong <${ctxNote}>.
+    So sánh ngắn gọn sự khác biệt giữa <${phrase}> và các từ đồng nghĩa theo mẫu sau, ${formatInstructions}:
+    **SYNONYM**:
+    [synonyms, one each line starting with •, nuance and example, the example should be itatlic].
+    `, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
 **EXAMPLE**:
 [3 examples one each line starting with •, the keyword should be bold]`, 'Examples'],
-    ['use', 'On a scale of 1-100, how often is "' + phrase + '" used in modern English and its register. Be concise. Using this format: **USAGE**: frequency - register', 'Usage frequency'],
-    ['ety', `Briefly explain the etymology of <${phrase}> using this format, ${formatInstructions}: **ETYMOLOGY**: [etymology]. Be concise.`, 'Etymology'],
+    ['use', `Độ thông dụng của ${phrase} trong tiếng anh hiện đại là bao nhiêu (thang 1-100). Be concise. Using this format: **USAGE**: mức dộ - register`, 'Usage frequency'],
+    ['ety', `Giải thích ngắn gọn etymology của <${phrase}> sử dụng mẫu sau: **ETYMOLOGY**: etymology.`, 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
     const a = document.createElement('a');
