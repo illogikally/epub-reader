@@ -240,13 +240,12 @@ export function initUI() {
   const settingsCloseBtn = $('settings-close');
   if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', hideAllDrawers);
 
-  // Pull-down-to-dismiss for mobile bottom sheets
+  // Pull-down-to-dismiss for mobile bottom sheets. Listeners go on the
+  // scrollable element directly; each settings tab panel gets its own.
   attachPullToDismiss(tocDrawer, () => $('toc-list'), hideAllDrawers);
-  attachPullToDismiss(
-    settingsModal,
-    () => settingsModal.querySelector('.tab-panel.active'),
-    hideAllDrawers,
-  );
+  settingsModal.querySelectorAll('.tab-panel').forEach(panel => {
+    attachPullToDismiss(settingsModal, () => panel, hideAllDrawers);
+  });
 
   // Custom event from reader.js (Esc key) closes drawers
   document.addEventListener('reader:hideAllDrawers', hideAllDrawers);
