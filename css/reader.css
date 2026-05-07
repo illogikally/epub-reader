@@ -332,7 +332,7 @@ body.dark-chrome #chrome-controls button {
 
 #settings-tabs {
   display: flex; align-items: center; gap: 2px;
-  padding: 10px 48px 0 10px;
+  padding: 10px 56px 0 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow-x: auto;
