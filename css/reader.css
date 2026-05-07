@@ -332,15 +332,23 @@ body.dark-chrome #chrome-controls button {
 
 #settings-tabs {
   display: flex; align-items: center; gap: 2px;
-  padding: 10px 0 0 16px;
+  padding: 10px 8px 0 16px;
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   overflow-x: auto;
   scrollbar-width: none;
 }
 #settings-tabs::-webkit-scrollbar { display: none; }
-/* Reserved space so tabs never scroll under the absolute-positioned X button. */
-#settings-tabs::after { content: ""; flex: 0 0 56px; }
+/* Sticky X: pinned to the right edge of the visible tabs row.
+   Solid background covers any tab content scrolling underneath. */
+#settings-tabs > #settings-close {
+  position: sticky;
+  right: 0;
+  margin-left: auto;
+  background: var(--bg);
+  box-shadow: -8px 0 8px -4px var(--bg);
+  z-index: 1;
+}
 #settings-tabs button.tab {
   padding: 9px 14px;
   border-radius: 8px 8px 0 0;
@@ -353,12 +361,6 @@ body.dark-chrome #chrome-controls button {
 #settings-tabs button.tab.active {
   color: var(--fg);
   background: var(--surface-soft);
-}
-#settings-modal > #settings-close {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1;
 }
 
 .tab-panel { display: none; padding: 20px 24px 26px; overflow-y: auto; min-height: 0; }
