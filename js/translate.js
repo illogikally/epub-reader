@@ -585,21 +585,58 @@ function findActiveIframeSelection() {
 }
 
 // ============================================================
-// Desktop path: auto-fire on mouseup inside the iframe.
-// On (pointer: coarse) this is a no-op — mobile uses the bubble.
+// Per-iframe selection wiring.
+//
+// Desktop: auto-fire lookup on mouseup with a non-collapsed selection.
+// Mobile: drive the bubble from `selectionchange` (debounced) instead of
+//   a global setInterval — polling 5×/sec while iOS is tracking a
+//   selection-handle drag visibly degrades the gesture recognizer. We also
+//   suppress the bubble while a finger is down on the page so it never
+//   appears under the user's finger mid-drag; it pops in once on touchend.
 // ============================================================
+
+// Module-level: a finger is currently down inside one of the book iframes.
+// Reads/writes are cheap; updateBubble() consults this to skip work.
+let bookTouchActive = false;
+let bubbleSelDebounce = null;
+function scheduleBubbleUpdate(delay = 80) {
+  if (bubbleSelDebounce) clearTimeout(bubbleSelDebounce);
+  bubbleSelDebounce = setTimeout(() => {
+    bubbleSelDebounce = null;
+    updateBubble();
+  }, delay);
+}
+
 export function attachSelectionHandler(doc) {
-  if (isCoarsePointer) return;
   const win = doc.defaultView;
   const iframe = win ? win.frameElement : null;
-  doc.addEventListener('mouseup', () => {
-    // Tiny delay so the browser has finalized the selection range.
-    setTimeout(() => {
-      const sel = doc.getSelection();
-      if (!sel || sel.isCollapsed) return;
-      fireLookupForSelection(sel, doc, iframe);
-    }, 10);
-  });
+
+  if (!isCoarsePointer) {
+    doc.addEventListener('mouseup', () => {
+      // Tiny delay so the browser has finalized the selection range.
+      setTimeout(() => {
+        const sel = doc.getSelection();
+        if (!sel || sel.isCollapsed) return;
+        fireLookupForSelection(sel, doc, iframe);
+      }, 10);
+    });
+    return;
+  }
+
+  // Mobile path
+  doc.addEventListener('touchstart', () => {
+    bookTouchActive = true;
+    hideBubble();
+  }, { passive: true });
+  const onTouchDone = () => {
+    bookTouchActive = false;
+    // Let iOS finalize the selection before we measure the range.
+    scheduleBubbleUpdate(60);
+  };
+  doc.addEventListener('touchend', onTouchDone, { passive: true });
+  doc.addEventListener('touchcancel', onTouchDone, { passive: true });
+
+  doc.addEventListener('selectionchange', () => scheduleBubbleUpdate(80));
 }
 
 // ============================================================
@@ -614,6 +651,9 @@ function updateBubble() {
   if (!translateBubble) return;
   if (!isCoarsePointer) return;
   if (isPopupVisible() || popupBusy) { hideBubble(); return; }
+  // Don't show the bubble under the user's finger while they're still
+  // adjusting the selection — wait for touchend to reposition.
+  if (bookTouchActive) { hideBubble(); return; }
   const found = findActiveIframeSelection();
   if (!found) { hideBubble(); return; }
   let range;
@@ -672,18 +712,8 @@ function fireFromBubble() {
   fireLookupForSelection(found.sel, found.doc, found.ifr);
 }
 
-let selectionPollTimer = null;
-export function startSelectionPolling() {
-  if (selectionPollTimer) return;
-  // Mobile-only: drives bubble visibility. iOS Safari fires selectionchange
-  // unreliably for in-iframe selections, so we poll as a backstop.
-  if (!isCoarsePointer) return;
-  selectionPollTimer = setInterval(updateBubble, 200);
-}
-export function stopSelectionPolling() {
-  if (!selectionPollTimer) return;
-  clearInterval(selectionPollTimer);
-  selectionPollTimer = null;
+export function stopBubble() {
+  if (bubbleSelDebounce) { clearTimeout(bubbleSelDebounce); bubbleSelDebounce = null; }
   hideBubble();
 }
 
@@ -794,13 +824,10 @@ export function initTranslateEvents() {
     });
   }
 
-  // Top-document selectionchange: on mobile (where iframe selectionchange is
-  // unreliable), this drives bubble visibility. Debounced lightly so the
-  // bubble feels snappy without thrashing during handle drag.
-  let bubbleSelTimer;
+  // Top-document selectionchange — backstop for the per-iframe listener
+  // attached in attachSelectionHandler(). Uses the same debounce pipeline.
   document.addEventListener('selectionchange', () => {
     if (!isCoarsePointer) return;
-    clearTimeout(bubbleSelTimer);
-    bubbleSelTimer = setTimeout(updateBubble, 80);
+    scheduleBubbleUpdate(80);
   });
 }

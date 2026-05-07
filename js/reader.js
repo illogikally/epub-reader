@@ -12,7 +12,7 @@ import { applyBookTheme } from './theme.js';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
-  startSelectionPolling, stopSelectionPolling,
+  stopBubble,
   buildToc,
 } from './translate.js';
 import { renderLibrary } from './library.js';
@@ -83,7 +83,6 @@ export async function openBookFromDb(id) {
 
     const nav = await runtime.book.loaded.navigation;
     buildToc(nav.toc || []);
-    startSelectionPolling();
   } catch (err) {
     console.error(err);
     alert('Could not open this EPUB:\n' + err.message);
@@ -95,7 +94,7 @@ export async function openBookFromDb(id) {
 }
 
 export async function closeBook() {
-  stopSelectionPolling();
+  stopBubble();
   if (runtime.rendition) { try { runtime.rendition.destroy(); } catch {} runtime.rendition = null; }
   if (runtime.book) { try { runtime.book.destroy(); } catch {} runtime.book = null; }
   viewer.innerHTML = '';

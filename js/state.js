@@ -91,80 +91,80 @@ export function escapeHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
-// Pull-down-to-dismiss for mobile bottom sheets. Listeners attach to
-// `eventTarget` (the scrollable area itself, to avoid interfering with iOS
-// momentum scrolling on parent fixed elements). When that scrollEl is at the
-// top and the user drags down past `threshold`, the `sheet` slides out and
-// `onDismiss` runs. Below threshold, snap back. Mobile-only.
+// Pull-down-to-dismiss for mobile bottom sheets. Listeners attach to the sheet
+// so any touch on the bottom-sheet area is observed. When the inner scrollEl
+// is at scrollTop 0 and the user drags down past `threshold`, the sheet slides
+// out and `onDismiss` runs. Below threshold, snap back. Mobile-only.
 export function attachPullToDismiss(sheet, getScrollEl, onDismiss, threshold = 100) {
   let startY = null;
   let dragging = false;
   let dy = 0;
-  let activeScroll = null;
   const isMobile = () =>
     window.matchMedia('(max-width: 599px), (pointer: coarse)').matches;
 
-  const onStart = (e) => {
+  // If text is currently selected (e.g. inside the popup), the user is most
+  // likely trying to extend that selection — not dismiss the sheet. Bail so
+  // their drag goes to the OS selection-handle recognizer instead.
+  const hasActiveSelection = () => {
+    try {
+      const s = window.getSelection();
+      return !!(s && !s.isCollapsed && s.toString().trim());
+    } catch { return false; }
+  };
+
+  sheet.addEventListener('touchstart', (e) => {
     if (!isMobile() || e.touches.length !== 1) { startY = null; return; }
+    if (hasActiveSelection()) { startY = null; return; }
     const sc = getScrollEl();
-    if (!sc || sc.scrollTop > 0) { startY = null; return; }
-    activeScroll = sc;
+    if (sc && sc.scrollTop > 0) { startY = null; return; }
     startY = e.touches[0].clientY;
     dragging = false;
     dy = 0;
-  };
+  }, { passive: true });
 
-  const onMove = (e) => {
+  sheet.addEventListener('touchmove', (e) => {
     if (startY === null) return;
+    // Selection started mid-touch (long-press) — back off before we steal it.
+    if (!dragging && hasActiveSelection()) { startY = null; return; }
     dy = e.touches[0].clientY - startY;
     if (dy <= 0) {
       if (dragging) { sheet.style.transform = ''; dragging = false; }
       return;
     }
-    if (!dragging && activeScroll && activeScroll.scrollTop > 0) {
-      startY = null; return;
-    }
+    const sc = getScrollEl();
+    if (!dragging && sc && sc.scrollTop > 0) { startY = null; return; }
     dragging = true;
     sheet.style.transition = 'none';
     sheet.style.transform = `translateY(${dy}px)`;
-  };
+  }, { passive: true });
 
-  const onEnd = () => {
+  const finish = () => {
     if (startY === null) return;
     if (dragging) {
       if (dy > threshold) {
         sheet.style.transition = 'transform 0.2s ease';
         sheet.style.transform = 'translateY(100%)';
-        const fn = (ev) => {
+        const onEnd = (ev) => {
           if (ev.propertyName !== 'transform') return;
-          sheet.removeEventListener('transitionend', fn);
+          sheet.removeEventListener('transitionend', onEnd);
           onDismiss();
           sheet.style.transition = '';
           sheet.style.transform = '';
         };
-        sheet.addEventListener('transitionend', fn);
+        sheet.addEventListener('transitionend', onEnd);
       } else {
         sheet.style.transition = 'transform 0.15s ease';
         sheet.style.transform = '';
         setTimeout(() => { sheet.style.transition = ''; }, 200);
       }
     }
-    startY = null; dragging = false; dy = 0; activeScroll = null;
+    startY = null; dragging = false; dy = 0;
   };
-
-  const onCancel = () => {
+  sheet.addEventListener('touchend', finish, { passive: true });
+  sheet.addEventListener('touchcancel', () => {
     if (dragging) { sheet.style.transition = ''; sheet.style.transform = ''; }
-    startY = null; dragging = false; dy = 0; activeScroll = null;
-  };
-
-  // Attach to the scroll element directly when it's static (TOC, popup),
-  // or fall back to the sheet for settings (where the active tab panel changes).
-  const initial = getScrollEl();
-  const target = initial || sheet;
-  target.addEventListener('touchstart', onStart, { passive: true });
-  target.addEventListener('touchmove',  onMove,  { passive: true });
-  target.addEventListener('touchend',   onEnd,   { passive: true });
-  target.addEventListener('touchcancel', onCancel, { passive: true });
+    startY = null; dragging = false; dy = 0;
+  }, { passive: true });
 }
 
 // ============================================================
