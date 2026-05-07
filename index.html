@@ -33,24 +33,23 @@
   <div id="zone-right" title="Next page"></div>
   <div id="page-indicator"></div>
 
-  <!-- Full-screen backdrop: only catches taps when chrome is visible, dismisses it. -->
-  <div id="chrome-backdrop"></div>
-
   <!-- Small persistent dot in the bottom-right — tapping it shows/hides #chrome-controls. -->
   <button id="chrome-dot" title="Show controls" aria-label="Show controls"></button>
 
-  <!-- Bottom-right floating controls (back / toc / settings).
-       Visible only when body.chrome-visible — toggled by tapping #chrome-dot. -->
-  <div id="chrome-controls">
-    <button id="btn-library" title="Library">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
-    </button>
-    <button id="btn-toc" title="Contents">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
-    </button>
-    <button id="btn-settings" title="Settings">
-      <svg class="icon" viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
-    </button>
+  <!-- Full-screen dimmed wrapper containing the floating buttons. Tapping the
+       wrapper background dismisses the cluster; tapping a button runs its handler. -->
+  <div id="chrome-wrap">
+    <div id="chrome-controls">
+      <button id="btn-library" title="Library">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M19 12H5"/><path d="M12 19l-7-7 7-7"/></svg>
+      </button>
+      <button id="btn-toc" title="Contents">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h.01"/><path d="M3 12h.01"/><path d="M3 18h.01"/></svg>
+      </button>
+      <button id="btn-settings" title="Settings">
+        <svg class="icon" viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+      </button>
+    </div>
   </div>
 
   <!-- Mobile-only: appears near the active selection so the user can

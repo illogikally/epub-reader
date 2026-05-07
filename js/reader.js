@@ -315,8 +315,11 @@ export function initReaderEvents() {
     toggleChrome();
   });
 
-  // Full-screen backdrop catches any tap outside the cluster + dot and dismisses.
-  $('chrome-backdrop').addEventListener('click', hideChrome);
+  // Wrapper catches taps on the dimmed background; clicks on the buttons inside
+  // bubble up but are filtered out by the target === currentTarget check.
+  $('chrome-wrap').addEventListener('click', (e) => {
+    if (e.target === e.currentTarget) hideChrome();
+  });
 
   // Window resize → relayout (debounced)
   let resizeTimer;

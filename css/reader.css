@@ -205,14 +205,18 @@ button {
 /* ============================================================
    Floating chrome controls (bottom-right)
    ============================================================ */
-/* Full-screen backdrop. Inert by default; activates when chrome-visible
-   so any tap outside the cluster (and outside the dot) dismisses chrome. */
-#chrome-backdrop {
+/* Full-screen dimmed wrapper that contains the floating buttons. Tapping the
+   wrapper background dismisses the cluster (handler in reader.js checks that
+   e.target === the wrap, so button clicks aren't swallowed). */
+#chrome-wrap {
   position: fixed; inset: 0; z-index: 9;
-  background: transparent;
-  pointer-events: none;
+  background: rgba(0, 0, 0, 0.18);
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.18s ease;
 }
-body.chrome-visible #chrome-backdrop { pointer-events: auto; }
+body.chrome-visible #chrome-wrap {
+  opacity: 1; pointer-events: auto;
+}
 
 /* Persistent dot — always visible, tapping it shows/hides chrome-controls. */
 #chrome-dot {
