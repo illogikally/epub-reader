@@ -696,20 +696,14 @@ function updateBubble() {
   const bh = translateBubble.offsetHeight;
 
   const margin = 8;
-  // Prefer below the selection — iOS's native action bar appears above,
-  // so this avoids visual collision. Flip above if there's no room.
-  const canBelow = selBottom + bh + margin <= window.innerHeight;
-  const canAbove = selTop - bh - margin >= margin;
-  let top;
-  if (canBelow) {
-    top = selBottom + margin;
-  } else if (canAbove) {
-    top = selTop - bh - margin;
-  } else {
-    top = Math.max(margin, window.innerHeight - bh - margin);
-  }
-  translateBubble.classList.toggle('bubble-below', canBelow);
-  translateBubble.classList.toggle('bubble-above', !canBelow && canAbove);
+  // Always below — iOS's native callout sits above the selection, so
+  // flipping our bubble above (last-line case) used to collide with it.
+  // If there isn't room for the full bubble below, clamp to the bottom
+  // of the viewport rather than flipping.
+  const top = Math.min(
+    Math.max(margin, selBottom + margin),
+    window.innerHeight - bh - margin,
+  );
   let left = selCenterX - bw / 2;
   left = Math.max(margin, Math.min(window.innerWidth - bw - margin, left));
   translateBubble.style.left = left + 'px';

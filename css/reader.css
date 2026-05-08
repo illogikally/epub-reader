@@ -573,16 +573,10 @@ body.dark-chrome #chrome-controls button {
   width: 10px; height: 10px;
   background: var(--bg);
   left: 50%; margin-left: -5px;
-  transform: rotate(45deg);
-  pointer-events: none;
-}
-#translate-bubble.bubble-below::before {
   top: -5px;
+  transform: rotate(45deg);
   box-shadow: -1px -1px 0 var(--border);
-}
-#translate-bubble.bubble-above::before {
-  bottom: -5px;
-  box-shadow: 1px 1px 0 var(--border);
+  pointer-events: none;
 }
 @media (pointer: fine) {
   #translate-bubble { display: none !important; }
