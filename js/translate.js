@@ -588,20 +588,16 @@ function findActiveIframeSelection() {
 // Per-iframe selection wiring.
 //
 // Desktop: auto-fire lookup on mouseup with a non-collapsed selection.
-// Mobile: drive the bubble from selectionchange, debounced. The
-//   listener stays attached at all times — iOS sometimes swallows
-//   touchend when it engages its native long-press gesture, so we can't
-//   rely on touch events alone to know when to re-show the bubble.
-//   While a finger is down on the page, the handler returns immediately
-//   (no scheduling, no DOM work) and the bubble stays hidden, so the
-//   gesture recognizer is uncontested. The bubble pops in once on
-//   touchend and on subsequent selectionchange events.
+// Mobile: drive the bubble from a debounced selectionchange. During an
+//   iOS handle drag, selectionchange fires constantly and the debounce
+//   keeps resetting, so the bubble stays hidden until the selection has
+//   been stable for `delay` ms. No touch-event gating — iOS swallows
+//   touchend in some long-press flows and any flag tied to it gets
+//   stuck.
 // ============================================================
 
-let bookTouchActive = false;
 let bubbleSelDebounce = null;
-function scheduleBubbleUpdate(delay = 80) {
-  if (bookTouchActive) return;
+function scheduleBubbleUpdate(delay = 200) {
   if (bubbleSelDebounce) clearTimeout(bubbleSelDebounce);
   bubbleSelDebounce = setTimeout(() => {
     bubbleSelDebounce = null;
@@ -625,21 +621,7 @@ export function attachSelectionHandler(doc) {
     return;
   }
 
-  // Mobile path
-  doc.addEventListener('touchstart', () => {
-    bookTouchActive = true;
-    if (bubbleSelDebounce) { clearTimeout(bubbleSelDebounce); bubbleSelDebounce = null; }
-    hideBubble();
-  }, { passive: true });
-  const onTouchDone = () => {
-    bookTouchActive = false;
-    // Let iOS finalize the selection before we measure the range.
-    scheduleBubbleUpdate(60);
-  };
-  doc.addEventListener('touchend', onTouchDone, { passive: true });
-  doc.addEventListener('touchcancel', onTouchDone, { passive: true });
-
-  doc.addEventListener('selectionchange', () => scheduleBubbleUpdate(80));
+  doc.addEventListener('selectionchange', () => scheduleBubbleUpdate());
 }
 
 // ============================================================
