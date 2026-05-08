@@ -805,4 +805,12 @@ export function initTranslateEvents() {
       fireBubbleLookup();
     });
   }
+
+  // Top-document selectionchange backstop. iOS Safari sometimes fires
+  // selectionchange only on the top document for in-iframe selections,
+  // not on the iframe's own document. Listening here as well guarantees
+  // we hear it; updateBubble walks the iframes to find the active one.
+  if (isCoarsePointer) {
+    document.addEventListener('selectionchange', () => scheduleBubbleUpdate());
+  }
 }
