@@ -588,40 +588,24 @@ function findActiveIframeSelection() {
 // Per-iframe selection wiring.
 //
 // Desktop: auto-fire lookup on mouseup with a non-collapsed selection.
-// Mobile: drive the bubble from a debounced selectionchange. During an
-//   iOS handle drag, selectionchange fires constantly and the debounce
-//   keeps resetting, so the bubble stays hidden until the selection has
-//   been stable for `delay` ms. No touch-event gating — iOS swallows
-//   touchend in some long-press flows and any flag tied to it gets
-//   stuck.
+// Mobile: nothing wired here — selectionchange does not fire reliably
+//   inside epub.js's blob iframes on iOS. The bubble is driven by a
+//   200ms polling interval started from initTranslateEvents() instead.
 // ============================================================
 
-let bubbleSelDebounce = null;
-function scheduleBubbleUpdate(delay = 200) {
-  if (bubbleSelDebounce) clearTimeout(bubbleSelDebounce);
-  bubbleSelDebounce = setTimeout(() => {
-    bubbleSelDebounce = null;
-    updateBubble();
-  }, delay);
-}
-
 export function attachSelectionHandler(doc) {
+  if (isCoarsePointer) return;
+
   const win = doc.defaultView;
   const iframe = win ? win.frameElement : null;
-
-  if (!isCoarsePointer) {
-    doc.addEventListener('mouseup', () => {
-      // Tiny delay so the browser has finalized the selection range.
-      setTimeout(() => {
-        const sel = doc.getSelection();
-        if (!sel || sel.isCollapsed) return;
-        fireLookupForSelection(sel, doc, iframe);
-      }, 10);
-    });
-    return;
-  }
-
-  doc.addEventListener('selectionchange', () => scheduleBubbleUpdate());
+  doc.addEventListener('mouseup', () => {
+    // Tiny delay so the browser has finalized the selection range.
+    setTimeout(() => {
+      const sel = doc.getSelection();
+      if (!sel || sel.isCollapsed) return;
+      fireLookupForSelection(sel, doc, iframe);
+    }, 10);
+  });
 }
 
 // ============================================================
@@ -632,14 +616,58 @@ function hideBubble() {
   if (translateBubble) translateBubble.hidden = true;
 }
 
+// Polling state. lastSelText: text from last tick, used for stability check.
+// bubblePositionedFor: text the bubble is currently positioned for, or null.
+// During a handle drag the text changes every tick → cheap path only,
+// no layout reads, no style writes. After it stabilizes for one full
+// tick, the heavy path runs once and positions the bubble.
+let bubbleInterval = null;
+let lastSelText = '';
+let bubblePositionedFor = null;
+
 function updateBubble() {
   if (!translateBubble) return;
   if (!isCoarsePointer) return;
-  if (isPopupVisible() || popupBusy) { hideBubble(); return; }
+  if (isPopupVisible() || popupBusy) {
+    if (bubblePositionedFor !== null) hideBubble();
+    bubblePositionedFor = null;
+    lastSelText = '';
+    return;
+  }
   const found = findActiveIframeSelection();
-  if (!found) { hideBubble(); return; }
+  if (!found) {
+    if (bubblePositionedFor !== null) hideBubble();
+    bubblePositionedFor = null;
+    lastSelText = '';
+    return;
+  }
+
+  // Cheap read — text only, no layout.
+  let text;
+  try { text = found.sel.toString().trim(); } catch { return; }
+  if (!text) {
+    if (bubblePositionedFor !== null) hideBubble();
+    bubblePositionedFor = null;
+    lastSelText = '';
+    return;
+  }
+
+  // Selection still changing → keep bubble hidden, do no layout work.
+  if (text !== lastSelText) {
+    lastSelText = text;
+    if (bubblePositionedFor !== null) {
+      hideBubble();
+      bubblePositionedFor = null;
+    }
+    return;
+  }
+
+  // Text equal to lastSelText AND already positioned → nothing to do.
+  if (bubblePositionedFor === text) return;
+
+  // Heavy path: selection has been stable for a full tick. Measure + position.
   let range;
-  try { range = found.sel.getRangeAt(0); } catch { hideBubble(); return; }
+  try { range = found.sel.getRangeAt(0); } catch { return; }
   const rect = range.getBoundingClientRect();
   const ifrRect = found.ifr.getBoundingClientRect();
   const selTop    = rect.top    + ifrRect.top;
@@ -650,7 +678,7 @@ function updateBubble() {
   // the user taps the bubble, so we capture text + range + meta here while
   // the selection is still live. Text string is the safest primary source.
   try {
-    capturedBubbleText  = found.sel.toString().trim();
+    capturedBubbleText  = text;
     capturedBubbleRange = range.cloneRange();
     capturedBubbleMeta  = { doc: found.doc, ifr: found.ifr };
   } catch {
@@ -686,6 +714,7 @@ function updateBubble() {
   left = Math.max(margin, Math.min(window.innerWidth - bw - margin, left));
   translateBubble.style.left = left + 'px';
   translateBubble.style.top = top + 'px';
+  bubblePositionedFor = text;
 }
 
 function fireFromBubble() {
@@ -694,8 +723,16 @@ function fireFromBubble() {
   fireLookupForSelection(found.sel, found.doc, found.ifr);
 }
 
+function startBubblePolling() {
+  if (bubbleInterval) return;
+  if (!isCoarsePointer) return;
+  bubbleInterval = setInterval(updateBubble, 200);
+}
+
 export function stopBubble() {
-  if (bubbleSelDebounce) { clearTimeout(bubbleSelDebounce); bubbleSelDebounce = null; }
+  if (bubbleInterval) { clearInterval(bubbleInterval); bubbleInterval = null; }
+  lastSelText = '';
+  bubblePositionedFor = null;
   hideBubble();
 }
 
@@ -806,11 +843,11 @@ export function initTranslateEvents() {
     });
   }
 
-  // Top-document selectionchange backstop. iOS Safari sometimes fires
-  // selectionchange only on the top document for in-iframe selections,
-  // not on the iframe's own document. Listening here as well guarantees
-  // we hear it; updateBubble walks the iframes to find the active one.
-  if (isCoarsePointer) {
-    document.addEventListener('selectionchange', () => scheduleBubbleUpdate());
-  }
+  // Mobile: poll for selection changes. selectionchange does not fire
+  // reliably inside epub.js's blob iframes on iOS, so polling is the
+  // only mechanism that consistently triggers the bubble. updateBubble
+  // does only a getSelection().toString() read on most ticks; the
+  // expensive layout/positioning work runs only after the selection has
+  // been stable for one full tick.
+  startBubblePolling();
 }
