@@ -588,12 +588,14 @@ function findActiveIframeSelection() {
 // Per-iframe selection wiring.
 //
 // Desktop: auto-fire lookup on mouseup with a non-collapsed selection.
-// Mobile: drive the bubble strictly from touchend — no selectionchange
-//   listener, no polling. Any JS handler tied to selection events runs on
-//   iOS's main thread and competes with its native handle gesture
-//   recognizer, which is exactly what makes the selection feel frozen.
-//   The bubble only needs to (re)appear when the finger lifts, so wire it
-//   there and leave the drag itself completely untouched by JS.
+// Mobile: drive the bubble from selectionchange, but only while no finger
+//   is on the page. Attaching a selectionchange listener during an iOS
+//   handle drag is what makes the selection feel frozen — even a no-op
+//   handler routes every event through V8 and competes with the native
+//   gesture recognizer. So we DETACH on touchstart and RE-ATTACH on
+//   touchend/touchcancel. During the drag there's literally no JS in the
+//   path; afterwards selectionchange catches iOS's late "selection
+//   finalized" events that touchend itself can miss.
 // ============================================================
 
 let bubbleSelDebounce = null;
@@ -621,10 +623,28 @@ export function attachSelectionHandler(doc) {
     return;
   }
 
-  // Mobile path — only react to touchend. Hide on touchstart (cheap, just
-  // flips a `hidden` attr) so the bubble never sits under the finger.
-  doc.addEventListener('touchstart', hideBubble, { passive: true });
+  // Mobile path
+  const onSelChange = () => scheduleBubbleUpdate(60);
+  let selChangeAttached = false;
+  const detachSelChange = () => {
+    if (!selChangeAttached) return;
+    doc.removeEventListener('selectionchange', onSelChange);
+    selChangeAttached = false;
+  };
+  const attachSelChange = () => {
+    if (selChangeAttached) return;
+    doc.addEventListener('selectionchange', onSelChange);
+    selChangeAttached = true;
+  };
+  attachSelChange();
+
+  doc.addEventListener('touchstart', () => {
+    detachSelChange();
+    if (bubbleSelDebounce) { clearTimeout(bubbleSelDebounce); bubbleSelDebounce = null; }
+    hideBubble();
+  }, { passive: true });
   const onTouchDone = () => {
+    attachSelChange();
     // Let iOS finalize the selection before we measure the range.
     scheduleBubbleUpdate(60);
   };
