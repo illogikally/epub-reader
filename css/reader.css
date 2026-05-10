@@ -634,6 +634,15 @@ body.dark-chrome #chrome-controls button {
   }
 }
 
+/* Desktop: no backdrop, no click-outside capture — selection stays usable. */
+#popup-wrapper:has(#popup:not(.mobile)) {
+  background-color: transparent;
+  pointer-events: none;
+}
+#popup-wrapper:has(#popup:not(.mobile)) #popup {
+  pointer-events: auto;
+}
+
 #popup {
   position: fixed;
   width: 420px; max-width: calc(100vw - 24px);
