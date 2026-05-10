@@ -342,7 +342,6 @@ export function initUI() {
     settings.selectedModelIdx = parseInt(modelSelect.value);
     persistSettings();
   });
-  bindKeyInput('key-gemini', 'GEMINI_API_KEY');
   bindKeyInput('key-groq', 'GROQ_API_KEY');
 
   // ---- Custom CSS ----

@@ -205,6 +205,12 @@ function handleKey(e) {
     hidePopup();
     return;
   }
+  // Don't hijack arrows / page nav while the user is typing in a form field
+  // (settings inputs, custom-CSS textarea, popup input, etc.).
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) {
+    return;
+  }
   if (!runtime.rendition) return;
   if (['ArrowRight', 'PageDown'].includes(e.key)) {
     e.preventDefault();

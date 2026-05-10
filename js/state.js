@@ -45,7 +45,7 @@ const defaultSettings = {
   layout: 'single',
   contextSentences: 1,
   selectedModelIdx: DEFAULT_MODEL_INDEX,
-  apiKeys: { GEMINI_API_KEY: '', GROQ_API_KEY: '' },
+  apiKeys: { GROQ_API_KEY: '' },
   customCss: '',
   customThemes: [],   // [{ name, bg, fg }]
 };
