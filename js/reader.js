@@ -26,25 +26,15 @@ const loading = $('loading');
 // ============================================================
 // Chrome controls (bottom-right floating buttons)
 // ============================================================
-const CHROME_AUTO_HIDE_MS = 4000;
-let chromeHideTimer;
-
-export function showChrome(autoHide) {
+export function showChrome() {
   document.body.classList.add('chrome-visible');
-  clearTimeout(chromeHideTimer);
-  if (autoHide) {
-    chromeHideTimer = setTimeout(() => {
-      document.body.classList.remove('chrome-visible');
-    }, CHROME_AUTO_HIDE_MS);
-  }
 }
 export function hideChrome() {
   document.body.classList.remove('chrome-visible');
-  clearTimeout(chromeHideTimer);
 }
 export function toggleChrome() {
   if (document.body.classList.contains('chrome-visible')) hideChrome();
-  else showChrome(true);
+  else showChrome();
 }
 
 // ============================================================
