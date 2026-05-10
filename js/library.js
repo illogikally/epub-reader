@@ -90,6 +90,9 @@ export async function renderLibrary() {
       if (!confirm(`Remove "${b.title}"?`)) return;
       await dbDelete(b.id);
       localStorage.removeItem(`reader-progress-${b.id}`);
+      if (localStorage.getItem('reader-last-book') === b.id) {
+        localStorage.removeItem('reader-last-book');
+      }
       await renderLibrary();
     });
     libraryGrid.appendChild(card);

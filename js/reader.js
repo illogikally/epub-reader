@@ -68,6 +68,7 @@ export async function openBookFromDb(id) {
 
     const savedCfi = localStorage.getItem(`reader-progress-${runtime.currentBookKey}`);
     await runtime.rendition.display(savedCfi || undefined);
+    localStorage.setItem('reader-last-book', id);
     requestAnimationFrame(() => { try { runtime.rendition.resize(); } catch {} });
     setTimeout(() => { try { runtime.rendition && runtime.rendition.resize(); } catch {} }, 80);
 
@@ -98,6 +99,9 @@ export async function closeBook() {
   if (runtime.book) { try { runtime.book.destroy(); } catch {} runtime.book = null; }
   viewer.innerHTML = '';
   pageIndicator.textContent = '';
+  // Going back to the library is an explicit choice — clear the
+  // auto-resume marker so a refresh from here lands on the library.
+  localStorage.removeItem('reader-last-book');
   // Reset chrome / drawers / settings modal so reopening a book doesn't carry
   // over the previous session's open panels.
   hideChrome();
