@@ -74,15 +74,11 @@ export async function openBookFromDb(id) {
 
     const nav = await runtime.book.loaded.navigation;
     buildToc(nav.toc || []);
-
-    // Build a book-wide location map in the background so the page indicator
-    // can show "page N / total" across the whole book instead of per-chapter.
-    // ~1024 chars/page is epub.js's standard. Refresh the indicator when ready.
-    const bookForLocations = runtime.book;
-    bookForLocations.locations.generate(1024).then(() => {
-      if (runtime.book !== bookForLocations || !runtime.rendition) return;
-      try { updatePageIndicator(runtime.rendition.currentLocation()); } catch {}
-    }).catch(() => {});
+    // Note: book.locations.generate() used to run here to power a "page N /
+    // total" indicator, but in epubjs 0.3.x it parses every spine section on
+    // the main thread (5–30s of bursty work for a novel) and starves iOS's
+    // selection-handle drag handling, freezing the UI mid-gesture. We use
+    // loc.start.percentage instead — free from epubjs on every relocate.
   } catch (err) {
     console.error(err);
     alert('Could not open this EPUB:\n' + err.message);
@@ -113,23 +109,16 @@ export async function closeBook() {
   document.title = 'Xulgon'
 }
 
-// Book-wide page indicator. We deliberately don't fall back to the
-// per-chapter count from loc.start.displayed — showing 3/12 then jumping to
-// 412/3000 is more confusing than just waiting. Stays blank until
-// book.locations.generate() finishes (a few seconds), then renders.
+// Spine-position percentage from epubjs. Available on every relocated event
+// without book.locations.generate() — that call is too expensive on iOS
+// (see openBookFromDb).
 function updatePageIndicator(loc) {
-  const cfi = loc?.start?.cfi;
-  const total = runtime.book?.locations?.length?.();
-  if (cfi && total) {
-    try {
-      const idx = runtime.book.locations.locationFromCfi(cfi);
-      if (idx >= 0) {
-        pageIndicator.textContent = `${idx + 1} / ${total}`;
-        return;
-      }
-    } catch {}
+  const pct = loc?.start?.percentage;
+  if (typeof pct === 'number' && pct >= 0 && pct <= 1) {
+    pageIndicator.textContent = `${Math.round(pct * 100)}%`;
+  } else {
+    pageIndicator.textContent = '';
   }
-  pageIndicator.textContent = '';
 }
 
 export function createRendition() {
