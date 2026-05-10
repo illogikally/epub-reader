@@ -172,7 +172,6 @@ function attachInputHandlers(doc) {
   // Tap-to-toggle-chrome — touch path (mobile)
   // ============================================================
   let touchStart = null;     // { x, y, t } for the current touch
-  let recentTouchTime = 0;   // when our touch handler last fired
 
   doc.addEventListener('touchstart', e => {
     if (e.touches.length !== 1) { touchStart = null; return; }
@@ -190,7 +189,6 @@ function attachInputHandlers(doc) {
     const dy = Math.abs(c.clientY - touchStart.y);
     const dt = Date.now() - touchStart.t;
     touchStart = null;
-    recentTouchTime = Date.now();
     // Filter out drags / long presses / non-tap gestures
     if (dt > 350 || dx > 10 || dy > 10) return;
     // Dedup: skip if the top-level viewer handler already toggled this tap
@@ -198,44 +196,8 @@ function attachInputHandlers(doc) {
     if (now2 - lastToggleTapTime < 400) return;
     if (!shouldToggleChrome(doc)) return;
     lastToggleTapTime = now2;
-    // Cancel any pending desktop-style deferred toggle that may have been
-    // queued by a late synthetic click, then fire immediately. There's no
-    // dblclick gesture on touch, so no need to wait.
-    if (pendingToggle) { clearTimeout(pendingToggle); pendingToggle = null; }
     toggleChrome();
   }, { passive: true });
-
-  // ============================================================
-  // Tap-to-toggle-chrome — desktop click path
-  // ============================================================
-  let pendingToggle = null;
-
-  doc.addEventListener('click', () => {
-    // Skip the click if it was synthesized from a touchend we already handled.
-    // Mobile browsers fire click ~300ms after touchend; the 700ms window is
-    // generous to cover slow synthesis on older iOS.
-    if (Date.now() - recentTouchTime < 700) return;
-    if (!shouldToggleChrome(doc)) return;
-    // If chrome is visible, hide immediately — defer is only needed when
-    // showing, so a dblclick (word-select for translation) can cancel.
-    if (document.body.classList.contains('chrome-visible')) {
-      if (pendingToggle) { clearTimeout(pendingToggle); pendingToggle = null; }
-      hideChrome();
-      return;
-    }
-    if (pendingToggle) clearTimeout(pendingToggle);
-    pendingToggle = setTimeout(() => {
-      pendingToggle = null;
-      toggleChrome();
-    }, 230);
-  });
-
-  doc.addEventListener('dblclick', () => {
-    if (pendingToggle) {
-      clearTimeout(pendingToggle);
-      pendingToggle = null;
-    }
-  });
 }
 
 function handleKey(e) {
