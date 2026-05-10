@@ -99,36 +99,36 @@
         </select>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Font size</span>
-          <span class="setting-value" id="font-size-value">18px</span>
-        </div>
-        <input type="range" id="font-size" min="10" max="40" step="1" value="18">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Font size</span>
+        <span class="setting-value" id="font-size-value">18px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="font-size" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="font-size" aria-label="Increase">+</button>
+        <input type="range" id="font-size" min="10" max="40" step="1" value="18" hidden>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Line height</span>
-          <span class="setting-value" id="line-height-value">1.5</span>
-        </div>
-        <input type="range" id="line-height" min="1" max="2.5" step="0.05" value="1.5">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Line height</span>
+        <span class="setting-value" id="line-height-value">1.5</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="line-height" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="line-height" aria-label="Increase">+</button>
+        <input type="range" id="line-height" min="1" max="2.5" step="0.05" value="1.5" hidden>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Letter spacing</span>
-          <span class="setting-value" id="letter-spacing-value">0px</span>
-        </div>
-        <input type="range" id="letter-spacing" min="-1" max="6" step="0.1" value="0">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Letter spacing</span>
+        <span class="setting-value" id="letter-spacing-value">0px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="letter-spacing" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="letter-spacing" aria-label="Increase">+</button>
+        <input type="range" id="letter-spacing" min="-1" max="6" step="0.1" value="0" hidden>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Word spacing</span>
-          <span class="setting-value" id="word-spacing-value">0px</span>
-        </div>
-        <input type="range" id="word-spacing" min="-2" max="20" step="0.5" value="0">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Word spacing</span>
+        <span class="setting-value" id="word-spacing-value">0px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="word-spacing" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="word-spacing" aria-label="Increase">+</button>
+        <input type="range" id="word-spacing" min="-2" max="20" step="0.5" value="0" hidden>
       </div>
     </div>
 
@@ -142,36 +142,36 @@
         </div>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Margin top</span>
-          <span class="setting-value" id="pad-top-value">44px</span>
-        </div>
-        <input type="range" id="pad-top" min="0" max="200" step="2" value="44">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Margin top</span>
+        <span class="setting-value" id="pad-top-value">44px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="pad-top" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="pad-top" aria-label="Increase">+</button>
+        <input type="range" id="pad-top" min="0" max="200" step="2" value="44" hidden>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Margin bottom</span>
-          <span class="setting-value" id="pad-bottom-value">44px</span>
-        </div>
-        <input type="range" id="pad-bottom" min="0" max="200" step="2" value="44">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Margin bottom</span>
+        <span class="setting-value" id="pad-bottom-value">44px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="pad-bottom" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="pad-bottom" aria-label="Increase">+</button>
+        <input type="range" id="pad-bottom" min="0" max="200" step="2" value="44" hidden>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Margin left</span>
-          <span class="setting-value" id="pad-left-value">24px</span>
-        </div>
-        <input type="range" id="pad-left" min="0" max="200" step="2" value="24">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Margin left</span>
+        <span class="setting-value" id="pad-left-value">24px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="pad-left" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="pad-left" aria-label="Increase">+</button>
+        <input type="range" id="pad-left" min="0" max="200" step="2" value="24" hidden>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Margin right</span>
-          <span class="setting-value" id="pad-right-value">24px</span>
-        </div>
-        <input type="range" id="pad-right" min="0" max="200" step="2" value="24">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Margin right</span>
+        <span class="setting-value" id="pad-right-value">24px</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="pad-right" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="pad-right" aria-label="Increase">+</button>
+        <input type="range" id="pad-right" min="0" max="200" step="2" value="24" hidden>
       </div>
     </div>
 
@@ -216,12 +216,12 @@
         <select id="model-select"></select>
       </div>
 
-      <div class="setting">
-        <div class="setting-label">
-          <span>Context length</span>
-          <span class="setting-value" id="context-length-value">1 sentence</span>
-        </div>
-        <input type="range" id="context-length" min="0" max="10" step="1" value="1">
+      <div class="setting setting-stepper">
+        <span class="setting-label-line">Context length</span>
+        <span class="setting-value" id="context-length-value">1 sentence</span>
+        <button type="button" class="step-btn" data-step="-1" data-for="context-length" aria-label="Decrease">−</button>
+        <button type="button" class="step-btn" data-step="1" data-for="context-length" aria-label="Increase">+</button>
+        <input type="range" id="context-length" min="0" max="10" step="1" value="1" hidden>
       </div>
 
       <div class="setting">

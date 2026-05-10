@@ -144,6 +144,30 @@ function bindPaddingSlider(id, key) {
   });
 }
 
+// One delegated click handler for every .step-btn. Buttons reference their
+// hidden range input via data-for; clicking bumps input.value by data-step *
+// input.step (clamped to min/max) and dispatches 'input' so the existing
+// bindSlider/bindLineHeight/bindPaddingSlider/bindContextLength listeners run.
+function bindStepperButtons() {
+  document.querySelectorAll('.step-btn[data-for]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const input = $(btn.dataset.for);
+      if (!input) return;
+      const stepUnit = parseFloat(input.step) || 1;
+      const dir = parseFloat(btn.dataset.step) || 0;
+      const min = input.min === '' ? -Infinity : parseFloat(input.min);
+      const max = input.max === '' ?  Infinity : parseFloat(input.max);
+      let next = (parseFloat(input.value) || 0) + dir * stepUnit;
+      next = Math.max(min, Math.min(max, next));
+      // Round to the same precision as `step` to avoid float drift.
+      const decimals = (String(input.step).split('.')[1] || '').length;
+      next = parseFloat(next.toFixed(decimals));
+      input.value = next;
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+  });
+}
+
 function bindContextLength() {
   const input = $('context-length');
   const valueEl = $('context-length-value');
@@ -343,6 +367,9 @@ export function initUI() {
     persistSettings();
   });
   bindKeyInput('key-groq', 'GROQ_API_KEY');
+
+  // ---- Stepper buttons (drive the hidden range inputs) ----
+  bindStepperButtons();
 
   // ---- Custom CSS ----
   bindCustomCss();

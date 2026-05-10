@@ -400,6 +400,41 @@ body.dark-chrome #chrome-controls button {
   letter-spacing: 0;
 }
 
+/* Stepper row: label · value · − · +  (replaces sliders) */
+.setting-stepper {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 14px;
+}
+.setting-stepper .setting-label-line {
+  flex: 1;
+  font-size: 14px;
+  color: var(--fg);
+}
+.setting-stepper .setting-value {
+  font-size: 14px;
+  color: var(--fg);
+  min-width: 44px;
+  text-align: right;
+  margin-right: 2px;
+}
+.step-btn {
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: var(--slider-empty);
+  color: var(--fg);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: background 0.12s, transform 0.08s;
+}
+.step-btn:hover { background: var(--slider-fill); color: var(--bg); }
+.step-btn:active { transform: scale(0.92); }
+
 /* ============================================================
    Apple-style sliders
    filled portion (left of thumb) = solid; rest = faded.
