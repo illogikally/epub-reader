@@ -223,7 +223,7 @@ export function showPopupAt(rect) {
   const arrowX = rect.left + rect.width / 2 - left;
   popup.style.setProperty('--arrow-x', Math.max(20, Math.min(W - 20, arrowX)) + 'px');
   popupWrapper.classList.add('visible');
-  clearAllSelections();
+  // Desktop: leave the selection alone so the user can still copy / re-select.
 }
 
 function clearAllSelections() {
@@ -566,7 +566,10 @@ function fireLookupForSelection(sel, doc, iframe, capturedRange) {
   };
 
   const savedRange = capturedRange || range.cloneRange();
-  if (sel) { try { sel.removeAllRanges(); } catch {} }
+  // On mobile we must clear so iOS doesn't leave a stale selection under the
+  // bottom-sheet popup; on desktop we keep the selection live so the user can
+  // copy / extend it while the popup is open.
+  if (sel && isCoarsePointer) { try { sel.removeAllRanges(); } catch {} }
   lastLookup = { phrase, range: savedRange, doc };
   hideBubble();
 
