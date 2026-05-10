@@ -279,6 +279,18 @@ export function attachOutsideClickToFrame(doc) {
   doc.addEventListener('mousedown',   onTap, { passive: true });
   doc.addEventListener('touchstart',  onTap, { passive: true });
   doc.addEventListener('pointerdown', onTap, { passive: true });
+
+  // iOS handle-drag fix: when the user touches the iframe with a non-collapsed
+  // selection, hide the bubble synchronously so its DOM hit-target can't
+  // swallow the touch on iOS's extend-selection handle. The polling tick will
+  // re-show the bubble ~200ms after the user releases (text-stable again).
+  doc.addEventListener('touchstart', () => {
+    const sel = doc.getSelection && doc.getSelection();
+    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
+    hideBubble();
+    bubblePositionedFor = null;
+    lastSelText = '';
+  }, { passive: true });
 }
 
 // ============================================================
@@ -707,10 +719,11 @@ function updateBubble() {
   const bh = translateBubble.offsetHeight;
 
   const margin = 8;
-  // iOS draws its bottom selection handle (the drag-to-extend teardrop)
-  // ~22–24px below the selection edge. Place the bubble below that handle's
-  // hit zone so touches there start a drag instead of tapping the bubble.
-  const handleClearance = 32;
+  // iOS draws its bottom selection handle (the drag-to-extend teardrop) and
+  // its hit zone extends ~30–50px below the selection edge depending on line
+  // height / zoom. 48px puts the bubble fully outside that zone; combined
+  // with the iframe-touchstart hide above, dragging the handle is reliable.
+  const handleClearance = 48;
   // Always below — iOS's native callout sits above the selection, so
   // flipping our bubble above (last-line case) used to collide with it.
   // If there isn't room for the full bubble below, clamp to the bottom
