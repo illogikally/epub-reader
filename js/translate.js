@@ -707,12 +707,16 @@ function updateBubble() {
   const bh = translateBubble.offsetHeight;
 
   const margin = 8;
+  // iOS draws its bottom selection handle (the drag-to-extend teardrop)
+  // ~22–24px below the selection edge. Place the bubble below that handle's
+  // hit zone so touches there start a drag instead of tapping the bubble.
+  const handleClearance = 32;
   // Always below — iOS's native callout sits above the selection, so
   // flipping our bubble above (last-line case) used to collide with it.
   // If there isn't room for the full bubble below, clamp to the bottom
   // of the viewport rather than flipping.
   const top = Math.min(
-    Math.max(margin, selBottom + margin),
+    Math.max(margin, selBottom + handleClearance),
     window.innerHeight - bh - margin,
   );
   let left = selCenterX - bw / 2;
