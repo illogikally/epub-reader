@@ -98,6 +98,10 @@ export async function closeBook() {
   if (runtime.book) { try { runtime.book.destroy(); } catch {} runtime.book = null; }
   viewer.innerHTML = '';
   pageIndicator.textContent = '';
+  // Reset chrome / drawers / settings modal so reopening a book doesn't carry
+  // over the previous session's open panels.
+  hideChrome();
+  document.dispatchEvent(new CustomEvent('reader:hideAllDrawers'));
   reader.hidden = true;
   library.hidden = false;
   hidePopup();
@@ -105,9 +109,10 @@ export async function closeBook() {
   document.title = 'Xulgon'
 }
 
-// Book-wide page indicator. Until book.locations.generate() finishes (a few
-// seconds for long books) we fall back to the chapter-relative page count
-// epub.js gives us in loc.start.displayed.
+// Book-wide page indicator. We deliberately don't fall back to the
+// per-chapter count from loc.start.displayed — showing 3/12 then jumping to
+// 412/3000 is more confusing than just waiting. Stays blank until
+// book.locations.generate() finishes (a few seconds), then renders.
 function updatePageIndicator(loc) {
   const cfi = loc?.start?.cfi;
   const total = runtime.book?.locations?.length?.();
@@ -120,10 +125,7 @@ function updatePageIndicator(loc) {
       }
     } catch {}
   }
-  if (loc?.start?.displayed) {
-    const { page, total: t } = loc.start.displayed;
-    if (page && t) pageIndicator.textContent = `${page} / ${t}`;
-  }
+  pageIndicator.textContent = '';
 }
 
 export function createRendition() {
