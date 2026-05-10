@@ -73,6 +73,15 @@ export async function openBookFromDb(id) {
 
     const nav = await runtime.book.loaded.navigation;
     buildToc(nav.toc || []);
+
+    // Build a book-wide location map in the background so the page indicator
+    // can show "page N / total" across the whole book instead of per-chapter.
+    // ~1024 chars/page is epub.js's standard. Refresh the indicator when ready.
+    const bookForLocations = runtime.book;
+    bookForLocations.locations.generate(1024).then(() => {
+      if (runtime.book !== bookForLocations || !runtime.rendition) return;
+      try { updatePageIndicator(runtime.rendition.currentLocation()); } catch {}
+    }).catch(() => {});
   } catch (err) {
     console.error(err);
     alert('Could not open this EPUB:\n' + err.message);
@@ -96,6 +105,27 @@ export async function closeBook() {
   document.title = 'Xulgon'
 }
 
+// Book-wide page indicator. Until book.locations.generate() finishes (a few
+// seconds for long books) we fall back to the chapter-relative page count
+// epub.js gives us in loc.start.displayed.
+function updatePageIndicator(loc) {
+  const cfi = loc?.start?.cfi;
+  const total = runtime.book?.locations?.length?.();
+  if (cfi && total) {
+    try {
+      const idx = runtime.book.locations.locationFromCfi(cfi);
+      if (idx >= 0) {
+        pageIndicator.textContent = `${idx + 1} / ${total}`;
+        return;
+      }
+    } catch {}
+  }
+  if (loc?.start?.displayed) {
+    const { page, total: t } = loc.start.displayed;
+    if (page && t) pageIndicator.textContent = `${page} / ${t}`;
+  }
+}
+
 export function createRendition() {
   runtime.rendition = runtime.book.renderTo(viewer, {
     flow: 'paginated',
@@ -109,10 +139,7 @@ export function createRendition() {
     if (loc?.start?.cfi && runtime.currentBookKey) {
       localStorage.setItem(`reader-progress-${runtime.currentBookKey}`, loc.start.cfi);
     }
-    if (loc?.start?.displayed) {
-      const { page, total } = loc.start.displayed;
-      if (page && total) pageIndicator.textContent = `${page} / ${total}`;
-    }
+    updatePageIndicator(loc);
   });
   runtime.rendition.on('rendered', (section, view) => {
     const doc = view?.document;
