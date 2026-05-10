@@ -173,7 +173,9 @@ export function showPopupAt(rect) {
     popup.style.left = '';
     popup.style.right = '';
     popup.style.top = '';
+    popup.style.bottom = '';
     popup.style.width = '';
+    popup.style.maxHeight = '';
     popupWrapper.classList.add('visible');
     clearAllSelections();
     return;
@@ -197,19 +199,25 @@ export function showPopupAt(rect) {
   // keeps the popup from getting pushed off the bottom of the screen.
   const selCenterY = rect.top + rect.height / 2;
   const placeAbove = selCenterY > window.innerHeight / 2;
-  let top;
+  popup.style.left = left + 'px';
   if (placeAbove) {
-    top = rect.top - H - gap;
-    if (top < margin) top = margin;
+    // Anchor by bottom so the popup's bottom edge stays pinned just above the
+    // selection; as content streams in, growth expands upward instead of
+    // covering the selected text.
+    popup.style.top = '';
+    popup.style.bottom = (window.innerHeight - rect.top + gap) + 'px';
+    const avail = Math.max(120, rect.top - gap - margin);
+    popup.style.maxHeight = `min(60vh, 480px, ${avail}px)`;
   } else {
-    top = rect.bottom + gap;
+    let top = rect.bottom + gap;
     if (top + H > window.innerHeight - margin) {
       top = Math.max(margin, window.innerHeight - H - margin);
       if (top < rect.bottom + gap) top = rect.bottom + gap;
     }
+    popup.style.bottom = '';
+    popup.style.maxHeight = '';
+    popup.style.top = top + 'px';
   }
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
   popup.classList.toggle('pos-above', placeAbove);
   popup.classList.toggle('pos-below', !placeAbove);
   const arrowX = rect.left + rect.width / 2 - left;
