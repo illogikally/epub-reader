@@ -339,7 +339,7 @@ async function sendToLLM(text, metaLabel, followup, silent) {
     while (attempts < MODELS.length) {
       try {
         if (followup) renderActionsBar(followup.phrase, followup.context);
-        for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables. Be concise`)) {
+        for await (const chunk of llmStream(popupHistory, `Đừng dùng bảng để format. Hãy trả lời ngắn gọn, súc tích`)) {
           ensureReply();
           reply += chunk;
           replyDiv.innerHTML = renderMarkdown(reply.trim());
@@ -397,7 +397,7 @@ async function sendToLLM(text, metaLabel, followup, silent) {
 function renderActionsBar(phrase, context) {
   popupActions.innerHTML = '';
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
-  const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
+  const formatInstructions = 'Tuân thủ format sau 100%, không thay thế bất kì từ chữ gì trừ chữ trong [], văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
 
   [3].forEach(n => {
     const a = document.createElement('a');
@@ -409,7 +409,7 @@ function renderActionsBar(phrase, context) {
       e.preventDefault();
       if (popupBusy || !lastLookup) return;
       const context = extractContextFromRange(lastLookup.range, n);
-      const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, trả lời súc tích, ngắn gọn, nhiều nhất là 50 từ, viết liền mạch không xuống dòng:
+      const prompt = `Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân. Nhiều nhất là 50 từ, viết liền mạch không xuống dòng:
       TỪ/CỤM TỪ: ${phrase}
       NGỮ CẢNH: ${context}`
       sendToLLM(prompt, null, null, true);
@@ -421,7 +421,7 @@ function renderActionsBar(phrase, context) {
 
   const items = [
     ['syn', `Liệt kê một số từ đồng nghĩa với nghĩa của <${phrase}> trong <${ctxNote}>.
-    So sánh ngắn gọn sự khác biệt giữa <${phrase}> và các từ đồng nghĩa theo mẫu sau, ${formatInstructions}:
+    So sánh ngắn gọn sự khác biệt giữa <${phrase}>, ${formatInstructions}:
     **SYNONYM**:
     [synonyms, one each line starting with •, nuance and example, the example should be itatlic].
     `, 'Synonyms'],
