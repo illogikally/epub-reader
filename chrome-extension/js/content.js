@@ -62,6 +62,17 @@ const container = document.createElement('div');
 container.innerHTML = html;
 document.body.appendChild(container);
 
+// Popup font picks: Iosevka on the portrait ~2K monitor, Consolas elsewhere.
+function isVertical2k() {
+  const w = screen.width, h = screen.height, long = Math.max(w, h);
+  return h > w && long >= 2400 && long <= 2600;
+}
+function applyFontMode() {
+  document.documentElement.classList.toggle('llm-vert2k', isVertical2k());
+}
+applyFontMode();
+window.addEventListener('resize', applyFontMode);
+
 const $ = id => document.getElementById(id);
 const popup = $('llm-popup');
 const popupOut = $('llm-popup-out');
@@ -418,13 +429,30 @@ function renderActionsBar(phrase, context) {
   });
 
   if (phrase.trim().split(' ').length > 1) return;
+  const synonymPrompt = `
+Give me list of synonyms of <${phrase}>
+Return your response using EXACTLY this structure — no deviations, no extra text before or after:
+
+**SYNONYM**:
+• [word] — [nuance]. *[example sentence]*
+• [word] — [nuance]. *[example sentence]*
+
+RULES (must follow):
+- Each synonym occupies exactly one line, starting with •
+- Format per line: • synonym — nuance of how do they differ. *example in english in italics*
+- The list must contain the ${phrase} itself too 
+- The nuance must be in VIETNAMESE
+- The example must be in ENGLISH
+- The synonym must be in ENGLISH
+- The example must be wrapped in single asterisks: *like this*
+- Do NOT add bullet styles other than •
+- Do NOT add blank lines between bullets
+- Do NOT include any intro, or closing remarks
+- Output ONLY the block above, nothing else
+`;
 
   const items = [
-    ['syn', `Liệt kê một số từ đồng nghĩa với nghĩa của <${phrase}> trong <${ctxNote}>.
-    So sánh ngắn gọn sự khác biệt giữa <${phrase}>, ${formatInstructions}:
-    **SYNONYM**:
-    [synonyms, one each line starting with •, nuance and example, the example should be itatlic].
-    `, 'Synonyms'],
+    ['syn', synonymPrompt, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
 **EXAMPLE**:
