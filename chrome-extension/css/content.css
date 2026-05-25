@@ -34,12 +34,19 @@
   color: var(--llm-fg);
   border-radius: 12px;
   box-shadow: 0 14px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--llm-border);
-  font: 14px/1.5 Consolas, ui-monospace, Menlo, monospace !important;
   letter-spacing: -1px;
   overflow: hidden;
+  font-family: consolas, menlo, ui-monospace, monospace !important;
+  font-size: 14px;
+  line-height: 1.4;
   display: flex;
   flex-direction: column;
   max-height: min(60vh, 480px);
+}
+
+/* Vertical 2K monitor: use Iosevka instead of Consolas */
+html.llm-vert2k .llm-popup-content {
+  font-family: 'Iosevka', consolas, menlo, ui-monospace, monospace !important;
 }
 
 .llm-popup-arrow {
