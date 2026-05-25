@@ -64,8 +64,10 @@ document.body.appendChild(container);
 
 // Popup font picks: Iosevka on the portrait ~2K monitor, Consolas elsewhere.
 function isVertical2k() {
+  // Portrait + ~2K. Long side covers the panel both at native 2560 and at
+  // Windows DPI-scaled values (e.g. 125% -> 2048), while excluding 1080p portrait.
   const w = screen.width, h = screen.height, long = Math.max(w, h);
-  return h > w && long >= 2400 && long <= 2600;
+  return h > w && long >= 2000 && long <= 2600;
 }
 function applyFontMode() {
   document.documentElement.classList.toggle('llm-vert2k', isVertical2k());
