@@ -50,7 +50,10 @@ export function applyBookTheme() {
 // (`p { font-family: … }`, `p { text-align: justify }`) declare their own value, so the
 // inherited body value never reaches them. To actually *force* our settings we inject a
 // stylesheet with element selectors + !important straight into each book document.
-const ALIGN_SEL = 'body,p,div,li,dd,dt,blockquote,td,th,caption,h1,h2,h3,h4,h5,h6';
+// Paragraph-level text only — deliberately excludes body/div/headings so headers
+// keep their own alignment (text-align inherits, so targeting containers would drag
+// headings along with it).
+const ALIGN_SEL = 'p,li,dd,dt,blockquote';
 // code / monospace blocks keep their own font — they aren't part of the reading font.
 const MONO_SEL = 'code,pre,kbd,samp,tt';
 
