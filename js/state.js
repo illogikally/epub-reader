@@ -35,6 +35,7 @@ const defaultSettings = {
   lineHeight: 1.5,
   letterSpacing: 0,
   wordSpacing: 0,
+  textAlign: 'default',   // 'default' | 'left' | 'justify'
   padTop: 44,
   padBottom: 44,
   padLeft: 24,

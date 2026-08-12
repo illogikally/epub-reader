@@ -15,7 +15,7 @@ import {
 } from './state.js';
 import {
   applyChromeTheme, applyAll, updateSliderFill,
-  applyCustomCssToParent, applyCustomCssToBook,
+  applyCustomCssToParent, applyCustomCssToBook, applyBookAlign,
 } from './theme.js';
 import { closeBook, createRendition } from './reader.js';
 
@@ -348,6 +348,21 @@ export function initUI() {
   bindSlider('letter-spacing', 'letterSpacing', 'px');
   bindSlider('word-spacing', 'wordSpacing', 'px');
   bindLineHeight();
+
+  // ---- Text align toggle (Default / Left / Justify) ----
+  const alignToggle = $('align-toggle');
+  const syncAlignActive = () => alignToggle.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', b.dataset.align === settings.textAlign));
+  syncAlignActive();
+  alignToggle.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (btn.dataset.align === settings.textAlign) return;
+      settings.textAlign = btn.dataset.align;
+      syncAlignActive();
+      persistSettings();
+      applyBookAlign();
+    });
+  });
 
   // ---- Padding sliders ----
   bindPaddingSlider('pad-top',    'padTop');

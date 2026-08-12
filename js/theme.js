@@ -41,7 +41,29 @@ export function applyBookTheme() {
   r.themes.override('-webkit-touch-callout', 'none', true);
   r.themes.override('-webkit-user-select', 'text', true);
   r.themes.override('user-select', 'text', true);
+  applyBookAlign();
   applyCustomCssToBook();
+}
+
+// Broad selector + !important so it beats a book's own `p { text-align: justify }`.
+// A body-level themes.override can't force *left* over such a rule, so we inject a
+// stylesheet straight into each book document instead.
+const ALIGN_SEL = 'body,p,div,li,dd,dt,blockquote,td,th,caption,h1,h2,h3,h4,h5,h6';
+
+export function injectAlignStyle(doc) {
+  if (!doc) return;
+  const id = 'reader-force-align';
+  let el = doc.getElementById(id);
+  const mode = settings.textAlign;
+  if (!mode || mode === 'default') { if (el) el.remove(); return; }
+  if (!el) { el = doc.createElement('style'); el.id = id; doc.head.appendChild(el); }
+  el.textContent = `${ALIGN_SEL}{text-align:${mode} !important}`;
+}
+
+export function applyBookAlign() {
+  const r = runtime.rendition;
+  if (!r) return;
+  try { r.getContents().forEach(c => injectAlignStyle(c.document)); } catch {}
 }
 
 export function applyCustomCssToParent() {

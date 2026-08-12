@@ -8,7 +8,7 @@
 // ============================================================
 
 import { settings, runtime, $, dbGet } from './state.js';
-import { applyBookTheme } from './theme.js';
+import { applyBookTheme, injectAlignStyle } from './theme.js';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
@@ -142,6 +142,7 @@ export function createRendition() {
     attachInputHandlers(doc);
     attachSelectionHandler(doc);
     attachOutsideClickToFrame(doc);
+    injectAlignStyle(doc);
   });
 }
 
