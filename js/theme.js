@@ -41,29 +41,45 @@ export function applyBookTheme() {
   r.themes.override('-webkit-touch-callout', 'none', true);
   r.themes.override('-webkit-user-select', 'text', true);
   r.themes.override('user-select', 'text', true);
-  applyBookAlign();
+  applyBookStyle();
   applyCustomCssToBook();
 }
 
-// Broad selector + !important so it beats a book's own `p { text-align: justify }`.
-// A body-level themes.override can't force *left* over such a rule, so we inject a
-// stylesheet straight into each book document instead.
+// The typography settings above are pushed through themes.override, which only sets
+// them (inherited) on the book's <body>. A book's own per-element rules
+// (`p { font-family: … }`, `p { text-align: justify }`) declare their own value, so the
+// inherited body value never reaches them. To actually *force* our settings we inject a
+// stylesheet with element selectors + !important straight into each book document.
 const ALIGN_SEL = 'body,p,div,li,dd,dt,blockquote,td,th,caption,h1,h2,h3,h4,h5,h6';
+// code / monospace blocks keep their own font — they aren't part of the reading font.
+const MONO_SEL = 'code,pre,kbd,samp,tt';
 
-export function injectAlignStyle(doc) {
-  if (!doc) return;
-  const id = 'reader-force-align';
-  let el = doc.getElementById(id);
-  const mode = settings.textAlign;
-  if (!mode || mode === 'default') { if (el) el.remove(); return; }
-  if (!el) { el = doc.createElement('style'); el.id = id; doc.head.appendChild(el); }
-  el.textContent = `${ALIGN_SEL}{text-align:${mode} !important}`;
+function bookForceCss() {
+  const parts = [];
+  if (settings.textAlign && settings.textAlign !== 'default')
+    parts.push(`${ALIGN_SEL}{text-align:${settings.textAlign} !important}`);
+
+  // Force the reader font on everything, then hand code/monospace back their font.
+  const decls = [`font-family:${settings.fontFamily} !important`];
+  if (settings.letterSpacing) decls.push(`letter-spacing:${settings.letterSpacing}px !important`);
+  if (settings.wordSpacing)   decls.push(`word-spacing:${settings.wordSpacing}px !important`);
+  parts.push(`*{${decls.join(';')}}`);
+  parts.push(`${MONO_SEL}{font-family:monospace !important}`);
+  return parts.join('\n');
 }
 
-export function applyBookAlign() {
+export function injectBookStyle(doc) {
+  if (!doc) return;
+  const id = 'reader-force-style';
+  let el = doc.getElementById(id);
+  if (!el) { el = doc.createElement('style'); el.id = id; (doc.head || doc.documentElement).appendChild(el); }
+  el.textContent = bookForceCss();
+}
+
+export function applyBookStyle() {
   const r = runtime.rendition;
   if (!r) return;
-  try { r.getContents().forEach(c => injectAlignStyle(c.document)); } catch {}
+  try { r.getContents().forEach(c => injectBookStyle(c.document)); } catch {}
 }
 
 export function applyCustomCssToParent() {

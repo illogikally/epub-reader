@@ -15,7 +15,7 @@ import {
 } from './state.js';
 import {
   applyChromeTheme, applyAll, updateSliderFill,
-  applyCustomCssToParent, applyCustomCssToBook, applyBookAlign,
+  applyCustomCssToParent, applyCustomCssToBook, applyBookStyle,
 } from './theme.js';
 import { closeBook, createRendition } from './reader.js';
 
@@ -360,7 +360,7 @@ export function initUI() {
       settings.textAlign = btn.dataset.align;
       syncAlignActive();
       persistSettings();
-      applyBookAlign();
+      applyBookStyle();
     });
   });
 
