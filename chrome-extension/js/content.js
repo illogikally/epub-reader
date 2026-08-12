@@ -432,24 +432,26 @@ function renderActionsBar(phrase, context) {
 
   if (phrase.trim().split(' ').length > 1) return;
   const synonymPrompt = `
-Give me list of synonyms of <${phrase}>
+Give me a list of synonyms for <${phrase}>.
 Return your response using EXACTLY this structure — no deviations, no extra text before or after:
 
 **SYNONYM**:
-• [word] — [nuance]. *[example sentence]*
-• [word] — [nuance]. *[example sentence]*
+- [word] — [nuance]. *[example sentence]*
+- [word] — [nuance]. *[example sentence]*
 
 RULES (must follow):
 - Each synonym occupies exactly one line, starting with •
-- Format per line: • synonym — nuance of how do they differ. *example in english in italics*
-- The list must contain the ${phrase} itself too 
-- The nuance must be in VIETNAMESE
-- The example must be in ENGLISH
+- Format per line: • synonym — nuance of how it differs. *example in english in italics*
+- Include 5 synonyms, ordered from closest in meaning to most loosely related
+- The list MUST include "${phrase}" itself as the first bullet, with its nuance describing its own neutral/baseline usage
+- The nuance must be in VIETNAMESE and must name the KIND of difference where relevant: sắc thái (connotation: tích cực/tiêu cực/trung tính), mức độ trang trọng (register: trang trọng/đời thường/lóng), cường độ (stronger/weaker), or ngữ cảnh dùng (typical context)
+- If a word is commonly mistaken as interchangeable but differs in an important way, note it in the nuance (e.g. "dễ nhầm:")
+- The example must be in ENGLISH and must showcase that word's DISTINCTIVE usage (not a generic sentence that would fit any synonym)
 - The synonym must be in ENGLISH
 - The example must be wrapped in single asterisks: *like this*
 - Do NOT add bullet styles other than •
 - Do NOT add blank lines between bullets
-- Do NOT include any intro, or closing remarks
+- Do NOT include any intro or closing remarks
 - Output ONLY the block above, nothing else
 `;
 
