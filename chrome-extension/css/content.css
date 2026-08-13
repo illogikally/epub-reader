@@ -46,8 +46,8 @@
 
 /* Vertical 2K monitor: use Iosevka instead of Consolas */
 html.llm-vert2k .llm-popup-content {
-  font-family: cascadia code, consolas, menlo, ui-monospace, monospace !important;
-  font-size: 13.5px;
+  font-family: iosevka, consolas, menlo, ui-monospace, monospace !important;
+  font-size: 14px;
   letter-spacing: -.8px;
 }
 
