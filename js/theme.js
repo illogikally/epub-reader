@@ -4,7 +4,7 @@
 // and the slider fill helper used by every range input.
 // ============================================================
 
-import { settings, runtime, blendHex, relLuminance, persistSettings, $ } from './state.js';
+import { settings, runtime, blendHex, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
@@ -38,9 +38,9 @@ export function applyBookTheme() {
   r.themes.override('letter-spacing', settings.letterSpacing + 'px', true);
   r.themes.override('word-spacing', settings.wordSpacing + 'px', true);
   r.themes.fontSize(settings.fontSize + 'px');
-  r.themes.override('-webkit-touch-callout', 'none', true);
-  r.themes.override('-webkit-user-select', 'text', true);
-  r.themes.override('user-select', 'text', true);
+  // Selection behaviour is set in bookForceCss() instead of here: themes.override
+  // only reaches the book's <body>, and a book's own `p { -webkit-user-select }`
+  // would win over the inherited value.
   applyBookStyle();
   applyCustomCssToBook();
 }
@@ -68,6 +68,17 @@ function bookForceCss() {
   if (settings.wordSpacing)   decls.push(`word-spacing:${settings.wordSpacing}px !important`);
   parts.push(`*{${decls.join(';')}}`);
   parts.push(`${MONO_SEL}{font-family:monospace !important}`);
+
+  // Touch: kill native selection outright. iOS shows its Copy / Look Up /
+  // Translate callout bar whenever a native selection exists and offers no way
+  // to suppress it, so js/touchselect.js does the selecting instead and paints
+  // its own highlight. Desktop keeps real selection (and Cmd+C).
+  parts.push(isCoarsePointer
+    ? `*{-webkit-user-select:none !important;user-select:none !important;`
+      + `-webkit-touch-callout:none !important;-webkit-tap-highlight-color:transparent !important}`
+    : `*{-webkit-user-select:text !important;user-select:text !important;`
+      + `-webkit-touch-callout:none !important}`);
+
   return parts.join('\n');
 }
 
