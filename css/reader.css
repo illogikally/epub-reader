@@ -15,7 +15,6 @@
   font-display: swap;
   src: url('./consolas.ttf');
 }
-
 @font-face {
   font-family: 'Seravek';
   font-weight: 400;
@@ -29,13 +28,6 @@
   font-style: italic;
   font-display: swap;
   src: url('./Seravek-BoldItalic.otf') format('opentype');
-}
-@font-face {
-  font-family: 'Consolas';
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  src: url('./CONSOLA.ttf');
 }
 @font-face {
   font-family: 'Seravek';
