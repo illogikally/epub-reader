@@ -214,6 +214,23 @@ button {
   z-index: 6;
   pointer-events: none;
 }
+/* ?debug=1 only — see js/debug.js. Never rendered otherwise. */
+#debug-panel {
+  position: fixed;
+  left: 4px;
+  bottom: 4px;
+  z-index: 99;
+  max-width: calc(100vw - 8px);
+  padding: 6px 8px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.82);
+  color: #7fff9f;
+  font: 10px/1.35 ui-monospace, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  pointer-events: none;
+}
+
 #sel-overlay .sel-rect {
   position: fixed;
   background: var(--accent);
