@@ -21,7 +21,7 @@
 // ============================================================
 
 import { $, isCoarsePointer, runtime } from './state.js';
-import { dbg } from './debug.js';
+import { dbg, dbgStatus } from './debug.js';
 
 const LONG_PRESS_MS  = 400;
 const MOVE_TOLERANCE = 10;
@@ -88,6 +88,7 @@ function paint(range, ifr) {
 export function clearTouchSelection() {
   const had = !!current;
   current = null;
+  dbgStatus('sel', 'none');
   if (overlay) overlay.textContent = '';
   if (had) clearedCbs.forEach(cb => { try { cb(); } catch {} });
 }
@@ -287,6 +288,7 @@ function frameAt(x, y) {
   const viewer = $('viewer');
   if (!viewer) return null;
   const frames = viewer.querySelectorAll('iframe');
+  dbgStatus('iframes', frames.length);
   for (let i = 0; i < frames.length; i++) {
     const ifr = frames[i];
     const r = ifr.getBoundingClientRect();
@@ -313,10 +315,42 @@ function followLinkAt(hit) {
   return true;
 }
 
+// The layer is built here rather than relied upon from index.html. Safari
+// caches HTML, CSS and JS independently, so fresh JS can easily find itself
+// looking for an element that a stale index.html never contained — which
+// silently disables selection with no visible cause. Creating it removes that
+// dependency entirely; the markup in index.html is just the fast path.
+function ensureCaptureLayer() {
+  let layer = $('touch-capture');
+  if (layer) { dbgStatus('layer', 'Y'); return layer; }
+
+  const host = $('reader');
+  if (!host) { dbgStatus('layer', 'NO-READER'); return null; }
+
+  layer = document.createElement('div');
+  layer.id = 'touch-capture';
+  // Inline geometry so a stale reader.css can't disable it either.
+  Object.assign(layer.style, {
+    position: 'absolute',
+    top: 'var(--pad-top)',
+    bottom: 'var(--pad-bottom)',
+    left: 'var(--pad-left)',
+    right: 'var(--pad-right)',
+    zIndex: '4',
+    background: 'transparent',
+    pointerEvents: 'auto',
+  });
+  host.appendChild(layer);
+  dbg('created #touch-capture (was missing from the HTML)');
+  dbgStatus('layer', 'Y(made)');
+  return layer;
+}
+
 export function initTouchSelection() {
+  dbgStatus('coarse', isCoarsePointer ? 'Y' : 'N');
   if (!isCoarsePointer) { dbg('touch selection off: pointer is fine'); return; }
-  const layer = $('touch-capture');
-  if (!layer) { dbg('NO #touch-capture element'); return; }
+  const layer = ensureCaptureLayer();
+  if (!layer) { dbg('NO #touch-capture element and could not create one'); return; }
 
   let touchId = null;   // identifier of the touch we're following, or null
   let start = null;     // { x, y } in parent space
@@ -356,6 +390,7 @@ export function initTouchSelection() {
     current = text && hitDoc
       ? { text, range: range.cloneRange(), doc: hitDoc.doc, ifr: hitDoc.ifr }
       : null;
+    dbgStatus('sel', current ? JSON.stringify(current.text) : 'none');
     paint(current ? range : null, hitDoc && hitDoc.ifr);
   };
 
@@ -439,5 +474,5 @@ export function initTouchSelection() {
     if (ours(e.changedTouches)) reset();
   }), { passive: true });
 
-  dbg('capture layer ready');
+  dbg('capture layer ready (build stamp in header)');
 }

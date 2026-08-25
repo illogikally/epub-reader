@@ -8,6 +8,11 @@ import { openBookFromDb, initReaderEvents } from './reader.js';
 import { initTranslateEvents } from './translate.js';
 import { initUI } from './ui.js';
 import { dbGet } from './state.js';
+import { syncDebugPanel } from './debug.js';
+
+// 0. Debug panel first, so anything that fails during the wiring below is
+//    visible on a phone instead of silent. No-op unless debug is enabled.
+syncDebugPanel();
 
 // 1. Initial CSS (variables + user-custom-css contents)
 applyChromeTheme();

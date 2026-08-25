@@ -203,6 +203,15 @@ button {
   z-index: 4;
 }
 
+/* Debug only: makes the touch layer's presence and coverage visible, so
+   "is there a layer over the book?" is answered by looking rather than by
+   reading the log. Toggled from js/debug.js. */
+body.debug-on #touch-capture {
+  outline: 2px dashed rgba(255, 64, 129, 0.85);
+  outline-offset: -2px;
+  background: rgba(255, 64, 129, 0.06);
+}
+
 /* invisible click zones for page flipping */
 #zone-left, #zone-right {
   position: absolute;
