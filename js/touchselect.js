@@ -283,6 +283,16 @@ function wordRangeAt(doc, x, y) {
 // iframe's DOM from the parent works — that is how the book CSS is injected.
 // ============================================================
 
+// Drop any native selection in this document. The CSS should prevent one from
+// starting, but a drag begun outside the layer (or a stale cached stylesheet)
+// can still produce one, and iOS will happily select the whole reader shell.
+function dropNativeSelection() {
+  try {
+    const sel = window.getSelection && window.getSelection();
+    if (sel && !sel.isCollapsed) sel.removeAllRanges();
+  } catch {}
+}
+
 // The iframe under a parent-space point, plus that point in iframe coordinates.
 function frameAt(x, y) {
   const viewer = $('viewer');
@@ -339,6 +349,11 @@ function ensureCaptureLayer() {
     zIndex: '4',
     background: 'transparent',
     pointerEvents: 'auto',
+    // The element that receives the long-press must never depend on a cached
+    // stylesheet to be unselectable, or iOS starts its own page-wide selection.
+    webkitUserSelect: 'none',
+    userSelect: 'none',
+    webkitTouchCallout: 'none',
   });
   host.appendChild(layer);
   dbg('created #touch-capture (was missing from the HTML)');
@@ -396,6 +411,7 @@ export function initTouchSelection() {
 
   layer.addEventListener('touchstart', guarded('touchstart', e => {
     const t = e.changedTouches[0];
+    dropNativeSelection();
     dbg('capture touchstart', t ? Math.round(t.clientX) + ',' + Math.round(t.clientY) : 'no touch',
         'touchId=' + touchId);
     if (touchId !== null) {
@@ -410,6 +426,7 @@ export function initTouchSelection() {
     timer = setTimeout(() => {
       timer = null;
       if (!start) return;
+      dropNativeSelection();
       const hit = frameAt(start.x, start.y);
       if (!hit) { dbg('longpress: no iframe under point'); return; }
       dbg('longpress fired -> iframe local', Math.round(hit.x) + ',' + Math.round(hit.y));

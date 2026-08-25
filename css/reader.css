@@ -179,7 +179,26 @@ button {
 /* ============================================================
    Reader
    ============================================================ */
-#reader { position: fixed; inset: 0; }
+/* The long-press gesture happens on #touch-capture, which lives in THIS
+   document — so the reader shell must be unselectable too, or iOS starts its
+   own selection on the empty layer and falls back to grabbing the whole page.
+   The book iframe gets the same treatment from bookForceCss() in js/theme.js. */
+#reader {
+  position: fixed; inset: 0;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* ...but #popup-wrapper and #settings-modal live INSIDE #reader, and selection
+   is wanted in both: the answer must stay copyable and form fields must stay
+   editable. The iOS callout appearing over the answer text is correct there. */
+#popup-out,
+#reader input,
+#reader textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
 #viewer {
   position: absolute;
   top: var(--pad-top);
