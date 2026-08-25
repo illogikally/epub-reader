@@ -224,14 +224,20 @@ export function showPopupAt(rect) {
   // Desktop: leave the selection alone so the user can still copy / re-select.
 }
 
-function clearAllSelections() {
+// Book content only: our own touch selection plus any native selection inside
+// the chapter iframes.
+function clearFrameSelections() {
   clearTouchSelection();
   try {
     viewer.querySelectorAll('iframe').forEach(ifr => {
       try { ifr.contentWindow && ifr.contentWindow.getSelection().removeAllRanges(); } catch {}
     });
-    window.getSelection && window.getSelection().removeAllRanges();
   } catch {}
+}
+
+function clearAllSelections() {
+  clearFrameSelections();
+  try { window.getSelection && window.getSelection().removeAllRanges(); } catch {}
 }
 
 export function hidePopup() {
@@ -243,7 +249,9 @@ export function hidePopup() {
   popupInput.value = '';
   lastLookup = null;
   hideBubble();
-  clearAllSelections();
+  // Frame-only: on desktop the user may have text selected in the popup itself
+  // or elsewhere in the page, and closing the popup shouldn't wipe it.
+  clearFrameSelections();
 }
 
 // ============================================================
