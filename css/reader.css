@@ -13,8 +13,9 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  src: url('./consoslas.ttf');
+  src: url('./consolas.ttf');
 }
+
 @font-face {
   font-family: 'Seravek';
   font-weight: 400;
