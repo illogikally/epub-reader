@@ -250,6 +250,15 @@ body { /* ... */ }
 p { /* ... */ }"></textarea>
         <p class="help-text" style="margin-top:8px">CSS is applied immediately as you type and persists across sessions. Both the reader UI and the rendered book content are styled.</p>
       </div>
+
+      <div class="setting">
+        <div class="setting-label">Debug log</div>
+        <div class="mode-toggle" id="debug-toggle">
+          <button data-debug="off" class="active">Off</button>
+          <button data-debug="on">On</button>
+        </div>
+        <p class="help-text" style="margin-top:8px">Shows an on-screen log of the touch-selection gesture. There is no console on iOS, so this is how a failed long-press reports where it stopped.</p>
+      </div>
     </div>
   </aside>
 

@@ -18,6 +18,7 @@ import {
   applyCustomCssToParent, applyCustomCssToBook, applyBookStyle,
 } from './theme.js';
 import { closeBook, createRendition } from './reader.js';
+import { syncDebugPanel } from './debug.js';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -361,6 +362,25 @@ export function initUI() {
       syncAlignActive();
       persistSettings();
       applyBookStyle();
+    });
+  });
+
+  // ---- Debug log toggle (Off / On) ----
+  // Mirrors the align toggle above. Lives in Settings rather than only behind
+  // ?debug=1 because the manifest's start_url drops the query string when the
+  // app is launched from the home-screen icon.
+  const debugToggle = $('debug-toggle');
+  const syncDebugActive = () => debugToggle.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', (b.dataset.debug === 'on') === !!settings.debug));
+  syncDebugActive();
+  debugToggle.querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const on = btn.dataset.debug === 'on';
+      if (on === !!settings.debug) return;
+      settings.debug = on;
+      syncDebugActive();
+      persistSettings();
+      syncDebugPanel();
     });
   });
 

@@ -49,6 +49,7 @@ const defaultSettings = {
   apiKeys: { GROQ_API_KEY: '' },
   customCss: '',
   customThemes: [],   // [{ name, bg, fg }]
+  debug: false,       // on-screen debug log — see js/debug.js
 };
 
 // Load synchronously at module-eval time.
