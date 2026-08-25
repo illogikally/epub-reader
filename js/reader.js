@@ -7,7 +7,7 @@
 //     double-click word selection without false chrome toggles).
 // ============================================================
 
-import { settings, runtime, $, dbGet } from './state.js';
+import { settings, runtime, $, dbGet, isCoarsePointer } from './state.js';
 import { applyBookTheme, injectBookStyle } from './theme.js';
 import {
   hidePopup, isPopupVisible,
@@ -16,6 +16,9 @@ import {
   buildToc,
 } from './translate.js';
 import { renderLibrary } from './library.js';
+import {
+  attachTouchSelection, hasTouchSelection, clearTouchSelection, lastGestureAt,
+} from './touchselect.js';
 
 const library = $('library');
 const reader = $('reader');
@@ -135,6 +138,7 @@ export function createRendition() {
       localStorage.setItem(`reader-progress-${runtime.currentBookKey}`, loc.start.cfi);
     }
     updatePageIndicator(loc);
+    clearTouchSelection();
   });
   runtime.rendition.on('rendered', (section, view) => {
     const doc = view?.document;
@@ -143,6 +147,9 @@ export function createRendition() {
     attachSelectionHandler(doc);
     attachOutsideClickToFrame(doc);
     injectBookStyle(doc);
+    // Last: its touchend must run after attachInputHandlers' so the chrome
+    // toggle still sees hasTouchSelection() === true for a dismissing tap.
+    attachTouchSelection(doc, view?.iframe || doc.defaultView?.frameElement || null);
   });
 }
 
@@ -167,9 +174,14 @@ export function flipPage(direction) {
 let lastToggleTapTime = 0;
 
 function shouldToggleChrome(doc) {
-  // Don't toggle while the user has an active selection (translation flow)
-  const sel = doc.getSelection();
-  if (sel && !sel.isCollapsed) return false;
+  // Don't toggle while the user has an active selection (translation flow).
+  // On touch that's our own selection layer; on desktop it's the native one.
+  if (isCoarsePointer) {
+    if (hasTouchSelection()) return false;
+  } else {
+    const sel = doc.getSelection();
+    if (sel && !sel.isCollapsed) return false;
+  }
   // If the popup is open, a tap on the page should dismiss it instead of
   // toggling chrome — handled here so the user gets one-tap dismissal even
   // when chrome happens to be off.
@@ -217,6 +229,8 @@ function attachInputHandlers(doc) {
     // Dedup: skip if the top-level viewer handler already toggled this tap
     const now2 = Date.now();
     if (now2 - lastToggleTapTime < 400) return;
+    // A just-finished selection gesture is not a tap, even if it was quick.
+    if (now2 - lastGestureAt() < 400) return;
     if (!shouldToggleChrome(doc)) return;
     lastToggleTapTime = now2;
     toggleChrome();
@@ -246,23 +260,6 @@ function handleKey(e) {
     // by dispatching a custom event here.
     document.dispatchEvent(new CustomEvent('reader:hideAllDrawers'));
   }
-}
-
-// ============================================================
-// Check for active text selection inside any epub.js iframe
-// ============================================================
-function hasSelectionInAnyIframe() {
-  const iframes = viewer.querySelectorAll('iframe');
-  for (const ifr of iframes) {
-    try {
-      const win = ifr.contentWindow;
-      const doc = ifr.contentDocument || (win && win.document);
-      if (!doc) continue;
-      const sel = (win || doc).getSelection();
-      if (sel && !sel.isCollapsed) return true;
-    } catch { /* cross-origin — skip */ }
-  }
-  return false;
 }
 
 // ============================================================
@@ -306,6 +303,7 @@ export function initReaderEvents() {
   window.addEventListener('resize', () => {
     if (!runtime.rendition) return;
     clearTimeout(resizeTimer);
+    clearTouchSelection();
     resizeTimer = setTimeout(() => {
       try { runtime.rendition.resize(); } catch {}
     }, 150);

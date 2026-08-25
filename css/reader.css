@@ -202,6 +202,26 @@ button {
 #zone-left  { left: 0; }
 #zone-right { right: 0; }
 
+/* Custom selection highlight. On touch the book iframe has user-select:none
+   (see bookForceCss in js/theme.js) so iOS never shows its Copy / Look Up
+   callout bar; js/touchselect.js selects words itself and paints the result
+   as fixed-position rects in here. Painting in the parent document instead
+   of wrapping nodes in the book keeps epub.js's CFIs intact.
+   z-index sits above the page-flip zones (5) and below the bubble (8). */
+#sel-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  pointer-events: none;
+}
+#sel-overlay .sel-rect {
+  position: fixed;
+  background: var(--accent);
+  opacity: 0.28;
+  border-radius: 2px;
+  pointer-events: none;
+}
+
 /* ============================================================
    Floating chrome controls (bottom-right)
    ============================================================ */
@@ -599,8 +619,8 @@ body.dark-chrome #chrome-controls button {
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
-  /* Position is set inline by JS. Below selection by default to avoid
-     colliding with iOS's native action bar (which appears above). */
+  /* Position is set inline by JS: below the selection when there's room,
+     above it otherwise (.above flips the arrow to match). */
 }
 #translate-bubble::before {
   content: '';
@@ -612,6 +632,11 @@ body.dark-chrome #chrome-controls button {
   transform: rotate(45deg);
   box-shadow: -1px -1px 0 var(--border);
   pointer-events: none;
+}
+#translate-bubble.above::before {
+  top: auto;
+  bottom: -5px;
+  box-shadow: 1px 1px 0 var(--border);
 }
 @media (pointer: fine) {
   #translate-bubble { display: none !important; }

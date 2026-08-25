@@ -649,11 +649,13 @@ export function showBubbleForRange(sel) {
   // 48px clearance and never-flip-above rule existed only to dodge iOS's
   // drag handles and callout bar — neither exists any more.)
   let top = selBottom + gap;
+  let flipped = false;
   if (top + bh > window.innerHeight - margin) {
     const above = selTop - gap - bh;
-    top = above >= margin ? above
-        : Math.max(margin, window.innerHeight - bh - margin);
+    if (above >= margin) { top = above; flipped = true; }
+    else top = Math.max(margin, window.innerHeight - bh - margin);
   }
+  translateBubble.classList.toggle('above', flipped);
   let left = selCenterX - bw / 2;
   left = Math.max(margin, Math.min(window.innerWidth - bw - margin, left));
   translateBubble.style.left = left + 'px';
