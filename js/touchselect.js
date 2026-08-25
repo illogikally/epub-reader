@@ -63,7 +63,10 @@ function paint(range, ifr) {
     off = ifr ? ifr.getBoundingClientRect() : { left: 0, top: 0 };
   } catch { return; }
   let painted = 0;
-  for (const r of rects) {
+  // Indexed, not for...of — see ours() below: getClientRects() returns a
+  // DOMRectList, a legacy array-like with no Symbol.iterator in WebKit.
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i];
     if (r.width <= 0 || r.height <= 0) continue;
     painted++;
     const d = document.createElement('div');
@@ -120,7 +123,9 @@ function distToRect(r, x, y) {
 function nodeDistance(probe, node, x, y) {
   try { probe.selectNodeContents(node); } catch { return Infinity; }
   let best = Infinity;
-  for (const r of probe.getClientRects()) {
+  const rects = probe.getClientRects();   // DOMRectList — index it, don't iterate
+  for (let i = 0; i < rects.length; i++) {
+    const r = rects[i];
     if (!r.width && !r.height) continue;
     const d = distToRect(r, x, y);
     if (d < best) best = d;
@@ -269,21 +274,44 @@ export function attachTouchSelection(doc, ifr) {
   doc.__touchSelAttached = true;
   dbg('attached to chapter', ifr ? 'iframe ok' : 'NO IFRAME (rects will be offset)');
 
-  let touchId = null;  // identifier of the touch we're following, or null
-  let start = null;    // { x, y } of the touch that may become a long press
+  let touchId = null;   // identifier of the touch we're following, or null
+  let start = null;     // { x, y } of the touch that may become a long press
+  let startedAt = 0;    // when the tracked touch began, for the stale escape
   let timer = null;
-  let anchor = null;   // word range under the initial press
-  let active = false;  // long press fired — we own the gesture
+  let anchor = null;    // word range under the initial press
+  let active = false;   // long press fired — we own the gesture
 
   const cancelTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
   const reset = () => {
     cancelTimer();
-    touchId = null; start = null; anchor = null; active = false;
+    touchId = null; start = null; startedAt = 0; anchor = null; active = false;
   };
 
+  // Every handler runs inside this. A throw used to escape mid-gesture and
+  // leave touchId set, which killed the recognizer permanently and silently —
+  // far worse than the throw itself. Now any error is reported and the state
+  // machine always returns to neutral.
+  const guarded = (name, fn) => (e) => {
+    try { fn(e); }
+    catch (err) { dbg('handler error [' + name + ']:', String(err)); reset(); }
+  };
+
+  // A gesture older than this was never cleaned up (a throw, or a touchend we
+  // never saw). Take the new touch rather than bailing forever.
+  const STALE_MS = 2000;
+
   // Our touch out of a multi-touch event, or null if it isn't in this event.
+  //
+  // Indexed loop, deliberately: TouchList is a legacy array-like collection
+  // with no Symbol.iterator in WebKit, so `for (const t of list)` throws a
+  // TypeError on iOS. That threw out of touchend before reset() could run,
+  // leaving touchId permanently set — after which every touch bailed at the
+  // `touchId !== null` guard and the gesture was silently dead for good.
   const ours = (list) => {
-    for (const t of list) if (t.identifier === touchId) return t;
+    if (!list) return null;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].identifier === touchId) return list[i];
+    }
     return null;
   };
 
@@ -296,13 +324,22 @@ export function attachTouchSelection(doc, ifr) {
   // Not preventDefault'd — a plain tap must still reach reader.js's chrome
   // toggle and the edge page-flip zones. A second finger landing mid-gesture
   // is ignored rather than cancelling the drag.
-  doc.addEventListener('touchstart', e => {
-    if (touchId !== null) return;
+  doc.addEventListener('touchstart', guarded('touchstart', e => {
     const t = e.changedTouches[0];
+    // Log before the guards: "entered but bailed" and "never fired" look
+    // identical from the panel otherwise, and telling them apart is the
+    // whole point of the instrumentation.
+    dbg('touchstart', t ? Math.round(t.clientX) + ',' + Math.round(t.clientY) : 'no touch',
+        'touchId=' + touchId);
+    if (touchId !== null) {
+      if (Date.now() - startedAt < STALE_MS) return;
+      dbg('stale gesture -> taking over');
+      reset();
+    }
     if (!t) return;
     touchId = t.identifier;
+    startedAt = Date.now();
     start = { x: t.clientX, y: t.clientY };
-    dbg('touchstart', Math.round(t.clientX) + ',' + Math.round(t.clientY));
     timer = setTimeout(() => {
       timer = null;
       if (!start) return;
@@ -313,10 +350,10 @@ export function attachTouchSelection(doc, ifr) {
       active = true;
       setCurrent(r);
     }, LONG_PRESS_MS);
-  }, { passive: true });
+  }), { passive: true });
 
   // Non-passive so it can preventDefault once the long press has fired.
-  doc.addEventListener('touchmove', e => {
+  doc.addEventListener('touchmove', guarded('touchmove', e => {
     const t = ours(e.touches);
     if (!t || !start) return;
     if (!active) {
@@ -329,9 +366,9 @@ export function attachTouchSelection(doc, ifr) {
     const focus = wordRangeAt(doc, t.clientX, t.clientY);
     if (!focus) return;
     setCurrent(unionRange(anchor, focus));
-  }, { passive: false });
+  }), { passive: false });
 
-  doc.addEventListener('touchend', e => {
+  doc.addEventListener('touchend', guarded('touchend', e => {
     if (!ours(e.changedTouches)) return;
     const wasActive = active;
     reset();
@@ -348,9 +385,9 @@ export function attachTouchSelection(doc, ifr) {
     const sel = current;
     dbg('settled:', JSON.stringify(sel.text));
     settledCbs.forEach(cb => { try { cb(sel); } catch (err) { dbg('cb error:', String(err)); } });
-  }, { passive: false });
+  }), { passive: false });
 
-  doc.addEventListener('touchcancel', e => {
+  doc.addEventListener('touchcancel', guarded('touchcancel', e => {
     if (ours(e.changedTouches)) reset();
-  }, { passive: true });
+  }), { passive: true });
 }
