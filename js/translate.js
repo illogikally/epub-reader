@@ -14,8 +14,12 @@
 import { openBookFromDb } from './reader.js';
 import {
   $, escapeHtml, settings, runtime,
-  MODELS, MAX_TOKENS, attachPullToDismiss,
+  MODELS, MAX_TOKENS, attachPullToDismiss, isCoarsePointer,
 } from './state.js';
+import {
+  onSelectionSettled, onSelectionCleared,
+  getTouchSelection, hasTouchSelection, clearTouchSelection,
+} from './touchselect.js';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -127,12 +131,6 @@ let popupBusy = false;
 let lastLookup = null;
 
 const translateBubble = $('translate-bubble');
-const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
-
-// Captured when the bubble is shown (before iOS can clear the iframe selection).
-let capturedBubbleText  = null;   // raw text — immune to Range/DOM state
-let capturedBubbleRange = null;
-let capturedBubbleMeta  = null;
 
 // Timestamp of the last showPopupAt() call — used to ignore synthetic
 // mousedown/pointerdown events that arrive ~300ms after a touch and would
@@ -227,6 +225,7 @@ export function showPopupAt(rect) {
 }
 
 function clearAllSelections() {
+  clearTouchSelection();
   try {
     viewer.querySelectorAll('iframe').forEach(ifr => {
       try { ifr.contentWindow && ifr.contentWindow.getSelection().removeAllRanges(); } catch {}
@@ -244,13 +243,7 @@ export function hidePopup() {
   popupInput.value = '';
   lastLookup = null;
   hideBubble();
-  // Clear stray selections inside iframes so the bubble doesn't immediately
-  // re-appear from the same selection on mobile.
-  try {
-    viewer.querySelectorAll('iframe').forEach(ifr => {
-      try { ifr.contentWindow && ifr.contentWindow.getSelection().removeAllRanges(); } catch {}
-    });
-  } catch {}
+  clearAllSelections();
 }
 
 // ============================================================
@@ -269,28 +262,21 @@ function handleOutsideClick(e) {
 export function attachOutsideClickToFrame(doc) {
   if (!doc) return;
   const fire = () => { if (isPopupVisible()) hidePopup(); };
+  // Deferred so a long-press that starts a selection has had time to register;
+  // a live selection means the user is reading, not dismissing.
   const onTap = () => {
     setTimeout(() => {
-      const sel = doc.getSelection && doc.getSelection();
-      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+      if (isCoarsePointer) { if (hasTouchSelection()) return; }
+      else {
+        const sel = doc.getSelection && doc.getSelection();
+        if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+      }
       fire();
     }, 30);
   };
   doc.addEventListener('mousedown',   onTap, { passive: true });
   doc.addEventListener('touchstart',  onTap, { passive: true });
   doc.addEventListener('pointerdown', onTap, { passive: true });
-
-  // iOS handle-drag fix: when the user touches the iframe with a non-collapsed
-  // selection, hide the bubble synchronously so its DOM hit-target can't
-  // swallow the touch on iOS's extend-selection handle. The polling tick will
-  // re-show the bubble ~200ms after the user releases (text-stable again).
-  doc.addEventListener('touchstart', () => {
-    const sel = doc.getSelection && doc.getSelection();
-    if (!sel || sel.isCollapsed || !sel.toString().trim()) return;
-    hideBubble();
-    bubblePositionedFor = null;
-    lastSelText = '';
-  }, { passive: true });
 }
 
 // ============================================================
@@ -412,6 +398,21 @@ function renderActionsBar(phrase, context) {
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
 
   const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
+
+  // On touch there is no native selection any more, so no iOS Copy button —
+  // this is the replacement.
+  const copy = document.createElement('a');
+  copy.href = '#';
+  copy.className = 'action';
+  copy.textContent = 'copy';
+  copy.title = 'Copy the selected text';
+  copy.onclick = async (e) => {
+    e.preventDefault();
+    try { await navigator.clipboard.writeText(phrase); copy.classList.add('used'); }
+    catch { copy.textContent = 'copy?'; }
+  };
+  popupActions.appendChild(copy);
+
   // [5] [10] [15] — re-run lookup with N sentences of context
   [5].forEach(n => {
     const a = document.createElement('a');
@@ -578,33 +579,11 @@ function fireLookupForSelection(sel, doc, iframe, capturedRange) {
   };
 
   const savedRange = capturedRange || range.cloneRange();
-  // On mobile we must clear so iOS doesn't leave a stale selection under the
-  // bottom-sheet popup; on desktop we keep the selection live so the user can
-  // copy / extend it while the popup is open.
-  if (sel && isCoarsePointer) { try { sel.removeAllRanges(); } catch {} }
   lastLookup = { phrase, range: savedRange, doc };
   hideBubble();
 
   showPopupAt(viewportRect);
   doLookup(phrase, savedRange, settings.contextSentences);
-}
-
-// Find the first iframe with a non-empty selection. Returns null if none.
-function findActiveIframeSelection() {
-  if (!runtime.rendition || reader.hidden) return null;
-  const iframes = viewer.querySelectorAll('iframe');
-  for (const ifr of iframes) {
-    let win, doc;
-    try { win = ifr.contentWindow; doc = ifr.contentDocument || (win && win.document); }
-    catch { continue; }
-    if (!win || !doc) continue;
-    let sel;
-    try { sel = win.getSelection(); } catch { continue; }
-    if (sel && !sel.isCollapsed && sel.toString().trim()) {
-      return { sel, doc, ifr };
-    }
-  }
-  return null;
 }
 
 // ============================================================
@@ -632,131 +611,60 @@ export function attachSelectionHandler(doc) {
 }
 
 // ============================================================
-// Mobile path: bubble appears next to the active selection;
-// tapping it fires the lookup explicitly.
+// Mobile path: js/touchselect.js owns the selection; it calls
+// showBubbleForRange() when a long-press/drag settles. Tapping the bubble
+// fires the lookup. No polling, no native-selection workarounds — the range
+// is ours and nothing external clears it.
 // ============================================================
 function hideBubble() {
   if (translateBubble) translateBubble.hidden = true;
 }
 
-// Polling state. lastSelText: text from last tick, used for stability check.
-// bubblePositionedFor: text the bubble is currently positioned for, or null.
-// During a handle drag the text changes every tick → cheap path only,
-// no layout reads, no style writes. After it stabilizes for one full
-// tick, the heavy path runs once and positions the bubble.
-let bubbleInterval = null;
-let lastSelText = '';
-let bubblePositionedFor = null;
+export function showBubbleForRange(sel) {
+  if (!translateBubble || !isCoarsePointer) return;
+  if (isPopupVisible() || popupBusy) { hideBubble(); return; }
+  if (!sel || !sel.text) { hideBubble(); return; }
 
-function updateBubble() {
-  if (!translateBubble) return;
-  if (!isCoarsePointer) return;
-  if (isPopupVisible() || popupBusy) {
-    if (bubblePositionedFor !== null) hideBubble();
-    bubblePositionedFor = null;
-    lastSelText = '';
-    return;
-  }
-  const found = findActiveIframeSelection();
-  if (!found) {
-    if (bubblePositionedFor !== null) hideBubble();
-    bubblePositionedFor = null;
-    lastSelText = '';
-    return;
-  }
-
-  // Cheap read — text only, no layout.
-  let text;
-  try { text = found.sel.toString().trim(); } catch { return; }
-  if (!text) {
-    if (bubblePositionedFor !== null) hideBubble();
-    bubblePositionedFor = null;
-    lastSelText = '';
-    return;
-  }
-
-  // Selection still changing → keep bubble hidden, do no layout work.
-  if (text !== lastSelText) {
-    lastSelText = text;
-    if (bubblePositionedFor !== null) {
-      hideBubble();
-      bubblePositionedFor = null;
-    }
-    return;
-  }
-
-  // Text equal to lastSelText AND already positioned → nothing to do.
-  if (bubblePositionedFor === text) return;
-
-  // Heavy path: selection has been stable for a full tick. Measure + position.
-  let range;
-  try { range = found.sel.getRangeAt(0); } catch { return; }
-  const rect = range.getBoundingClientRect();
-  const ifrRect = found.ifr.getBoundingClientRect();
-  const selTop    = rect.top    + ifrRect.top;
-  const selBottom = rect.bottom + ifrRect.top;
-  const selCenterX = rect.left + ifrRect.left + rect.width / 2;
-
-  // Snapshot everything now — iOS/Android clears the iframe selection when
-  // the user taps the bubble, so we capture text + range + meta here while
-  // the selection is still live. Text string is the safest primary source.
+  let rect, ifrRect;
   try {
-    capturedBubbleText  = text;
-    capturedBubbleRange = range.cloneRange();
-    capturedBubbleMeta  = { doc: found.doc, ifr: found.ifr };
-  } catch {
-    capturedBubbleText  = null;
-    capturedBubbleRange = null;
-    capturedBubbleMeta  = null;
-  }
+    rect = sel.range.getBoundingClientRect();
+    ifrRect = sel.ifr ? sel.ifr.getBoundingClientRect() : { left: 0, top: 0 };
+  } catch { hideBubble(); return; }
 
   // Make visible first so we can measure. Position offscreen until measured
   // to avoid a frame of flicker at (0,0).
   translateBubble.style.left = '-9999px';
-  translateBubble.style.top = '-9999px';
+  translateBubble.style.top  = '-9999px';
   translateBubble.hidden = false;
   const bw = translateBubble.offsetWidth;
   const bh = translateBubble.offsetHeight;
 
   const margin = 8;
-  // iOS draws its bottom selection handle (the drag-to-extend teardrop) and
-  // its hit zone extends ~30–50px below the selection edge depending on line
-  // height / zoom. 48px puts the bubble fully outside that zone; combined
-  // with the iframe-touchstart hide above, dragging the handle is reliable.
-  const handleClearance = 48;
-  // Always below — iOS's native callout sits above the selection, so
-  // flipping our bubble above (last-line case) used to collide with it.
-  // If there isn't room for the full bubble below, clamp to the bottom
-  // of the viewport rather than flipping.
-  const top = Math.min(
-    Math.max(margin, selBottom + handleClearance),
-    window.innerHeight - bh - margin,
-  );
+  const gap = 10;
+  const selTop     = rect.top    + ifrRect.top;
+  const selBottom  = rect.bottom + ifrRect.top;
+  const selCenterX = rect.left   + ifrRect.left + rect.width / 2;
+
+  // Prefer below the selection; flip above when there isn't room. (The old
+  // 48px clearance and never-flip-above rule existed only to dodge iOS's
+  // drag handles and callout bar — neither exists any more.)
+  let top = selBottom + gap;
+  if (top + bh > window.innerHeight - margin) {
+    const above = selTop - gap - bh;
+    top = above >= margin ? above
+        : Math.max(margin, window.innerHeight - bh - margin);
+  }
   let left = selCenterX - bw / 2;
   left = Math.max(margin, Math.min(window.innerWidth - bw - margin, left));
   translateBubble.style.left = left + 'px';
-  translateBubble.style.top = top + 'px';
-  bubblePositionedFor = text;
-}
-
-function fireFromBubble() {
-  const found = findActiveIframeSelection();
-  if (!found) { hideBubble(); return; }
-  fireLookupForSelection(found.sel, found.doc, found.ifr);
-}
-
-function startBubblePolling() {
-  if (bubbleInterval) return;
-  if (!isCoarsePointer) return;
-  bubbleInterval = setInterval(updateBubble, 200);
+  translateBubble.style.top  = top + 'px';
 }
 
 export function stopBubble() {
-  if (bubbleInterval) { clearInterval(bubbleInterval); bubbleInterval = null; }
-  lastSelText = '';
-  bubblePositionedFor = null;
   hideBubble();
+  clearTouchSelection();
 }
+
 
 // ============================================================
 // TOC builder (lives here because it needs rendition + drawer hide)
@@ -809,45 +717,31 @@ export function initTranslateEvents() {
   });
 
   // Bubble — mobile path. Fires the lookup explicitly on tap.
-  // capturedBubbleRange / capturedBubbleMeta are module-scope and set by
-  // updateBubble() so the range is available even if iOS cleared the selection.
   //
-  // We use touchend (not click) because:
-  //   1. touchend fires immediately when the finger lifts, before any 200ms
-  //      polling tick can run updateBubble() → hideBubble() → hidden=true,
-  //      which would cancel a pending click on iOS.
-  //   2. It avoids the ~300ms synthetic-click delay on iOS.
+  // touchend rather than click: it fires the moment the finger lifts and
+  // avoids the ~300ms synthetic-click delay on iOS.
   if (translateBubble) {
     translateBubble.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
     translateBubble.addEventListener('mousedown',  e => e.stopPropagation());
 
     function fireBubbleLookup() {
       if (popupBusy || isPopupVisible()) return;
-      const text  = capturedBubbleText;
-      const range = capturedBubbleRange;
-      const meta  = capturedBubbleMeta;
-      capturedBubbleText  = null;
-      capturedBubbleRange = null;
-      capturedBubbleMeta  = null;
-      if (text && meta) {
-        // Use saved text string — immune to iOS/Android clearing the selection.
-        // Range is kept for context extraction; rect doesn't matter on mobile
-        // (bottom-sheet popup ignores position).
-        lastLookup = { phrase: text, range, doc: meta.doc };
-        hideBubble();
-        let viewportRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-        if (range) {
-          try {
-            const r = range.getBoundingClientRect();
-            const ir = meta.ifr ? meta.ifr.getBoundingClientRect() : { left: 0, top: 0 };
-            viewportRect = { left: r.left + ir.left, top: r.top + ir.top, right: r.right + ir.left, bottom: r.bottom + ir.top, width: r.width, height: r.height };
-          } catch {}
-        }
-        showPopupAt(viewportRect);
-        doLookup(text, range, settings.contextSentences);
-      } else {
-        fireFromBubble();
-      }
+      const sel = getTouchSelection();
+      if (!sel || !sel.text) { hideBubble(); return; }
+      hideBubble();
+      lastLookup = { phrase: sel.text, range: sel.range, doc: sel.doc };
+      let viewportRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
+      try {
+        const r = sel.range.getBoundingClientRect();
+        const ir = sel.ifr ? sel.ifr.getBoundingClientRect() : { left: 0, top: 0 };
+        viewportRect = {
+          left: r.left + ir.left, top: r.top + ir.top,
+          right: r.right + ir.left, bottom: r.bottom + ir.top,
+          width: r.width, height: r.height,
+        };
+      } catch {}
+      showPopupAt(viewportRect);
+      doLookup(sel.text, sel.range, settings.contextSentences);
     }
 
     // Primary path — touch devices
@@ -865,11 +759,9 @@ export function initTranslateEvents() {
     });
   }
 
-  // Mobile: poll for selection changes. selectionchange does not fire
-  // reliably inside epub.js's blob iframes on iOS, so polling is the
-  // only mechanism that consistently triggers the bubble. updateBubble
-  // does only a getSelection().toString() read on most ticks; the
-  // expensive layout/positioning work runs only after the selection has
-  // been stable for one full tick.
-  startBubblePolling();
+  // Touch: the custom selection layer drives the bubble directly. No polling
+  // and no selectionchange — neither is reliable inside epub.js's blob
+  // iframes on iOS, and neither is needed now that we own the selection.
+  onSelectionSettled(showBubbleForRange);
+  onSelectionCleared(hideBubble);
 }
