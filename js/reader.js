@@ -149,7 +149,7 @@ export function createRendition() {
     injectBookStyle(doc);
     // Last: its touchend must run after attachInputHandlers' so the chrome
     // toggle still sees hasTouchSelection() === true for a dismissing tap.
-    attachTouchSelection(doc, view?.iframe || doc.defaultView?.frameElement || null);
+    attachTouchSelection(doc, doc.defaultView?.frameElement || null);
   });
 }
 

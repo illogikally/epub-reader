@@ -21,6 +21,7 @@
 // ============================================================
 
 import { $, isCoarsePointer } from './state.js';
+import { dbg } from './debug.js';
 
 const LONG_PRESS_MS  = 400;
 const MOVE_TOLERANCE = 10;
@@ -61,8 +62,10 @@ function paint(range, ifr) {
     rects = range.getClientRects();
     off = ifr ? ifr.getBoundingClientRect() : { left: 0, top: 0 };
   } catch { return; }
+  let painted = 0;
   for (const r of rects) {
     if (r.width <= 0 || r.height <= 0) continue;
+    painted++;
     const d = document.createElement('div');
     d.className = 'sel-rect';
     d.style.left   = (r.left + off.left) + 'px';
@@ -71,6 +74,7 @@ function paint(range, ifr) {
     d.style.height = r.height + 'px';
     el.appendChild(d);
   }
+  dbg('paint:', painted + ' rects', 'ifrOff=' + Math.round(off.left) + ',' + Math.round(off.top));
 }
 
 export function clearTouchSelection() {
@@ -82,61 +86,106 @@ export function clearTouchSelection() {
 
 // ============================================================
 // Hit testing
+//
+// This resolves the touch point to a text node + offset using layout geometry
+// (Range rects), NOT document.caretRangeFromPoint. That matters: the book
+// iframe has user-select:none (the whole point — it's what suppresses iOS's
+// callout bar), and in WebKit an unselectable text node is not a valid
+// selection candidate, so caretRangeFromPoint returns null or a position
+// clamped outside the subtree. Geometry is unaffected by user-select.
+//
+// It also handles epub.js's paginated flow correctly: that's one long CSS
+// multi-column run, so a single <p> extends across columns scrolled off
+// screen. Comparing real rects picks the character actually under the finger.
 // ============================================================
-function firstTextNode(node) {
-  if (!node) return null;
-  if (node.nodeType === 3) return node;
-  const w = node.ownerDocument.createTreeWalker(node, 4 /* SHOW_TEXT */);
-  return w.nextNode();
+const BLOCK_TAGS = new Set(
+  ['P','DIV','LI','BLOCKQUOTE','SECTION','ARTICLE','BODY','TD','PRE','H1','H2','H3','H4','H5','H6']);
+
+// Nearest block-level ancestor — bounds how much text we scan.
+function blockAncestor(node) {
+  let el = node && node.nodeType === 3 ? node.parentNode : node;
+  while (el && el.tagName && !BLOCK_TAGS.has(el.tagName) && el.parentNode) el = el.parentNode;
+  return el || node;
 }
 
-// Last-resort caret hit test: walk the text under elementFromPoint and pick the
-// character box nearest (x, y). O(chars in the hit element) — fine for a <p>.
-function caretFallback(doc, x, y) {
-  let el;
-  try { el = doc.elementFromPoint(x, y); } catch { return null; }
-  if (!el) return null;
-  const walker = doc.createTreeWalker(el, 4 /* SHOW_TEXT */);
+// Distance² from (x, y) to a rect, 0 when inside.
+function distToRect(r, x, y) {
+  const dx = x < r.left ? r.left - x : (x > r.right  ? x - r.right  : 0);
+  const dy = y < r.top  ? r.top  - y : (y > r.bottom ? y - r.bottom : 0);
+  return dx * dx + dy * dy;
+}
+
+// Cheapest rejection: a text node's line boxes. Returns distance² to the
+// closest one, so nodes nowhere near the finger never get scanned per-character.
+function nodeDistance(probe, node, x, y) {
+  try { probe.selectNodeContents(node); } catch { return Infinity; }
+  let best = Infinity;
+  for (const r of probe.getClientRects()) {
+    if (!r.width && !r.height) continue;
+    const d = distToRect(r, x, y);
+    if (d < best) best = d;
+    if (best === 0) break;
+  }
+  return best;
+}
+
+const NEAR_PX = 40;   // line boxes further than this are not under the finger
+
+// -> { node, offset } | null
+function textPositionAt(doc, x, y) {
+  let hit;
+  try { hit = doc.elementFromPoint(x, y); } catch { hit = null; }
+  const root = blockAncestor(hit) || doc.body;
+  if (!root) { dbg('hit: no root'); return null; }
+
+  const walker = doc.createTreeWalker(root, 4 /* SHOW_TEXT */);
   const probe = doc.createRange();
-  let best = null, bestD = Infinity, n;
+
+  // Pass 1 — line-box pre-filter. Usually leaves one or two nodes.
+  const near = [];
+  let n;
   while ((n = walker.nextNode())) {
-    const len = (n.data || '').length;
+    if (!n.data || !n.data.trim()) continue;
+    const d = nodeDistance(probe, n, x, y);
+    if (d <= NEAR_PX * NEAR_PX) near.push([d, n]);
+  }
+  if (!near.length) { dbg('hit: no text near', '<' + (root.tagName || '?') + '>'); return null; }
+  near.sort((a, b) => a[0] - b[0]);
+
+  // Pass 2 — per-character scan of the closest nodes only.
+  let best = null, bestD = Infinity;
+  for (const [, node] of near.slice(0, 4)) {
+    const len = node.data.length;
     for (let i = 0; i < len; i++) {
-      probe.setStart(n, i);
-      probe.setEnd(n, i + 1);
-      const rc = probe.getBoundingClientRect();
-      if (!rc.width && !rc.height) continue;
-      const dx = x < rc.left ? rc.left - x : (x > rc.right  ? x - rc.right  : 0);
-      const dy = y < rc.top  ? rc.top  - y : (y > rc.bottom ? y - rc.bottom : 0);
-      const d = dx * dx + dy * dy;
-      if (d < bestD) { bestD = d; best = [n, i]; }
-      if (bestD === 0) break;
+      try { probe.setStart(node, i); probe.setEnd(node, i + 1); } catch { continue; }
+      const r = probe.getBoundingClientRect();
+      if (!r.width && !r.height) continue;
+      const d = distToRect(r, x, y);
+      // Bias toward the character's leading half so a press lands on the
+      // glyph you're actually over rather than its neighbour.
+      if (d < bestD) { bestD = d; best = { node, offset: x > r.left + r.width / 2 ? i + 1 : i }; }
+      if (bestD === 0 && d === 0) break;
     }
     if (bestD === 0) break;
   }
-  if (!best) return null;
-  const r = doc.createRange();
-  r.setStart(best[0], best[1]);
-  r.collapse(true);
-  return r;
-}
+  if (best) { dbg('hit: geom', JSON.stringify(best.node.data.substr(Math.max(0, best.offset - 6), 12)), '@' + best.offset); return best; }
 
-function caretRangeAt(doc, x, y) {
+  // Last resort — the caret APIs. Only trusted when they land on a text node
+  // inside the block we hit; on iOS with user-select:none they usually don't.
   try {
-    if (doc.caretRangeFromPoint) {          // WebKit / Blink
-      const r = doc.caretRangeFromPoint(x, y);
-      if (r) return r;
-    } else if (doc.caretPositionFromPoint) { // Gecko
-      const p = doc.caretPositionFromPoint(x, y);
-      if (p && p.offsetNode) {
-        const r = doc.createRange();
-        r.setStart(p.offsetNode, p.offset);
-        r.collapse(true);
-        return r;
-      }
+    let cr = null;
+    if (doc.caretRangeFromPoint) cr = doc.caretRangeFromPoint(x, y);
+    else if (doc.caretPositionFromPoint) {
+      const pp = doc.caretPositionFromPoint(x, y);
+      if (pp && pp.offsetNode) cr = { startContainer: pp.offsetNode, startOffset: pp.offset };
     }
-  } catch {}
-  return caretFallback(doc, x, y);
+    if (cr && cr.startContainer && cr.startContainer.nodeType === 3 && root.contains(cr.startContainer)) {
+      dbg('hit: caretAPI');
+      return { node: cr.startContainer, offset: cr.startOffset };
+    }
+    dbg('hit: caretAPI rejected', cr ? 'off-root' : 'null');
+  } catch { dbg('hit: caretAPI threw'); }
+  return null;
 }
 
 // ============================================================
@@ -155,64 +204,59 @@ function getSegmenter() {
   return segmenter;
 }
 
-// [start, end) of the word containing `offset`, or null when offset sits in
-// whitespace / punctuation. Intl.Segmenter handles CJK and other scripts that
-// a regex can't; the regex is the fallback for engines without it.
-function wordBoundsAt(text, offset) {
+// Every word span in `text`, in order. Intl.Segmenter handles CJK and other
+// scripts a regex can't; the regex is the fallback for engines without it.
+function wordSpans(text) {
   const seg = getSegmenter();
+  const out = [];
   if (seg) {
     for (const s of seg.segment(text)) {
-      if (!s.isWordLike) continue;
-      const end = s.index + s.segment.length;
-      if (offset >= s.index && offset <= end) return [s.index, end];
+      if (s.isWordLike) out.push([s.index, s.index + s.segment.length]);
     }
-    return null;
+    return out;
   }
   WORD_RE.lastIndex = 0;
   let m;
-  while ((m = WORD_RE.exec(text))) {
-    const end = m.index + m[0].length;
-    if (offset >= m.index && offset <= end) return [m.index, end];
+  while ((m = WORD_RE.exec(text))) out.push([m.index, m.index + m[0].length]);
+  return out;
+}
+
+// [start, end) of the word containing `offset`, or null.
+function wordBoundsAt(text, offset) {
+  for (const [a, b] of wordSpans(text)) {
+    if (offset >= a && offset <= b) return [a, b];
   }
   return null;
+}
+
+// The word containing `offset`, or — when the press landed on whitespace or
+// punctuation — the nearest word in the same text node. Returning null here
+// is what made a long-press on the gap between two words do nothing at all.
+function wordBoundsNear(text, offset) {
+  const spans = wordSpans(text);
+  if (!spans.length) return null;
+  let best = null, bestD = Infinity;
+  for (const [a, b] of spans) {
+    if (offset >= a && offset <= b) return [a, b];
+    const d = offset < a ? a - offset : offset - b;
+    if (d < bestD) { bestD = d; best = [a, b]; }
+  }
+  return best;
 }
 
 // Range covering the whole word under (x, y), or null.
 // Boundaries are resolved inside a single text node — a word split across
 // inline tags (<em>) yields the node-local fragment.
 function wordRangeAt(doc, x, y) {
-  const caret = caretRangeAt(doc, x, y);
-  if (!caret) return null;
-  let node = caret.startContainer;
-  let offset = caret.startOffset;
-  if (node.nodeType !== 3) {
-    const kids = node.childNodes;
-    const pick = kids.length ? kids[Math.min(offset, kids.length - 1)] : null;
-    node = firstTextNode(pick) || firstTextNode(node);
-    if (!node) return null;
-    offset = 0;
-  }
-  const text = node.data || '';
-  const b = wordBoundsAt(text, Math.min(offset, text.length));
-  if (!b) return null;
+  const pos = textPositionAt(doc, x, y);
+  if (!pos) return null;
+  const text = pos.node.data || '';
+  const b = wordBoundsNear(text, Math.min(pos.offset, text.length));
+  if (!b) { dbg('word: none in node'); return null; }
   const r = doc.createRange();
-  r.setStart(node, b[0]);
-  r.setEnd(node, b[1]);
-  return r.collapsed ? null : r;
-}
-
-// Smallest range covering both — this is what makes the drag extend by whole
-// words in either direction from the anchor.
-function unionRange(a, b) {
-  if (!a) return b;
-  if (!b) return a;
-  const r = a.cloneRange();
-  try {
-    if (b.compareBoundaryPoints(Range.START_TO_START, r) < 0)
-      r.setStart(b.startContainer, b.startOffset);
-    if (b.compareBoundaryPoints(Range.END_TO_END, r) > 0)
-      r.setEnd(b.endContainer, b.endOffset);
-  } catch { return a; }
+  try { r.setStart(pos.node, b[0]); r.setEnd(pos.node, b[1]); } catch { return null; }
+  if (r.collapsed) return null;
+  dbg('word:', JSON.stringify(r.toString()));
   return r;
 }
 
@@ -220,8 +264,10 @@ function unionRange(a, b) {
 // Gesture recognizer — one per chapter iframe
 // ============================================================
 export function attachTouchSelection(doc, ifr) {
-  if (!isCoarsePointer || !doc || doc.__touchSelAttached) return;
+  if (!isCoarsePointer) { dbg('attach skipped: pointer is fine'); return; }
+  if (!doc || doc.__touchSelAttached) return;
   doc.__touchSelAttached = true;
+  dbg('attached to chapter', ifr ? 'iframe ok' : 'NO IFRAME (rects will be offset)');
 
   let touchId = null;  // identifier of the touch we're following, or null
   let start = null;    // { x, y } of the touch that may become a long press
@@ -256,11 +302,13 @@ export function attachTouchSelection(doc, ifr) {
     if (!t) return;
     touchId = t.identifier;
     start = { x: t.clientX, y: t.clientY };
+    dbg('touchstart', Math.round(t.clientX) + ',' + Math.round(t.clientY));
     timer = setTimeout(() => {
       timer = null;
       if (!start) return;
+      dbg('longpress fired');
       const r = wordRangeAt(doc, start.x, start.y);
-      if (!r) return;
+      if (!r) { dbg('-> no word, aborting'); return; }
       anchor = r;
       active = true;
       setCurrent(r);
@@ -274,7 +322,7 @@ export function attachTouchSelection(doc, ifr) {
     if (!active) {
       // Drifted before the timer → it's a scroll/swipe, not a press.
       if (Math.abs(t.clientX - start.x) > MOVE_TOLERANCE ||
-          Math.abs(t.clientY - start.y) > MOVE_TOLERANCE) reset();
+          Math.abs(t.clientY - start.y) > MOVE_TOLERANCE) { dbg('drift -> cancelled'); reset(); }
       return;
     }
     e.preventDefault();   // we own the gesture — no scrolling mid-drag
@@ -298,7 +346,8 @@ export function attachTouchSelection(doc, ifr) {
     lastGesture = Date.now();
     if (!current) { clearTouchSelection(); return; }
     const sel = current;
-    settledCbs.forEach(cb => { try { cb(sel); } catch {} });
+    dbg('settled:', JSON.stringify(sel.text));
+    settledCbs.forEach(cb => { try { cb(sel); } catch (err) { dbg('cb error:', String(err)); } });
   }, { passive: false });
 
   doc.addEventListener('touchcancel', e => {
