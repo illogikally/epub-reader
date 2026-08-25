@@ -74,27 +74,36 @@ html, body {
   background: var(--bg); color: var(--fg);
   font-family: 'Seravek', ui-sans-serif, system-ui, -apple-system, sans-serif;
   transition: background 0.3s ease, color 0.3s ease;
-  /* No native selection anywhere. Scoping this to #reader wasn't enough:
-     WebKit long-presses the unselectable capture layer, finds nothing to
-     select, and falls back to the nearest selectable ancestor — which was
-     still <body>. It then selected the whole band of #viewer + #zone-* and
-     offered Copy / Copy Highlighted Link. js/touchselect.js backs this up at
-     runtime, because CSS alone has not been reliable here. */
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
   /* Kills double-tap-to-zoom. The viewport meta's maximum-scale=1.0 has been
      ignored by iOS since iOS 10, so this is the only thing that works.
      'manipulation' still permits panning and pinch, which the drawers,
-     settings panel, #popup-out scrolling and pull-to-dismiss all need. */
+     settings panel, #popup-out scrolling and pull-to-dismiss all need.
+     Touch-only in effect, so it needs no media query. */
   touch-action: manipulation;
 }
-/* The one exception, and it is functional rather than a preference: form
-   fields need selection to place a caret and accept text on iOS. */
-input, textarea {
-  -webkit-user-select: text;
-  user-select: text;
-  -webkit-touch-callout: default;
+
+/* Touch only — mirrors the isCoarsePointer check in the JS. Desktop keeps
+   native selection everywhere; it is the whole desktop lookup flow (select with
+   the mouse, fire on mouseup).
+   On touch, no native selection anywhere: scoping this to #reader wasn't
+   enough, because WebKit long-presses the unselectable capture layer, finds
+   nothing to select, and falls back to the nearest selectable ancestor — which
+   was still <body>. It then selected the whole band of #viewer + #zone-* and
+   offered Copy / Copy Highlighted Link. js/touchselect.js backs this up at
+   runtime, because CSS alone has not been reliable here. */
+@media (pointer: coarse) {
+  html, body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  /* The one exception, and it is functional rather than a preference: form
+     fields need selection to place a caret and accept text on iOS. */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
 }
 button {
   font-family: inherit; font-size: inherit; color: inherit;
@@ -211,31 +220,32 @@ button {
 }
 #viewer iframe { border: none !important; }
 
-/* Transparent touch layer over the book, used for word selection.
-   Sits above the epub.js iframe but BELOW #zone-left/#zone-right (z-index 5)
-   so edge taps still flip pages, and below #sel-overlay (6) and the bubble (8).
-   Insets match #viewer exactly. */
-#touch-capture {
-  position: absolute;
-  top: var(--pad-top);
-  bottom: var(--pad-bottom);
-  left: var(--pad-left);
-  right: var(--pad-right);
-  z-index: 4;
-  /* We own every gesture over the book. Without this WebKit is free to read a
-     drag as a pan, claim it mid-selection and stop delivering touchmove (or
-     fire touchcancel), which is what stopped drag-to-extend from working.
-     Costs pinch-zoom over the page, which a paginated reader doesn't want. */
-  touch-action: none;
-}
-
-/* Debug only: makes the touch layer's presence and coverage visible, so
-   "is there a layer over the book?" is answered by looking rather than by
-   reading the log. Toggled from js/debug.js. */
-body.debug-on #touch-capture {
-  outline: 2px dashed rgba(255, 64, 129, 0.85);
-  outline-offset: -2px;
-  background: rgba(255, 64, 129, 0.06);
+/* Transparent touch layer over the book, used for word selection. Sits above
+   the epub.js iframe but BELOW #zone-left/#zone-right (z-index 5) so edge taps
+   still flip pages, and below #sel-overlay (6). Insets match #viewer exactly.
+   Created by js/touchselect.js on coarse pointers only — never present on
+   desktop, where it would sit over the book and swallow every mouse event.
+   The media query is belt-and-braces for that. */
+@media (pointer: coarse) {
+  #touch-capture {
+    position: absolute;
+    top: var(--pad-top);
+    bottom: var(--pad-bottom);
+    left: var(--pad-left);
+    right: var(--pad-right);
+    z-index: 4;
+    /* We own every gesture over the book. Without this WebKit is free to read a
+       drag as a pan, claim it mid-selection and stop delivering touchmove (or
+       fire touchcancel), which is what stopped drag-to-extend from working. */
+    touch-action: none;
+  }
+  /* Debug only: makes the layer's presence and coverage visible, so "is there a
+     layer over the book?" is answered by looking. Toggled from js/debug.js. */
+  body.debug-on #touch-capture {
+    outline: 2px dashed rgba(255, 64, 129, 0.85);
+    outline-offset: -2px;
+    background: rgba(255, 64, 129, 0.06);
+  }
 }
 
 /* invisible click zones for page flipping */
