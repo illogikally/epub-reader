@@ -24,6 +24,13 @@ import { $, isCoarsePointer, runtime } from './state.js';
 import { dbg, dbgStatus } from './debug.js';
 
 const LONG_PRESS_MS  = 400;
+// Drift allowed while waiting out the long press. Generous on purpose: a finger
+// held still for 400ms on a phone routinely wanders more than 10px, and at 10px
+// the timer was cancelled before any selection could form. Being loose is safe
+// because touch-action:none means no scroll can be stolen from us — the only
+// thing this guards against is a swipe, which travels far past 18px.
+const HOLD_TOLERANCE = 18;
+// Separate question, asked at touchend: was this a tap or a drag?
 const MOVE_TOLERANCE = 10;
 // Swipe-to-turn-page: a quick, decidedly horizontal flick.
 const SWIPE_MS       = 600;
@@ -279,6 +286,25 @@ function wordRangeAt(doc, x, y) {
   return r;
 }
 
+// Smallest range covering both — this is what makes a drag extend by whole
+// words in either direction from the anchor.
+//
+// compareBoundaryPoints(how, source) compares THIS range's point against the
+// SOURCE range's point: START_TO_START is this.start vs source.start, and
+// END_TO_END is this.end vs source.end.
+function unionRange(a, b) {
+  if (!a) return b;
+  if (!b) return a;
+  const r = a.cloneRange();
+  try {
+    if (b.compareBoundaryPoints(Range.START_TO_START, r) < 0)
+      r.setStart(b.startContainer, b.startOffset);
+    if (b.compareBoundaryPoints(Range.END_TO_END, r) > 0)
+      r.setEnd(b.endContainer, b.endOffset);
+  } catch { return a; }
+  return r;
+}
+
 // ============================================================
 // Gesture recognizer — bound to #touch-capture in the PARENT document.
 //
@@ -494,8 +520,13 @@ export function initTouchSelection() {
     if (!t || !start) return;
     if (!active) {
       // Drifted before the timer → it's a scroll/swipe, not a press.
-      if (Math.abs(t.clientX - start.x) > MOVE_TOLERANCE ||
-          Math.abs(t.clientY - start.y) > MOVE_TOLERANCE) { dbg('drift -> cancelled'); reset(); }
+      if (Math.abs(t.clientX - start.x) > HOLD_TOLERANCE ||
+          Math.abs(t.clientY - start.y) > HOLD_TOLERANCE) {
+        // Not a press. The swipe tracker deliberately survives this — touchend
+        // still has to be able to read it.
+        dbg('drift -> not a press');
+        reset();
+      }
       return;
     }
     e.preventDefault();   // we own the gesture — no scrolling mid-drag
@@ -515,15 +546,20 @@ export function initTouchSelection() {
   }), { passive: false });
 
   layer.addEventListener('touchend', guarded('touchend', e => {
-    const t = ours(e.changedTouches);
+    // Taken straight from the event, NOT via ours(): a drift-cancel has already
+    // run reset() and nulled touchId by this point, and gating on it here is
+    // what made every swipe unreachable — a swipe is precisely the gesture that
+    // drift-cancels. isOurs gates the selection/tap branches instead.
+    const t = e.changedTouches[0];
     if (!t) return;
-    const wasActive = active;
+    const isOurs = touchId !== null && t.identifier === touchId;
+    const wasActive = active && isOurs;
     const tapStart = start;
-    const dt = Date.now() - startedAt;
-    const moved = tapStart
+    const dt = startedAt ? Date.now() - startedAt : Infinity;
+    const moved = !!tapStart
       && (Math.abs(t.clientX - tapStart.x) > MOVE_TOLERANCE
        || Math.abs(t.clientY - tapStart.y) > MOVE_TOLERANCE);
-    reset();
+    if (isOurs) reset();
 
     if (wasActive) {
       e.preventDefault();   // suppress the synthetic click
@@ -535,21 +571,31 @@ export function initTouchSelection() {
       return;
     }
 
-    // Horizontal flick → turn the page. Checked before the tap branch so one
-    // gesture can't both swipe and dismiss the popup / follow a link.
+    // Horizontal flick → turn the page. Evaluated without isOurs, and before
+    // the tap branch so one gesture can't both swipe and dismiss the popup.
     if (swipe && swipe.id === t.identifier) {
       const dx = t.clientX - swipe.x;
       const dy = t.clientY - swipe.y;
-      const quick = Date.now() - swipe.t < SWIPE_MS;
+      const sdt = Date.now() - swipe.t;
       swipe = null;
-      if (quick && Math.abs(dx) > SWIPE_MIN_X && Math.abs(dx) > Math.abs(dy) * SWIPE_RATIO) {
+      const ok = sdt < SWIPE_MS
+              && Math.abs(dx) > SWIPE_MIN_X
+              && Math.abs(dx) > Math.abs(dy) * SWIPE_RATIO;
+      // Logged either way: if the thresholds are wrong for how the flick is
+      // actually performed, the numbers are on screen rather than guessed at.
+      dbg('touchend dx=' + Math.round(dx), 'dy=' + Math.round(dy), 'dt=' + sdt,
+          ok ? '-> SWIPE' : '-> no swipe');
+      if (ok) {
         const dir = dx < 0 ? 1 : -1;   // flick left = next page
-        dbg('swipe', dir > 0 ? 'next' : 'prev', 'dx=' + Math.round(dx));
+        dbg('swipe', dir > 0 ? 'next' : 'prev');
         if (current) clearTouchSelection();
         swipeCbs.forEach(cb => { try { cb(dir); } catch (err) { dbg('swipe cb error:', String(err)); } });
         return;
       }
     }
+
+    // Everything below belongs to the gesture we were tracking.
+    if (!isOurs) return;
 
     // Short tap. Dismiss a live selection first; otherwise let it act on the
     // book underneath, which the capture layer would otherwise swallow.
