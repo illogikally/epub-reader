@@ -20,7 +20,7 @@
 // Desktop is untouched — everything here no-ops on a fine pointer.
 // ============================================================
 
-import { $, isCoarsePointer } from './state.js';
+import { $, isCoarsePointer, runtime } from './state.js';
 import { dbg } from './debug.js';
 
 const LONG_PRESS_MS  = 400;
@@ -34,9 +34,14 @@ let overlay = null;
 
 const settledCbs = [];
 const clearedCbs = [];
+const tapCbs     = [];
 
 export function onSelectionSettled(cb) { settledCbs.push(cb); }
 export function onSelectionCleared(cb) { clearedCbs.push(cb); }
+// A short tap on the book that wasn't a link and didn't dismiss a selection.
+// The capture layer swallows it, so anything that used to listen for a tap
+// inside the iframe subscribes here instead.
+export function onBookTap(cb) { tapCbs.push(cb); }
 
 export function getTouchSelection() { return current; }
 export function hasTouchSelection() { return !!(current && current.text); }
@@ -266,79 +271,78 @@ function wordRangeAt(doc, x, y) {
 }
 
 // ============================================================
-// Gesture recognizer — one per chapter iframe
+// Gesture recognizer — bound to #touch-capture in the PARENT document.
+//
+// Listeners bound inside the epub.js iframe never receive touch events on iOS.
+// Three targets (document / body / window) and two attach paths (the `rendered`
+// event and rendition.hooks.content) were all silent, while plain divs in the
+// parent (#zone-left / #zone-right) receive touches fine. So the gesture is
+// driven from a transparent parent-document layer over the book, and the touch
+// point is translated into iframe coordinates for hit testing. Reading the
+// iframe's DOM from the parent works — that is how the book CSS is injected.
 // ============================================================
-let docSeq = 0;
 
-export function attachTouchSelection(doc, ifr) {
-  if (!isCoarsePointer) { dbg('attach skipped: pointer is fine'); return; }
-  if (!doc || doc.__touchSelAttached) return;
-  doc.__touchSelAttached = true;
-  const docId = ++docSeq;
+// The iframe under a parent-space point, plus that point in iframe coordinates.
+function frameAt(x, y) {
+  const viewer = $('viewer');
+  if (!viewer) return null;
+  const frames = viewer.querySelectorAll('iframe');
+  for (let i = 0; i < frames.length; i++) {
+    const ifr = frames[i];
+    const r = ifr.getBoundingClientRect();
+    if (r.width <= 0 || r.height <= 0) continue;
+    if (x < r.left || x > r.right || y < r.top || y > r.bottom) continue;
+    let doc;
+    try { doc = ifr.contentDocument || ifr.contentWindow?.document; } catch { continue; }
+    if (!doc) continue;
+    return { ifr, doc, x: x - r.left, y: y - r.top };
+  }
+  return null;
+}
 
-  // epub.js loads chapters by assigning iframe.srcdoc on Safari, and that
-  // creates a NEW document each time — anything bound to the old one is
-  // discarded. Bind to several targets rather than betting on one, and record
-  // which target actually delivers events so the panel says so outright.
-  const targets = [
-    ['document', doc],
-    ['body',     doc.body],
-    ['window',   doc.defaultView],
-  ].filter(([, t]) => t);
+// The capture layer covers the book, so taps no longer reach it. Give back the
+// one thing that actually needs a tap: following a link inside the book.
+function followLinkAt(hit) {
+  let el;
+  try { el = hit.doc.elementFromPoint(hit.x, hit.y); } catch { return false; }
+  while (el && el.tagName !== 'A') el = el.parentElement;
+  const href = el && el.getAttribute('href');
+  if (!href) return false;
+  dbg('link tap ->', href);
+  try { runtime.rendition && runtime.rendition.display(href); } catch (err) { dbg('link error:', String(err)); }
+  return true;
+}
 
-  let firedFrom = null;   // logged once, the first time an event arrives
-
-  // One recognizer, many targets: the same physical touch can be delivered by
-  // more than one of them, so drop the duplicate deliveries of one event.
-  let lastEvent = null;
-  const once = (fn, label) => (e) => {
-    if (e === lastEvent) return;
-    lastEvent = e;
-    if (!firedFrom) { firedFrom = label; dbg('events arriving via', label, '#' + docId); }
-    fn(e);
-  };
-
-  const on = (type, fn, opts) => targets.forEach(([label, t]) => {
-    try { t.addEventListener(type, once(fn, label), opts); } catch {}
-  });
-
-  dbg('attached #' + docId,
-      targets.map(([l]) => l).join('+'),
-      ifr ? 'iframe ok' : 'NO IFRAME (rects will be offset)');
+export function initTouchSelection() {
+  if (!isCoarsePointer) { dbg('touch selection off: pointer is fine'); return; }
+  const layer = $('touch-capture');
+  if (!layer) { dbg('NO #touch-capture element'); return; }
 
   let touchId = null;   // identifier of the touch we're following, or null
-  let start = null;     // { x, y } of the touch that may become a long press
-  let startedAt = 0;    // when the tracked touch began, for the stale escape
+  let start = null;     // { x, y } in parent space
+  let startedAt = 0;
   let timer = null;
+  let hitDoc = null;    // { ifr, doc } resolved at press time
   let anchor = null;    // word range under the initial press
   let active = false;   // long press fired — we own the gesture
 
   const cancelTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
   const reset = () => {
     cancelTimer();
-    touchId = null; start = null; startedAt = 0; anchor = null; active = false;
+    touchId = null; start = null; startedAt = 0; hitDoc = null; anchor = null; active = false;
   };
 
-  // Every handler runs inside this. A throw used to escape mid-gesture and
-  // leave touchId set, which killed the recognizer permanently and silently —
-  // far worse than the throw itself. Now any error is reported and the state
-  // machine always returns to neutral.
+  // Any throw must leave the state machine neutral. A previous version could
+  // wedge permanently on an exception and go silently dead.
   const guarded = (name, fn) => (e) => {
     try { fn(e); }
     catch (err) { dbg('handler error [' + name + ']:', String(err)); reset(); }
   };
 
-  // A gesture older than this was never cleaned up (a throw, or a touchend we
-  // never saw). Take the new touch rather than bailing forever.
   const STALE_MS = 2000;
 
-  // Our touch out of a multi-touch event, or null if it isn't in this event.
-  //
-  // Indexed loop, deliberately: TouchList is a legacy array-like collection
-  // with no Symbol.iterator in WebKit, so `for (const t of list)` throws a
-  // TypeError on iOS. That threw out of touchend before reset() could run,
-  // leaving touchId permanently set — after which every touch bailed at the
-  // `touchId !== null` guard and the gesture was silently dead for good.
+  // Indexed loop: TouchList is a legacy array-like with no Symbol.iterator in
+  // WebKit, so `for (const t of list)` throws a TypeError on iOS.
   const ours = (list) => {
     if (!list) return null;
     for (let i = 0; i < list.length; i++) {
@@ -349,20 +353,15 @@ export function attachTouchSelection(doc, ifr) {
 
   const setCurrent = (range) => {
     const text = range ? range.toString().trim() : '';
-    current = text ? { text, range: range.cloneRange(), doc, ifr } : null;
-    paint(current ? range : null, ifr);
+    current = text && hitDoc
+      ? { text, range: range.cloneRange(), doc: hitDoc.doc, ifr: hitDoc.ifr }
+      : null;
+    paint(current ? range : null, hitDoc && hitDoc.ifr);
   };
 
-  // Not preventDefault'd — a plain tap must still reach reader.js's chrome
-  // toggle and the edge page-flip zones. A second finger landing mid-gesture
-  // is ignored rather than cancelling the drag.
-  on('touchstart', guarded('touchstart', e => {
+  layer.addEventListener('touchstart', guarded('touchstart', e => {
     const t = e.changedTouches[0];
-    // Log before the guards: "entered but bailed" and "never fired" look
-    // identical from the panel otherwise, and telling them apart is the
-    // whole point of the instrumentation.
-    dbg('touchstart #' + docId,
-        t ? Math.round(t.clientX) + ',' + Math.round(t.clientY) : 'no touch',
+    dbg('capture touchstart', t ? Math.round(t.clientX) + ',' + Math.round(t.clientY) : 'no touch',
         'touchId=' + touchId);
     if (touchId !== null) {
       if (Date.now() - startedAt < STALE_MS) return;
@@ -376,9 +375,12 @@ export function attachTouchSelection(doc, ifr) {
     timer = setTimeout(() => {
       timer = null;
       if (!start) return;
-      dbg('longpress fired');
-      const r = wordRangeAt(doc, start.x, start.y);
-      if (!r) { dbg('-> no word, aborting'); return; }
+      const hit = frameAt(start.x, start.y);
+      if (!hit) { dbg('longpress: no iframe under point'); return; }
+      dbg('longpress fired -> iframe local', Math.round(hit.x) + ',' + Math.round(hit.y));
+      hitDoc = hit;
+      const r = wordRangeAt(hit.doc, hit.x, hit.y);
+      if (!r) { dbg('-> no word, aborting'); hitDoc = null; return; }
       anchor = r;
       active = true;
       setCurrent(r);
@@ -386,7 +388,7 @@ export function attachTouchSelection(doc, ifr) {
   }), { passive: true });
 
   // Non-passive so it can preventDefault once the long press has fired.
-  on('touchmove', guarded('touchmove', e => {
+  layer.addEventListener('touchmove', guarded('touchmove', e => {
     const t = ours(e.touches);
     if (!t || !start) return;
     if (!active) {
@@ -396,31 +398,46 @@ export function attachTouchSelection(doc, ifr) {
       return;
     }
     e.preventDefault();   // we own the gesture — no scrolling mid-drag
-    const focus = wordRangeAt(doc, t.clientX, t.clientY);
+    if (!hitDoc) return;
+    const r = hitDoc.ifr.getBoundingClientRect();
+    const focus = wordRangeAt(hitDoc.doc, t.clientX - r.left, t.clientY - r.top);
     if (!focus) return;
     setCurrent(unionRange(anchor, focus));
   }), { passive: false });
 
-  on('touchend', guarded('touchend', e => {
-    if (!ours(e.changedTouches)) return;
+  layer.addEventListener('touchend', guarded('touchend', e => {
+    const t = ours(e.changedTouches);
+    if (!t) return;
     const wasActive = active;
+    const tapStart = start;
+    const dt = Date.now() - startedAt;
+    const moved = tapStart
+      && (Math.abs(t.clientX - tapStart.x) > MOVE_TOLERANCE
+       || Math.abs(t.clientY - tapStart.y) > MOVE_TOLERANCE);
     reset();
-    if (!wasActive) {
-      // Plain tap. reader.js's touchend runs first and skips the chrome
-      // toggle while hasTouchSelection() is true, so clearing here gives
-      // "tap once to dismiss the selection".
-      if (current) clearTouchSelection();
+
+    if (wasActive) {
+      e.preventDefault();   // suppress the synthetic click
+      lastGesture = Date.now();
+      if (!current) { clearTouchSelection(); return; }
+      const sel = current;
+      dbg('settled:', JSON.stringify(sel.text));
+      settledCbs.forEach(cb => { try { cb(sel); } catch (err) { dbg('cb error:', String(err)); } });
       return;
     }
-    e.preventDefault();   // suppress the synthetic click
-    lastGesture = Date.now();
-    if (!current) { clearTouchSelection(); return; }
-    const sel = current;
-    dbg('settled:', JSON.stringify(sel.text));
-    settledCbs.forEach(cb => { try { cb(sel); } catch (err) { dbg('cb error:', String(err)); } });
+
+    // Short tap. Dismiss a live selection first; otherwise let it act on the
+    // book underneath, which the capture layer would otherwise swallow.
+    if (dt > 350 || moved) return;
+    if (current) { clearTouchSelection(); return; }
+    const hit = frameAt(t.clientX, t.clientY);
+    if (hit && followLinkAt(hit)) { e.preventDefault(); return; }
+    tapCbs.forEach(cb => { try { cb(); } catch (err) { dbg('tap cb error:', String(err)); } });
   }), { passive: false });
 
-  on('touchcancel', guarded('touchcancel', e => {
+  layer.addEventListener('touchcancel', guarded('touchcancel', e => {
     if (ours(e.changedTouches)) reset();
   }), { passive: true });
+
+  dbg('capture layer ready');
 }

@@ -7,7 +7,7 @@
 //     double-click word selection without false chrome toggles).
 // ============================================================
 
-import { settings, runtime, $, dbGet, isCoarsePointer } from './state.js';
+import { settings, runtime, $, dbGet } from './state.js';
 import { applyBookTheme, injectBookStyle } from './theme.js';
 import {
   hidePopup, isPopupVisible,
@@ -17,7 +17,7 @@ import {
 } from './translate.js';
 import { renderLibrary } from './library.js';
 import {
-  attachTouchSelection, hasTouchSelection, clearTouchSelection, lastGestureAt,
+  initTouchSelection, clearTouchSelection,
 } from './touchselect.js';
 import { dbg } from './debug.js';
 
@@ -149,6 +149,9 @@ export function createRendition() {
   // navigates the iframe and builds a fresh document, discarding every
   // listener bound to the previous one. Both paths call the same function;
   // doc.__touchSelAttached makes the second call a no-op.
+  // Style injection and the desktop mouse paths only. Touch selection is NOT
+  // wired here — see initTouchSelection(): listeners inside the iframe never
+  // receive touch events on iOS, so that runs off a parent-document layer.
   const wireDocument = (doc, via) => {
     if (!doc) return;
     dbg('wiring document via', via);
@@ -156,9 +159,6 @@ export function createRendition() {
     attachSelectionHandler(doc);
     attachOutsideClickToFrame(doc);
     injectBookStyle(doc);
-    // Last: its touchend must run after attachInputHandlers' so the chrome
-    // toggle still sees hasTouchSelection() === true for a dismissing tap.
-    attachTouchSelection(doc, doc.defaultView?.frameElement || null);
   };
 
   try {
@@ -194,25 +194,6 @@ export function flipPage(direction) {
 // (top-level or in-iframe) so the other one skips the same tap.
 let lastToggleTapTime = 0;
 
-function shouldToggleChrome(doc) {
-  // Don't toggle while the user has an active selection (translation flow).
-  // On touch that's our own selection layer; on desktop it's the native one.
-  if (isCoarsePointer) {
-    if (hasTouchSelection()) return false;
-  } else {
-    const sel = doc.getSelection();
-    if (sel && !sel.isCollapsed) return false;
-  }
-  // If the popup is open, a tap on the page should dismiss it instead of
-  // toggling chrome — handled here so the user gets one-tap dismissal even
-  // when chrome happens to be off.
-  if (isPopupVisible()) {
-    hidePopup();
-    return false;
-  }
-  return true;
-}
-
 function attachInputHandlers(doc) {
   // Wheel — desktop only path; flips a page per scroll burst.
   doc.addEventListener('wheel', e => {
@@ -224,38 +205,6 @@ function attachInputHandlers(doc) {
 
   doc.addEventListener('keydown', handleKey);
 
-  // ============================================================
-  // Tap-to-toggle-chrome — touch path (mobile)
-  // ============================================================
-  let touchStart = null;     // { x, y, t } for the current touch
-
-  doc.addEventListener('touchstart', e => {
-    if (e.touches.length !== 1) { touchStart = null; return; }
-    touchStart = {
-      x: e.touches[0].clientX,
-      y: e.touches[0].clientY,
-      t: Date.now(),
-    };
-  }, { passive: true });
-
-  doc.addEventListener('touchend', e => {
-    if (!touchStart) return;
-    const c = e.changedTouches[0];
-    const dx = Math.abs(c.clientX - touchStart.x);
-    const dy = Math.abs(c.clientY - touchStart.y);
-    const dt = Date.now() - touchStart.t;
-    touchStart = null;
-    // Filter out drags / long presses / non-tap gestures
-    if (dt > 350 || dx > 10 || dy > 10) return;
-    // Dedup: skip if the top-level viewer handler already toggled this tap
-    const now2 = Date.now();
-    if (now2 - lastToggleTapTime < 400) return;
-    // A just-finished selection gesture is not a tap, even if it was quick.
-    if (now2 - lastGestureAt() < 400) return;
-    if (!shouldToggleChrome(doc)) return;
-    lastToggleTapTime = now2;
-    toggleChrome();
-  }, { passive: true });
 }
 
 function handleKey(e) {
@@ -288,6 +237,10 @@ function handleKey(e) {
 // ============================================================
 export function initReaderEvents() {
   document.addEventListener('keydown', handleKey);
+
+  // Word selection runs off #touch-capture in this document, not the book
+  // iframe — bound once here rather than per chapter.
+  initTouchSelection();
 
   viewer.addEventListener('wheel', e => {
     e.preventDefault();

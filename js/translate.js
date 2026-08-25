@@ -17,8 +17,8 @@ import {
   MODELS, MAX_TOKENS, attachPullToDismiss, isCoarsePointer,
 } from './state.js';
 import {
-  onSelectionSettled, onSelectionCleared,
-  getTouchSelection, hasTouchSelection, clearTouchSelection,
+  onSelectionSettled, onSelectionCleared, onBookTap,
+  getTouchSelection, clearTouchSelection,
 } from './touchselect.js';
 
 const popupWrapper = $('popup-wrapper')
@@ -267,23 +267,21 @@ function handleOutsideClick(e) {
   hidePopup();
 }
 
+// Desktop only. The touch equivalent is onBookTap() below: touch events never
+// reach listeners bound inside the book iframe on iOS, so the capture layer in
+// the parent document reports taps instead.
 export function attachOutsideClickToFrame(doc) {
-  if (!doc) return;
-  const fire = () => { if (isPopupVisible()) hidePopup(); };
-  // Deferred so a long-press that starts a selection has had time to register;
-  // a live selection means the user is reading, not dismissing.
+  if (!doc || isCoarsePointer) return;
   const onTap = () => {
+    // Deferred so a drag that starts a selection has had time to register;
+    // a live selection means the user is reading, not dismissing.
     setTimeout(() => {
-      if (isCoarsePointer) { if (hasTouchSelection()) return; }
-      else {
-        const sel = doc.getSelection && doc.getSelection();
-        if (sel && !sel.isCollapsed && sel.toString().trim()) return;
-      }
-      fire();
+      const sel = doc.getSelection && doc.getSelection();
+      if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+      if (isPopupVisible()) hidePopup();
     }, 30);
   };
   doc.addEventListener('mousedown',   onTap, { passive: true });
-  doc.addEventListener('touchstart',  onTap, { passive: true });
   doc.addEventListener('pointerdown', onTap, { passive: true });
 }
 
@@ -774,4 +772,7 @@ export function initTranslateEvents() {
   // iframes on iOS, and neither is needed now that we own the selection.
   onSelectionSettled(showBubbleForRange);
   onSelectionCleared(hideBubble);
+  // Touch: a plain tap on the book dismisses the popup. The in-iframe listener
+  // that used to do this never fires on iOS.
+  onBookTap(() => { if (isPopupVisible()) hidePopup(); });
 }

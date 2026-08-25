@@ -190,6 +190,19 @@ button {
 }
 #viewer iframe { border: none !important; }
 
+/* Transparent touch layer over the book, used for word selection.
+   Sits above the epub.js iframe but BELOW #zone-left/#zone-right (z-index 5)
+   so edge taps still flip pages, and below #sel-overlay (6) and the bubble (8).
+   Insets match #viewer exactly. */
+#touch-capture {
+  position: absolute;
+  top: var(--pad-top);
+  bottom: var(--pad-bottom);
+  left: var(--pad-left);
+  right: var(--pad-right);
+  z-index: 4;
+}
+
 /* invisible click zones for page flipping */
 #zone-left, #zone-right {
   position: absolute;
