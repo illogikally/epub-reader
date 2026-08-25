@@ -419,6 +419,22 @@ function renderActionsBar(phrase, context) {
   };
   popupActions.appendChild(copy);
 
+  // Native selection is disabled app-wide, so the answer text can't be
+  // highlighted and copied by hand either — this is how you get it out.
+  const copyAns = document.createElement('a');
+  copyAns.href = '#';
+  copyAns.className = 'action';
+  copyAns.textContent = 'copy ans';
+  copyAns.title = 'Copy the answer text';
+  copyAns.onclick = async (e) => {
+    e.preventDefault();
+    const answer = (popupOut.textContent || '').trim();
+    if (!answer) return;
+    try { await navigator.clipboard.writeText(answer); copyAns.classList.add('used'); }
+    catch { copyAns.textContent = 'copy ans?'; }
+  };
+  popupActions.appendChild(copyAns);
+
   // [5] [10] [15] — re-run lookup with N sentences of context
   [5].forEach(n => {
     const a = document.createElement('a');

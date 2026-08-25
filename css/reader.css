@@ -74,6 +74,22 @@ html, body {
   background: var(--bg); color: var(--fg);
   font-family: 'Seravek', ui-sans-serif, system-ui, -apple-system, sans-serif;
   transition: background 0.3s ease, color 0.3s ease;
+  /* No native selection anywhere. Scoping this to #reader wasn't enough:
+     WebKit long-presses the unselectable capture layer, finds nothing to
+     select, and falls back to the nearest selectable ancestor — which was
+     still <body>. It then selected the whole band of #viewer + #zone-* and
+     offered Copy / Copy Highlighted Link. js/touchselect.js backs this up at
+     runtime, because CSS alone has not been reliable here. */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* The one exception, and it is functional rather than a preference: form
+   fields need selection to place a caret and accept text on iOS. */
+input, textarea {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
 }
 button {
   font-family: inherit; font-size: inherit; color: inherit;
@@ -179,26 +195,7 @@ button {
 /* ============================================================
    Reader
    ============================================================ */
-/* The long-press gesture happens on #touch-capture, which lives in THIS
-   document — so the reader shell must be unselectable too, or iOS starts its
-   own selection on the empty layer and falls back to grabbing the whole page.
-   The book iframe gets the same treatment from bookForceCss() in js/theme.js. */
-#reader {
-  position: fixed; inset: 0;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-touch-callout: none;
-}
-/* ...but #popup-wrapper and #settings-modal live INSIDE #reader, and selection
-   is wanted in both: the answer must stay copyable and form fields must stay
-   editable. The iOS callout appearing over the answer text is correct there. */
-#popup-out,
-#reader input,
-#reader textarea {
-  -webkit-user-select: text;
-  user-select: text;
-  -webkit-touch-callout: default;
-}
+#reader { position: fixed; inset: 0; }
 #viewer {
   position: absolute;
   top: var(--pad-top);

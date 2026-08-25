@@ -286,11 +286,42 @@ function wordRangeAt(doc, x, y) {
 // Drop any native selection in this document. The CSS should prevent one from
 // starting, but a drag begun outside the layer (or a stale cached stylesheet)
 // can still produce one, and iOS will happily select the whole reader shell.
+// Form fields must keep native selection or they can't take a caret on iOS,
+// so they are the one place the watchdog leaves alone.
+function inFormField(node) {
+  let el = node && node.nodeType === 3 ? node.parentNode : node;
+  while (el) {
+    const tag = el.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || el.isContentEditable) return true;
+    el = el.parentNode;
+  }
+  return false;
+}
+
 function dropNativeSelection() {
   try {
     const sel = window.getSelection && window.getSelection();
-    if (sel && !sel.isCollapsed) sel.removeAllRanges();
+    if (!sel || sel.isCollapsed) return;
+    if (inFormField(sel.anchorNode)) return;
+    sel.removeAllRanges();
   } catch {}
+}
+
+// Runtime backstop for the CSS. Getting user-select right by selector has been
+// unreliable across several iOS builds, so anything that slips through is
+// removed the instant it forms — which takes the callout bar with it.
+// removeAllRanges() re-fires selectionchange, but that pass sees a collapsed
+// selection and returns, so this does not loop.
+let watchdogOn = false;
+function startSelectionWatchdog() {
+  if (watchdogOn) return;
+  watchdogOn = true;
+  document.addEventListener('selectstart', (e) => {
+    if (inFormField(e.target)) return;
+    e.preventDefault();
+  });
+  document.addEventListener('selectionchange', dropNativeSelection);
+  dbg('native-selection watchdog on');
 }
 
 // The iframe under a parent-space point, plus that point in iframe coordinates.
@@ -364,6 +395,7 @@ function ensureCaptureLayer() {
 export function initTouchSelection() {
   dbgStatus('coarse', isCoarsePointer ? 'Y' : 'N');
   if (!isCoarsePointer) { dbg('touch selection off: pointer is fine'); return; }
+  startSelectionWatchdog();
   const layer = ensureCaptureLayer();
   if (!layer) { dbg('NO #touch-capture element and could not create one'); return; }
 
