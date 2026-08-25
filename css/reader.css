@@ -808,6 +808,7 @@ body.dark-chrome #chrome-controls button {
 }
 
 #popup-out {
+  font-size: 14px;
   flex: 1; overflow-y: auto; padding: 12px 14px 20px;
   overscroll-behavior-y: contain;
   white-space: pre-wrap; word-wrap: break-word;
