@@ -502,19 +502,24 @@ function renderActionsBar(phrase, context) {
     popupActions.appendChild(a);
   });
 
-  // Last in the row. On touch there is no native selection, so no iOS Copy
-  // button — this is the replacement.
-  const copy = document.createElement('a');
-  copy.href = '#';
-  copy.className = 'action';
-  copy.textContent = 'copy';
-  copy.title = 'Copy the selected text';
-  copy.onclick = async (e) => {
-    e.preventDefault();
-    try { await navigator.clipboard.writeText(phrase); copy.classList.add('used'); }
-    catch { copy.textContent = 'copy?'; }
-  };
-  popupActions.appendChild(copy);
+  // Last in the row, and touch only: it exists because native selection is
+  // disabled on coarse pointers, so there is no iOS Copy button. Desktop keeps
+  // native selection and doesn't need it.
+  // Gated on isCoarsePointer rather than isMobileViewport(): a narrow desktop
+  // window gets the .mobile sheet but still has real selection.
+  if (isCoarsePointer) {
+    const copy = document.createElement('a');
+    copy.href = '#';
+    copy.className = 'action';
+    copy.textContent = 'copy';
+    copy.title = 'Copy the selected text';
+    copy.onclick = async (e) => {
+      e.preventDefault();
+      try { await navigator.clipboard.writeText(phrase); copy.classList.add('used'); }
+      catch { copy.textContent = 'copy?'; }
+    };
+    popupActions.appendChild(copy);
+  }
 }
 
 // ============================================================
