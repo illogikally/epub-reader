@@ -677,46 +677,6 @@ body.dark-chrome #chrome-controls button {
   border-color: var(--accent);
 }
 
-/* Mobile selection bubble — tap to translate the active selection.
-   Hidden on (pointer: fine) where selection auto-fires on mouseup. */
-#translate-bubble {
-  position: fixed;
-  z-index: 8;
-  background: var(--bg);
-  color: var(--fg);
-  padding: 7px 16px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  font-size: 14px;
-  font-weight: 500;
-  font-family: inherit;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-  cursor: pointer;
-  user-select: none;
-  -webkit-user-select: none;
-  /* Position is set inline by JS: below the selection when there's room,
-     above it otherwise (.above flips the arrow to match). */
-}
-#translate-bubble::before {
-  content: '';
-  position: absolute;
-  width: 10px; height: 10px;
-  background: var(--bg);
-  left: 50%; margin-left: -5px;
-  top: -5px;
-  transform: rotate(45deg);
-  box-shadow: -1px -1px 0 var(--border);
-  pointer-events: none;
-}
-#translate-bubble.above::before {
-  top: auto;
-  bottom: -5px;
-  box-shadow: 1px 1px 0 var(--border);
-}
-@media (pointer: fine) {
-  #translate-bubble { display: none !important; }
-}
-
 .color-input-row {
   display: flex;
   gap: 8px;
@@ -928,6 +888,24 @@ body.dark-chrome #chrome-controls button {
     max-height: 90vh;
     border-radius: 8px 8px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
+    /* Slide up from the bottom edge. `display` can't be transitioned, so the
+       wrapper is shown first and .shown is added on the next frame — see
+       showPopupAt(). Closing removes .shown and waits for the transition. */
+    transform: translateY(100%);
+    transition: transform 0.26s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  #popup-wrapper.shown #popup.mobile { transform: translateY(0); }
+
+  /* Backdrop fades with the sheet rather than snapping in. */
+  #popup-wrapper:has(#popup.mobile) {
+    background-color: transparent;
+    transition: background-color 0.26s ease;
+  }
+  #popup-wrapper.shown:has(#popup.mobile) { background-color: #00000033; }
+
+  @media (prefers-reduced-motion: reduce) {
+    #popup.mobile,
+    #popup-wrapper:has(#popup.mobile) { transition: none; }
   }
   #popup.mobile .pop-bar { padding: 8px 10px; gap: 6px; }
   #popup.mobile .pop-actions a.action {

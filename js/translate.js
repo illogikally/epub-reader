@@ -17,7 +17,7 @@ import {
   MODELS, MAX_TOKENS, attachPullToDismiss, isCoarsePointer,
 } from './state.js';
 import {
-  onSelectionSettled, onSelectionCleared, onBookTap,
+  onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
 } from './touchselect.js';
 
@@ -130,15 +130,19 @@ const popupHistory = [];
 let popupBusy = false;
 let lastLookup = null;
 
-const translateBubble = $('translate-bubble');
 
 // Timestamp of the last showPopupAt() call — used to ignore synthetic
 // mousedown/pointerdown events that arrive ~300ms after a touch and would
 // immediately dismiss the popup.
 let popupOpenedAt = 0;
 
+// `closing` is true while the mobile sheet is animating out. It must read as
+// not-visible, or the outside-tap handler re-enters hidePopup() mid-animation.
+let closing = false;
+let closeTimer = null;
+
 export function isPopupVisible() {
-  return popupWrapper.classList.contains('visible');
+  return popupWrapper.classList.contains('visible') && !closing;
 }
 
 function popupWrite(text, cls, opts) {
@@ -166,6 +170,11 @@ function isMobileViewport() {
 export function showPopupAt(rect) {
   popupOpenedAt = Date.now();
   if (isMobileViewport()) {
+    // Cancel an in-flight close so reopening mid-animation doesn't get torn
+    // down by the pending teardown.
+    if (closeTimer) { clearTimeout(closeTimer); closeTimer = null; }
+    closing = false;
+
     popup.classList.add('mobile');
     popup.classList.remove('pos-above', 'pos-below');
     popup.style.left = '';
@@ -174,10 +183,22 @@ export function showPopupAt(rect) {
     popup.style.bottom = '';
     popup.style.width = '';
     popup.style.maxHeight = '';
+    // attachPullToDismiss() leaves an inline transform/transition behind when
+    // it drags the sheet; clear them so the CSS transition owns the animation.
+    popup.style.transform = '';
+    popup.style.transition = '';
+
     popupWrapper.classList.add('visible');
+    // Next frame, so the browser has a chance to lay the sheet out at
+    // translateY(100%) before .shown animates it to 0. Same frame = no
+    // transition at all.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => popupWrapper.classList.add('shown'));
+    });
     clearAllSelections();
     return;
   }
+  popupWrapper.classList.add('shown');   // desktop: no transition, just parity
   popup.classList.remove('mobile');
   // Make sure offsetHeight is meaningful for height-based placement.
   const wasHidden = !popup.classList.contains('visible');
@@ -240,18 +261,43 @@ function clearAllSelections() {
   try { window.getSelection && window.getSelection().removeAllRanges(); } catch {}
 }
 
-export function hidePopup() {
-  popupWrapper.classList.remove('visible');
+function finishHide() {
+  closeTimer = null;
+  closing = false;
+  popupWrapper.classList.remove('visible', 'shown');
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
   popupForm.hidden = true;
   popupInput.value = '';
   lastLookup = null;
-  hideBubble();
+  popup.style.transform = '';
+  popup.style.transition = '';
   // Frame-only: on desktop the user may have text selected in the popup itself
   // or elsewhere in the page, and closing the popup shouldn't wipe it.
   clearFrameSelections();
+}
+
+export function hidePopup() {
+  if (closing) return;
+  const animated = popup.classList.contains('mobile')
+                && popupWrapper.classList.contains('visible');
+  if (!animated) { finishHide(); return; }
+
+  // Slide out, then tear down. The timeout is required rather than a safety
+  // net: attachPullToDismiss() has often already animated the sheet to
+  // translateY(100%) itself before calling us, so removing .shown may change
+  // nothing and transitionend would never fire.
+  closing = true;
+  popupWrapper.classList.remove('shown');
+  const done = (e) => {
+    if (e && e.target !== popup) return;
+    popup.removeEventListener('transitionend', done);
+    if (closeTimer) { clearTimeout(closeTimer); }
+    finishHide();
+  };
+  popup.addEventListener('transitionend', done);
+  closeTimer = setTimeout(done, 320);
 }
 
 // ============================================================
@@ -602,7 +648,6 @@ function fireLookupForSelection(sel, doc, iframe, capturedRange) {
 
   const savedRange = capturedRange || range.cloneRange();
   lastLookup = { phrase, range: savedRange, doc };
-  hideBubble();
 
   showPopupAt(viewportRect);
   doLookup(phrase, savedRange, settings.contextSentences);
@@ -633,62 +678,40 @@ export function attachSelectionHandler(doc) {
 }
 
 // ============================================================
-// Mobile path: js/touchselect.js owns the selection; it calls
-// showBubbleForRange() when a long-press/drag settles. Tapping the bubble
-// fires the lookup. No polling, no native-selection workarounds — the range
-// is ours and nothing external clears it.
+// Touch path: the lookup fires by itself when a selection settles.
+//
+// There is no bubble to tap any more — js/touchselect.js reports the finished
+// long-press or drag and we go straight to the popup, which is what desktop
+// has always done on mouseup via attachSelectionHandler().
 // ============================================================
-function hideBubble() {
-  if (translateBubble) translateBubble.hidden = true;
-}
+function lookupSelection(sel) {
+  if (!isCoarsePointer) return;
+  // One lookup per gesture: a drag that extends the selection settles once,
+  // on release, and this also stops a second gesture interrupting a live call.
+  if (popupBusy || isPopupVisible()) return;
+  if (!sel || !sel.text) return;
 
-export function showBubbleForRange(sel) {
-  if (!translateBubble || !isCoarsePointer) return;
-  if (isPopupVisible() || popupBusy) { hideBubble(); return; }
-  if (!sel || !sel.text) { hideBubble(); return; }
+  lastLookup = { phrase: sel.text, range: sel.range, doc: sel.doc };
 
-  let rect, ifrRect;
+  let viewportRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
   try {
-    rect = sel.range.getBoundingClientRect();
-    ifrRect = sel.ifr ? sel.ifr.getBoundingClientRect() : { left: 0, top: 0 };
-  } catch { hideBubble(); return; }
+    const r = sel.range.getBoundingClientRect();
+    const ir = sel.ifr ? sel.ifr.getBoundingClientRect() : { left: 0, top: 0 };
+    viewportRect = {
+      left: r.left + ir.left, top: r.top + ir.top,
+      right: r.right + ir.left, bottom: r.bottom + ir.top,
+      width: r.width, height: r.height,
+    };
+  } catch {}
 
-  // Make visible first so we can measure. Position offscreen until measured
-  // to avoid a frame of flicker at (0,0).
-  translateBubble.style.left = '-9999px';
-  translateBubble.style.top  = '-9999px';
-  translateBubble.hidden = false;
-  const bw = translateBubble.offsetWidth;
-  const bh = translateBubble.offsetHeight;
-
-  const margin = 8;
-  const gap = 10;
-  const selTop     = rect.top    + ifrRect.top;
-  const selBottom  = rect.bottom + ifrRect.top;
-  const selCenterX = rect.left   + ifrRect.left + rect.width / 2;
-
-  // Prefer below the selection; flip above when there isn't room. (The old
-  // 48px clearance and never-flip-above rule existed only to dodge iOS's
-  // drag handles and callout bar — neither exists any more.)
-  let top = selBottom + gap;
-  let flipped = false;
-  if (top + bh > window.innerHeight - margin) {
-    const above = selTop - gap - bh;
-    if (above >= margin) { top = above; flipped = true; }
-    else top = Math.max(margin, window.innerHeight - bh - margin);
-  }
-  translateBubble.classList.toggle('above', flipped);
-  let left = selCenterX - bw / 2;
-  left = Math.max(margin, Math.min(window.innerWidth - bw - margin, left));
-  translateBubble.style.left = left + 'px';
-  translateBubble.style.top  = top + 'px';
+  showPopupAt(viewportRect);
+  doLookup(sel.text, sel.range, settings.contextSentences);
 }
 
+// Kept for closeBook(): drop any live selection when the book goes away.
 export function stopBubble() {
-  hideBubble();
   clearTouchSelection();
 }
-
 
 // ============================================================
 // TOC builder (lives here because it needs rendition + drawer hide)
@@ -740,54 +763,9 @@ export function initTranslateEvents() {
     sendToLLM(text, null, null, false);
   });
 
-  // Bubble — mobile path. Fires the lookup explicitly on tap.
-  //
-  // touchend rather than click: it fires the moment the finger lifts and
-  // avoids the ~300ms synthetic-click delay on iOS.
-  if (translateBubble) {
-    translateBubble.addEventListener('touchstart', e => e.stopPropagation(), { passive: true });
-    translateBubble.addEventListener('mousedown',  e => e.stopPropagation());
+  // Touch: fire the lookup as soon as a selection settles.
+  onSelectionSettled(lookupSelection);
 
-    function fireBubbleLookup() {
-      if (popupBusy || isPopupVisible()) return;
-      const sel = getTouchSelection();
-      if (!sel || !sel.text) { hideBubble(); return; }
-      hideBubble();
-      lastLookup = { phrase: sel.text, range: sel.range, doc: sel.doc };
-      let viewportRect = { left: 0, top: 0, right: 0, bottom: 0, width: 0, height: 0 };
-      try {
-        const r = sel.range.getBoundingClientRect();
-        const ir = sel.ifr ? sel.ifr.getBoundingClientRect() : { left: 0, top: 0 };
-        viewportRect = {
-          left: r.left + ir.left, top: r.top + ir.top,
-          right: r.right + ir.left, bottom: r.bottom + ir.top,
-          width: r.width, height: r.height,
-        };
-      } catch {}
-      showPopupAt(viewportRect);
-      doLookup(sel.text, sel.range, settings.contextSentences);
-    }
-
-    // Primary path — touch devices
-    translateBubble.addEventListener('touchend', e => {
-      e.preventDefault();  // suppress synthetic click
-      e.stopPropagation();
-      fireBubbleLookup();
-    }, { passive: false });
-
-    // Fallback — non-touch (mouse click)
-    translateBubble.addEventListener('click', e => {
-      e.preventDefault();
-      e.stopPropagation();
-      fireBubbleLookup();
-    });
-  }
-
-  // Touch: the custom selection layer drives the bubble directly. No polling
-  // and no selectionchange — neither is reliable inside epub.js's blob
-  // iframes on iOS, and neither is needed now that we own the selection.
-  onSelectionSettled(showBubbleForRange);
-  onSelectionCleared(hideBubble);
   // Touch: a plain tap on the book dismisses the popup. The in-iframe listener
   // that used to do this never fires on iOS.
   onBookTap(() => { if (isPopupVisible()) hidePopup(); });
