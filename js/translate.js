@@ -452,11 +452,11 @@ function renderActionsBar(phrase, context) {
   const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
 
   // [5] [10] [15] — re-run lookup with N sentences of context
-  [5].forEach(n => {
+  [1].forEach(n => {
     const a = document.createElement('a');
     a.href = '#';
     a.className = 'action';
-    a.textContent = String(n);
+    a.textContent = 'deep';
     a.title = `Re-run with ${n} sentences of context`;
     a.onclick = async (e) => {
       e.preventDefault();
