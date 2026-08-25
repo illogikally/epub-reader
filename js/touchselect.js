@@ -142,7 +142,10 @@ function caretRangeAt(doc, x, y) {
 // ============================================================
 // Word boundaries
 // ============================================================
-const WORD_RE = /[\p{L}\p{N}\p{M}'’-]+/gu;
+// Apostrophes stay inside the word (isn’t), hyphens don't — UAX#29 splits
+// brown-fox into two words and so does iOS's own word selection, so the
+// Segmenter path and this fallback agree.
+const WORD_RE = /[\p{L}\p{N}\p{M}'’]+/gu;
 
 let segmenter;   // undefined = not probed, false = unavailable
 function getSegmenter() {
@@ -220,13 +223,23 @@ export function attachTouchSelection(doc, ifr) {
   if (!isCoarsePointer || !doc || doc.__touchSelAttached) return;
   doc.__touchSelAttached = true;
 
+  let touchId = null;  // identifier of the touch we're following, or null
   let start = null;    // { x, y } of the touch that may become a long press
   let timer = null;
   let anchor = null;   // word range under the initial press
   let active = false;  // long press fired — we own the gesture
 
   const cancelTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
-  const reset = () => { cancelTimer(); start = null; anchor = null; active = false; };
+  const reset = () => {
+    cancelTimer();
+    touchId = null; start = null; anchor = null; active = false;
+  };
+
+  // Our touch out of a multi-touch event, or null if it isn't in this event.
+  const ours = (list) => {
+    for (const t of list) if (t.identifier === touchId) return t;
+    return null;
+  };
 
   const setCurrent = (range) => {
     const text = range ? range.toString().trim() : '';
@@ -234,12 +247,14 @@ export function attachTouchSelection(doc, ifr) {
     paint(current ? range : null, ifr);
   };
 
-  // Not preventDefault'd — a plain tap must still reach reader.js's
-  // chrome toggle and the edge page-flip zones.
+  // Not preventDefault'd — a plain tap must still reach reader.js's chrome
+  // toggle and the edge page-flip zones. A second finger landing mid-gesture
+  // is ignored rather than cancelling the drag.
   doc.addEventListener('touchstart', e => {
-    reset();
-    if (e.touches.length !== 1) return;
-    const t = e.touches[0];
+    if (touchId !== null) return;
+    const t = e.changedTouches[0];
+    if (!t) return;
+    touchId = t.identifier;
     start = { x: t.clientX, y: t.clientY };
     timer = setTimeout(() => {
       timer = null;
@@ -254,9 +269,8 @@ export function attachTouchSelection(doc, ifr) {
 
   // Non-passive so it can preventDefault once the long press has fired.
   doc.addEventListener('touchmove', e => {
-    if (!start) return;
-    const t = e.touches[0];
-    if (!t) return;
+    const t = ours(e.touches);
+    if (!t || !start) return;
     if (!active) {
       // Drifted before the timer → it's a scroll/swipe, not a press.
       if (Math.abs(t.clientX - start.x) > MOVE_TOLERANCE ||
@@ -270,6 +284,7 @@ export function attachTouchSelection(doc, ifr) {
   }, { passive: false });
 
   doc.addEventListener('touchend', e => {
+    if (!ours(e.changedTouches)) return;
     const wasActive = active;
     reset();
     if (!wasActive) {
@@ -286,5 +301,7 @@ export function attachTouchSelection(doc, ifr) {
     settledCbs.forEach(cb => { try { cb(sel); } catch {} });
   }, { passive: false });
 
-  doc.addEventListener('touchcancel', () => { reset(); }, { passive: true });
+  doc.addEventListener('touchcancel', e => {
+    if (ours(e.changedTouches)) reset();
+  }, { passive: true });
 }
