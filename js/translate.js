@@ -451,36 +451,6 @@ function renderActionsBar(phrase, context) {
 
   const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
 
-  // On touch there is no native selection any more, so no iOS Copy button —
-  // this is the replacement.
-  const copy = document.createElement('a');
-  copy.href = '#';
-  copy.className = 'action';
-  copy.textContent = 'copy';
-  copy.title = 'Copy the selected text';
-  copy.onclick = async (e) => {
-    e.preventDefault();
-    try { await navigator.clipboard.writeText(phrase); copy.classList.add('used'); }
-    catch { copy.textContent = 'copy?'; }
-  };
-  popupActions.appendChild(copy);
-
-  // Native selection is disabled app-wide, so the answer text can't be
-  // highlighted and copied by hand either — this is how you get it out.
-  const copyAns = document.createElement('a');
-  copyAns.href = '#';
-  copyAns.className = 'action';
-  copyAns.textContent = 'copy ans';
-  copyAns.title = 'Copy the answer text';
-  copyAns.onclick = async (e) => {
-    e.preventDefault();
-    const answer = (popupOut.textContent || '').trim();
-    if (!answer) return;
-    try { await navigator.clipboard.writeText(answer); copyAns.classList.add('used'); }
-    catch { copyAns.textContent = 'copy ans?'; }
-  };
-  popupActions.appendChild(copyAns);
-
   // [5] [10] [15] — re-run lookup with N sentences of context
   [5].forEach(n => {
     const a = document.createElement('a');
@@ -503,11 +473,8 @@ function renderActionsBar(phrase, context) {
     popupActions.appendChild(a);
   });
 
-  // Short-label follow-up queries
-  if (phrase.trim().split(' ').length > 1) {
-    return;
-  }
-  const items = [
+  // Short-label follow-up queries — single words only.
+  const items = phrase.trim().split(' ').length > 1 ? [] : [
     ['syn', `Liệt kê một số từ đồng nghĩa với nghĩa của <${phrase}> trong <${ctxNote}>.
     So sánh ngắn gọn sự khác biệt giữa <${phrase}> và các từ đồng nghĩa theo mẫu sau, ${formatInstructions}:
     **SYNONYM**:
@@ -534,6 +501,20 @@ function renderActionsBar(phrase, context) {
     };
     popupActions.appendChild(a);
   });
+
+  // Last in the row. On touch there is no native selection, so no iOS Copy
+  // button — this is the replacement.
+  const copy = document.createElement('a');
+  copy.href = '#';
+  copy.className = 'action';
+  copy.textContent = 'copy';
+  copy.title = 'Copy the selected text';
+  copy.onclick = async (e) => {
+    e.preventDefault();
+    try { await navigator.clipboard.writeText(phrase); copy.classList.add('used'); }
+    catch { copy.textContent = 'copy?'; }
+  };
+  popupActions.appendChild(copy);
 }
 
 // ============================================================
