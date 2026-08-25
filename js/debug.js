@@ -23,8 +23,10 @@ const URL_FLAG = (() => {
   } catch { return false; }
 })();
 
-const MAX_LINES = 12;
-const lines = [];
+// 24, not 12: repeated 'attached to chapter' lines nearly buried the one line
+// that mattered last round.
+const MAX_LINES = 24;
+const lines = [];        // { text, count }
 let panel = null;
 
 export function isDebug() { return URL_FLAG || !!settings.debug; }
@@ -40,14 +42,20 @@ export function dbg(...parts) {
   const msg = parts
     .map(p => typeof p === 'string' ? p : (() => { try { return JSON.stringify(p); } catch { return String(p); } })())
     .join(' ');
-  lines.push(new Date().toISOString().slice(14, 23) + ' ' + msg);
+  // Collapse consecutive duplicates to "… xN" so a chatty line can never push
+  // the interesting one off the top.
+  const last = lines[lines.length - 1];
+  if (last && last.raw === msg) last.count++;
+  else lines.push({ text: new Date().toISOString().slice(14, 23) + ' ' + msg, raw: msg, count: 1 });
   while (lines.length > MAX_LINES) lines.shift();
   if (!panel || !panel.isConnected) {
     panel = document.createElement('div');
     panel.id = 'debug-panel';
     document.body.appendChild(panel);
   }
-  panel.textContent = lines.join('\n');
+  panel.textContent = lines
+    .map(l => l.count > 1 ? l.text + '  x' + l.count : l.text)
+    .join('\n');
 }
 
 // Called when the setting is switched off so the panel goes away immediately
@@ -56,3 +64,12 @@ export function syncDebugPanel() {
   if (!isDebug()) hidePanel();
   else dbg('debug log on');
 }
+
+// Surface thrown errors on the phone. Without this a failure anywhere in the
+// app is completely invisible on iOS — which is how several rounds were lost.
+window.addEventListener('error', (e) => {
+  dbg('ERROR:', (e.message || 'unknown') + ' @' + (e.filename || '?').split('/').pop() + ':' + (e.lineno || '?'));
+});
+window.addEventListener('unhandledrejection', (e) => {
+  dbg('REJECT:', String(e.reason && e.reason.message || e.reason));
+});

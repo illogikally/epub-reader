@@ -19,6 +19,7 @@ import { renderLibrary } from './library.js';
 import {
   attachTouchSelection, hasTouchSelection, clearTouchSelection, lastGestureAt,
 } from './touchselect.js';
+import { dbg } from './debug.js';
 
 const library = $('library');
 const reader = $('reader');
@@ -140,9 +141,17 @@ export function createRendition() {
     updatePageIndicator(loc);
     clearTouchSelection();
   });
-  runtime.rendition.on('rendered', (section, view) => {
-    const doc = view?.document;
+  // Per-document wiring.
+  //
+  // hooks.content is epub.js's own extension point and runs against the live
+  // content document. The 'rendered' event is NOT a safe anchor on Safari:
+  // epub.js loads chapters via iframe.srcdoc there, and assigning srcdoc
+  // navigates the iframe and builds a fresh document, discarding every
+  // listener bound to the previous one. Both paths call the same function;
+  // doc.__touchSelAttached makes the second call a no-op.
+  const wireDocument = (doc, via) => {
     if (!doc) return;
+    dbg('wiring document via', via);
     attachInputHandlers(doc);
     attachSelectionHandler(doc);
     attachOutsideClickToFrame(doc);
@@ -150,6 +159,18 @@ export function createRendition() {
     // Last: its touchend must run after attachInputHandlers' so the chrome
     // toggle still sees hasTouchSelection() === true for a dismissing tap.
     attachTouchSelection(doc, doc.defaultView?.frameElement || null);
+  };
+
+  try {
+    runtime.rendition.hooks.content.register((contents) => {
+      wireDocument(contents?.document, 'hooks.content');
+    });
+  } catch (err) {
+    dbg('hooks.content unavailable:', String(err));
+  }
+
+  runtime.rendition.on('rendered', (section, view) => {
+    wireDocument(view?.document, 'rendered');
   });
 }
 

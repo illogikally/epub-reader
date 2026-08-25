@@ -268,11 +268,43 @@ function wordRangeAt(doc, x, y) {
 // ============================================================
 // Gesture recognizer — one per chapter iframe
 // ============================================================
+let docSeq = 0;
+
 export function attachTouchSelection(doc, ifr) {
   if (!isCoarsePointer) { dbg('attach skipped: pointer is fine'); return; }
   if (!doc || doc.__touchSelAttached) return;
   doc.__touchSelAttached = true;
-  dbg('attached to chapter', ifr ? 'iframe ok' : 'NO IFRAME (rects will be offset)');
+  const docId = ++docSeq;
+
+  // epub.js loads chapters by assigning iframe.srcdoc on Safari, and that
+  // creates a NEW document each time — anything bound to the old one is
+  // discarded. Bind to several targets rather than betting on one, and record
+  // which target actually delivers events so the panel says so outright.
+  const targets = [
+    ['document', doc],
+    ['body',     doc.body],
+    ['window',   doc.defaultView],
+  ].filter(([, t]) => t);
+
+  let firedFrom = null;   // logged once, the first time an event arrives
+
+  // One recognizer, many targets: the same physical touch can be delivered by
+  // more than one of them, so drop the duplicate deliveries of one event.
+  let lastEvent = null;
+  const once = (fn, label) => (e) => {
+    if (e === lastEvent) return;
+    lastEvent = e;
+    if (!firedFrom) { firedFrom = label; dbg('events arriving via', label, '#' + docId); }
+    fn(e);
+  };
+
+  const on = (type, fn, opts) => targets.forEach(([label, t]) => {
+    try { t.addEventListener(type, once(fn, label), opts); } catch {}
+  });
+
+  dbg('attached #' + docId,
+      targets.map(([l]) => l).join('+'),
+      ifr ? 'iframe ok' : 'NO IFRAME (rects will be offset)');
 
   let touchId = null;   // identifier of the touch we're following, or null
   let start = null;     // { x, y } of the touch that may become a long press
@@ -324,12 +356,13 @@ export function attachTouchSelection(doc, ifr) {
   // Not preventDefault'd — a plain tap must still reach reader.js's chrome
   // toggle and the edge page-flip zones. A second finger landing mid-gesture
   // is ignored rather than cancelling the drag.
-  doc.addEventListener('touchstart', guarded('touchstart', e => {
+  on('touchstart', guarded('touchstart', e => {
     const t = e.changedTouches[0];
     // Log before the guards: "entered but bailed" and "never fired" look
     // identical from the panel otherwise, and telling them apart is the
     // whole point of the instrumentation.
-    dbg('touchstart', t ? Math.round(t.clientX) + ',' + Math.round(t.clientY) : 'no touch',
+    dbg('touchstart #' + docId,
+        t ? Math.round(t.clientX) + ',' + Math.round(t.clientY) : 'no touch',
         'touchId=' + touchId);
     if (touchId !== null) {
       if (Date.now() - startedAt < STALE_MS) return;
@@ -353,7 +386,7 @@ export function attachTouchSelection(doc, ifr) {
   }), { passive: true });
 
   // Non-passive so it can preventDefault once the long press has fired.
-  doc.addEventListener('touchmove', guarded('touchmove', e => {
+  on('touchmove', guarded('touchmove', e => {
     const t = ours(e.touches);
     if (!t || !start) return;
     if (!active) {
@@ -368,7 +401,7 @@ export function attachTouchSelection(doc, ifr) {
     setCurrent(unionRange(anchor, focus));
   }), { passive: false });
 
-  doc.addEventListener('touchend', guarded('touchend', e => {
+  on('touchend', guarded('touchend', e => {
     if (!ours(e.changedTouches)) return;
     const wasActive = active;
     reset();
@@ -387,7 +420,7 @@ export function attachTouchSelection(doc, ifr) {
     settledCbs.forEach(cb => { try { cb(sel); } catch (err) { dbg('cb error:', String(err)); } });
   }), { passive: false });
 
-  doc.addEventListener('touchcancel', guarded('touchcancel', e => {
+  on('touchcancel', guarded('touchcancel', e => {
     if (ours(e.changedTouches)) reset();
   }), { passive: true });
 }
