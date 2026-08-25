@@ -396,7 +396,17 @@ async function sendToLLM(text, metaLabel, followup, silent) {
     });
   }
 
+  // Desktop popover only: as the answer streams in the popup grows, and this
+  // nudges it back up so it doesn't run off the bottom of the window.
+  //
+  // It must NOT run for the mobile sheet. That is laid out with
+  // `top: auto; bottom: 0`, and writing an inline `top` over-constrains it —
+  // top + bottom + height all resolved means `bottom` is dropped, so the sheet
+  // detaches from the bottom edge and leaves a gap as it grows. This used to be
+  // masked by `top: auto !important`, which was removed so that custom CSS can
+  // restyle the sheet.
   function preventPopupOutOfView() {
+    if (popup.classList.contains('mobile')) return;
     requestAnimationFrame(() => {
       const margin = 10;
       const rect = popup.getBoundingClientRect();
