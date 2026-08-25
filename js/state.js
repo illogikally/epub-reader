@@ -88,6 +88,10 @@ export const runtime = {
 // ============================================================
 export const $ = id => document.getElementById(id);
 
+// Touch device? Drives the custom selection layer (js/touchselect.js) and the
+// mobile translate bubble. Feature detection only — no UA sniffing.
+export const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
+
 export function escapeHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
