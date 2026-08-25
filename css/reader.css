@@ -83,6 +83,11 @@ html, body {
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+  /* Kills double-tap-to-zoom. The viewport meta's maximum-scale=1.0 has been
+     ignored by iOS since iOS 10, so this is the only thing that works.
+     'manipulation' still permits panning and pinch, which the drawers,
+     settings panel, #popup-out scrolling and pull-to-dismiss all need. */
+  touch-action: manipulation;
 }
 /* The one exception, and it is functional rather than a preference: form
    fields need selection to place a caret and accept text on iOS. */
@@ -217,6 +222,11 @@ button {
   left: var(--pad-left);
   right: var(--pad-right);
   z-index: 4;
+  /* We own every gesture over the book. Without this WebKit is free to read a
+     drag as a pan, claim it mid-selection and stop delivering touchmove (or
+     fire touchcancel), which is what stopped drag-to-extend from working.
+     Costs pinch-zoom over the page, which a paginated reader doesn't want. */
+  touch-action: none;
 }
 
 /* Debug only: makes the touch layer's presence and coverage visible, so

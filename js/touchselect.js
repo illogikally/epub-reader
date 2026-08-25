@@ -25,6 +25,10 @@ import { dbg, dbgStatus } from './debug.js';
 
 const LONG_PRESS_MS  = 400;
 const MOVE_TOLERANCE = 10;
+// Swipe-to-turn-page: a quick, decidedly horizontal flick.
+const SWIPE_MS       = 600;
+const SWIPE_MIN_X    = 60;
+const SWIPE_RATIO    = 1.5;   // |dx| must beat |dy| by this much
 
 // The one live selection, or null. Shape matches what translate.js needs:
 // { text, range, doc, ifr }.
@@ -35,6 +39,7 @@ let overlay = null;
 const settledCbs = [];
 const clearedCbs = [];
 const tapCbs     = [];
+const swipeCbs   = [];
 
 export function onSelectionSettled(cb) { settledCbs.push(cb); }
 export function onSelectionCleared(cb) { clearedCbs.push(cb); }
@@ -42,6 +47,9 @@ export function onSelectionCleared(cb) { clearedCbs.push(cb); }
 // The capture layer swallows it, so anything that used to listen for a tap
 // inside the iframe subscribes here instead.
 export function onBookTap(cb) { tapCbs.push(cb); }
+// A horizontal flick across the book. reader.js can't be imported here (it
+// already imports this module), so page turning is reported the same way.
+export function onBookSwipe(cb) { swipeCbs.push(cb); }
 
 export function getTouchSelection() { return current; }
 export function hasTouchSelection() { return !!(current && current.text); }
@@ -385,6 +393,8 @@ function ensureCaptureLayer() {
     webkitUserSelect: 'none',
     userSelect: 'none',
     webkitTouchCallout: 'none',
+    // We own every gesture here; see the stylesheet rule for why.
+    touchAction: 'none',
   });
   host.appendChild(layer);
   dbg('created #touch-capture (was missing from the HTML)');
@@ -406,6 +416,10 @@ export function initTouchSelection() {
   let hitDoc = null;    // { ifr, doc } resolved at press time
   let anchor = null;    // word range under the initial press
   let active = false;   // long press fired — we own the gesture
+
+  // Tracked separately from everything above: reset() wipes `start`, and the
+  // swipe decision can only be made at touchend, after that has happened.
+  let swipe = null;     // { x, y, t, id }
 
   const cancelTimer = () => { if (timer) { clearTimeout(timer); timer = null; } };
   const reset = () => {
@@ -432,6 +446,8 @@ export function initTouchSelection() {
     return null;
   };
 
+  let lastDragLog = 0;
+
   const setCurrent = (range) => {
     const text = range ? range.toString().trim() : '';
     current = text && hitDoc
@@ -455,6 +471,7 @@ export function initTouchSelection() {
     touchId = t.identifier;
     startedAt = Date.now();
     start = { x: t.clientX, y: t.clientY };
+    swipe = { x: t.clientX, y: t.clientY, t: Date.now(), id: t.identifier };
     timer = setTimeout(() => {
       timer = null;
       if (!start) return;
@@ -482,9 +499,17 @@ export function initTouchSelection() {
       return;
     }
     e.preventDefault();   // we own the gesture — no scrolling mid-drag
+    swipe = null;         // a selection drag is never a page swipe
     if (!hitDoc) return;
     const r = hitDoc.ifr.getBoundingClientRect();
     const focus = wordRangeAt(hitDoc.doc, t.clientX - r.left, t.clientY - r.top);
+    // Throttled so a drag can't flood the panel off the top.
+    const now = Date.now();
+    if (now - lastDragLog > 250) {
+      lastDragLog = now;
+      dbg('drag', Math.round(t.clientX) + ',' + Math.round(t.clientY),
+          focus ? JSON.stringify(focus.toString()) : 'no word');
+    }
     if (!focus) return;
     setCurrent(unionRange(anchor, focus));
   }), { passive: false });
@@ -510,6 +535,22 @@ export function initTouchSelection() {
       return;
     }
 
+    // Horizontal flick → turn the page. Checked before the tap branch so one
+    // gesture can't both swipe and dismiss the popup / follow a link.
+    if (swipe && swipe.id === t.identifier) {
+      const dx = t.clientX - swipe.x;
+      const dy = t.clientY - swipe.y;
+      const quick = Date.now() - swipe.t < SWIPE_MS;
+      swipe = null;
+      if (quick && Math.abs(dx) > SWIPE_MIN_X && Math.abs(dx) > Math.abs(dy) * SWIPE_RATIO) {
+        const dir = dx < 0 ? 1 : -1;   // flick left = next page
+        dbg('swipe', dir > 0 ? 'next' : 'prev', 'dx=' + Math.round(dx));
+        if (current) clearTouchSelection();
+        swipeCbs.forEach(cb => { try { cb(dir); } catch (err) { dbg('swipe cb error:', String(err)); } });
+        return;
+      }
+    }
+
     // Short tap. Dismiss a live selection first; otherwise let it act on the
     // book underneath, which the capture layer would otherwise swallow.
     if (dt > 350 || moved) return;
@@ -520,7 +561,7 @@ export function initTouchSelection() {
   }), { passive: false });
 
   layer.addEventListener('touchcancel', guarded('touchcancel', e => {
-    if (ours(e.changedTouches)) reset();
+    if (ours(e.changedTouches)) { dbg('touchcancel -> reset'); swipe = null; reset(); }
   }), { passive: true });
 
   dbg('capture layer ready (build stamp in header)');

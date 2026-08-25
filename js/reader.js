@@ -17,7 +17,7 @@ import {
 } from './translate.js';
 import { renderLibrary } from './library.js';
 import {
-  initTouchSelection, clearTouchSelection,
+  initTouchSelection, clearTouchSelection, onBookSwipe,
 } from './touchselect.js';
 import { dbg } from './debug.js';
 
@@ -241,6 +241,10 @@ export function initReaderEvents() {
   // Word selection runs off #touch-capture in this document, not the book
   // iframe — bound once here rather than per chapter.
   initTouchSelection();
+
+  // Swipe to turn pages. The capture layer owns the gesture (touch-action:
+  // none), so it reports the flick and flipPage does its usual debounce.
+  onBookSwipe(dir => flipPage(dir));
 
   viewer.addEventListener('wheel', e => {
     e.preventDefault();
