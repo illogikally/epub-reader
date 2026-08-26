@@ -43,8 +43,8 @@
 :root {
   --bg: #faf6ef;
   --fg: #2a2520;
-  --chrome-fg: #5a544c;
-  --chrome-hover: #2a2520;
+  --chrome-fg: var(--fg);
+  --chrome-hover: var(--fg);
   --border: rgba(0, 0, 0, 0.08);
   --accent: #8a6d3b;
   --side-padding: 32px;

@@ -4,15 +4,14 @@
 // and the slider fill helper used by every range input.
 // ============================================================
 
-import { settings, runtime, blendHex, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
-  const chromeFg = blendHex(settings.fg, settings.bg, 0.45);
   const root = document.documentElement;
   root.style.setProperty('--bg', settings.bg);
   root.style.setProperty('--fg', settings.fg);
-  root.style.setProperty('--chrome-fg', chromeFg);
+  root.style.setProperty('--chrome-fg', settings.fg);
   root.style.setProperty('--chrome-hover', settings.fg);
   root.style.setProperty('--pad-top', settings.padTop + 'px');
   root.style.setProperty('--pad-bottom', settings.padBottom + 'px');
