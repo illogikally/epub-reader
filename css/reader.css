@@ -375,9 +375,38 @@ body.dark-chrome #chrome-controls button {
 .drawer-left  { left: 0;  transform: translateX(-100%); }
 .drawer.visible { transform: translateX(0); }
 
-#toc-drawer .drawer-close, #toc-drawer h2 { flex-shrink: 0; }
+/* The TOC is full-bleed: rows run edge to edge, so the drawer itself keeps
+   no padding and every child brings its own. */
+#toc-drawer { padding: 0; }
+#toc-drawer .drawer-close { z-index: 2; }
+
+#toc-header {
+  flex-shrink: 0;
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 20px 56px 16px 20px;
+  border-bottom: 1px solid var(--border);
+}
+#toc-cover {
+  width: 54px; flex: none;
+  border-radius: 3px;
+  box-shadow: 0 1px 5px rgba(0, 0, 0, 0.3);
+}
+#toc-headmeta { min-width: 0; flex: 1; }
+#toc-book-title {
+  font-size: 17px; font-weight: 600; line-height: 1.28;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+#toc-position {
+  margin-top: 5px; font-size: 15px; line-height: 1.3;
+  display: flex; gap: 6px; align-items: baseline;
+}
+.toc-pos-label { color: var(--chrome-fg); opacity: 0.5; }
+#toc-position-value { color: var(--fg); font-variant-numeric: tabular-nums; }
+
 #toc-list {
   flex: 1; min-height: 0; overflow-y: auto;
+  padding-bottom: 28px;
   overscroll-behavior-y: contain;
   scrollbar-width: none; -ms-overflow-style: none;
 }
@@ -461,14 +490,45 @@ body.dark-chrome #chrome-controls button {
   color: var(--chrome-fg);
 }
 
+/* One row per entry: label left, position right, hairline underneath that is
+   inset to the row's own indentation (so nested entries read as a group). */
 #toc-list a {
-  display: block; padding: 8px 0;
-  border-bottom: 1px solid var(--border);
+  position: relative;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 14px;
+  padding: 13px 20px 13px calc(20px + var(--toc-indent, 0px));
   color: inherit; text-decoration: none; cursor: pointer;
-  font-size: 14px; line-height: 1.4;
+  font-size: 15px; line-height: 1.32;
+  -webkit-tap-highlight-color: transparent;
   transition: color 0.12s ease;
 }
-#toc-list a:hover { color: var(--accent); }
+#toc-list a::after {
+  content: '';
+  position: absolute; bottom: 0; right: 0;
+  left: calc(20px + var(--toc-indent, 0px));
+  height: 1px; background: var(--border);
+}
+#toc-list a:last-child::after { display: none; }
+#toc-list a[data-depth="0"] { font-weight: 600; }
+#toc-list .toc-label { min-width: 0; }
+#toc-list .toc-num {
+  flex: none; font-weight: 400; font-size: 14px;
+  color: var(--chrome-fg); opacity: 0.5;
+  font-variant-numeric: tabular-nums;
+}
+/* Children are positioned, so they paint over the .current pill below. */
+#toc-list .toc-label, #toc-list .toc-num { position: relative; }
+#toc-list a:hover .toc-label { color: var(--accent); }
+
+/* Chapter you are reading — a soft inset pill, with the hairlines that would
+   touch it suppressed. */
+#toc-list a.current::before {
+  content: '';
+  position: absolute; inset: 2px 8px;
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+#toc-list a.current::after,
+#toc-list a:has(+ a.current)::after { display: none; }
 
 /* ============================================================
    Setting row — slightly larger fonts
