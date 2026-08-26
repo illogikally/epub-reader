@@ -12,16 +12,9 @@ export const MODELS = [
     keyRef: 'GROQ_API_KEY',
   },
   {
-    name: 'groq · qwen3-32b',
+    name: 'groq · qwen3.8-27b',
     url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'qwen/qwen3-32b',
-    format: 'openai',
-    keyRef: 'GROQ_API_KEY',
-  },
-  {
-    name: 'groq · llama-3.3-70b-versatile',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'llama-3.3-70b-versatile',
+    model: 'qwen/qwen3.8-27b',
     format: 'openai',
     keyRef: 'GROQ_API_KEY',
   },
