@@ -13,7 +13,7 @@ import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
-  buildToc,
+  buildToc, setTocPosition, markTocCurrent,
 } from './translate.js';
 import { renderLibrary } from './library.js';
 import {
@@ -77,7 +77,7 @@ export async function openBookFromDb(id) {
     setTimeout(() => { try { runtime.rendition && runtime.rendition.resize(); } catch {} }, 80);
 
     const nav = await runtime.book.loaded.navigation;
-    buildToc(nav.toc || []);
+    buildToc(nav.toc || [], { title: record.title, cover: record.cover });
     // Note: book.locations.generate() used to run here to power a "page N /
     // total" indicator, but in epubjs 0.3.x it parses every spine section on
     // the main thread (5–30s of bursty work for a novel) and starves iOS's
@@ -120,9 +120,12 @@ function updatePageIndicator(loc) {
   const pct = loc?.start?.percentage;
   if (typeof pct === 'number' && pct >= 0 && pct <= 1) {
     pageIndicator.textContent = `${Math.round(pct * 100)}%`;
+    setTocPosition(pct);
   } else {
     pageIndicator.textContent = '';
+    setTocPosition(null);
   }
+  markTocCurrent(loc?.start?.index);
 }
 
 export function createRendition() {

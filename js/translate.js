@@ -710,28 +710,145 @@ export function stopBubble() {
 }
 
 // ============================================================
-// TOC builder (lives here because it needs rendition + drawer hide)
+// TOC (lives here because it needs rendition + drawer hide)
+//
+// Modelled on the Apple Books contents sheet: a header carrying the cover,
+// the title and how far in you are, then one full-bleed row per entry with
+// the entry's position in the book on the right.
 // ============================================================
-export function buildToc(toc) {
+let tocLinks = [];        // rows in render order, each with a .spineIndex
+let currentTocLink = null;
+
+// Where each spine item starts, as a fraction of the book. Derived from the
+// zip's uncompressed byte sizes — the only measure of chapter length that is
+// free: book.locations.generate() would have to parse every section (see the
+// note in openBookFromDb).
+function spineStartFractions(book) {
+  try {
+    const zip = book?.archive?.zip;
+    const items = book?.spine?.spineItems;
+    if (!zip || !items?.length) return null;
+    const sizes = items.map(item => {
+      const url = String(item.url || item.href || '');
+      const path = url.replace(/^\//, '');
+      let entry = null;
+      try { entry = zip.file(decodeURIComponent(path)); } catch {}
+      if (!entry) entry = zip.file(path);
+      const size = entry?._data?.uncompressedSize;
+      return typeof size === 'number' && size > 0 ? size : 0;
+    });
+    const total = sizes.reduce((a, b) => a + b, 0);
+    if (!total) return null;
+    const fractions = [];
+    let run = 0;
+    for (const size of sizes) { fractions.push(run / total); run += size; }
+    return fractions;
+  } catch { return null; }
+}
+
+// Spine index for a TOC href, or -1. spine.get() handles fragments and the
+// usual nav-doc-relative hrefs; the basename pass catches nav documents that
+// sit in a different folder than the content.
+function spineIndexForHref(book, href) {
+  if (!book || !href) return -1;
+  try {
+    const section = book.spine.get(href);
+    if (section && typeof section.index === 'number') return section.index;
+  } catch {}
+  const base = decodeURIComponent(String(href).split('#')[0]).split('/').pop();
+  const match = book.spine?.spineItems?.find(item =>
+    decodeURIComponent(String(item.href || '')).split('/').pop() === base);
+  return match ? match.index : -1;
+}
+
+export function buildToc(toc, meta = {}) {
+  const book = runtime.book;
+  const cover = $('toc-cover');
+  cover.hidden = !meta.cover;
+  if (meta.cover) cover.src = meta.cover;
+  $('toc-book-title').textContent = meta.title || '';
+  setTocPosition(null);
+
   tocList.innerHTML = '';
+  tocLinks = [];
+  currentTocLink = null;
+  const fractions = spineStartFractions(book);
+
   const render = (items, depth = 0) => {
     items.forEach(item => {
       const a = document.createElement('a');
-      a.textContent = item.label.trim();
-      a.style.paddingLeft = (depth * 16) + 'px';
+      a.dataset.depth = Math.min(depth, 3);
+      a.style.setProperty('--toc-indent', (depth * 18) + 'px');
+
+      const label = document.createElement('span');
+      label.className = 'toc-label';
+      label.textContent = item.label.trim();
+      a.appendChild(label);
+
+      const spineIndex = spineIndexForHref(book, item.href);
+      a.spineIndex = spineIndex;
+      if (fractions && spineIndex >= 0 && fractions[spineIndex] != null) {
+        const num = document.createElement('span');
+        num.className = 'toc-num';
+        num.textContent = Math.round(fractions[spineIndex] * 100) + '%';
+        a.appendChild(num);
+      }
+
       a.addEventListener('click', e => {
         e.preventDefault();
         if (runtime.rendition) runtime.rendition.display(item.href);
         document.dispatchEvent(new CustomEvent('reader:hideAllDrawers'));
       });
       tocList.appendChild(a);
+      tocLinks.push(a);
       if (item.subitems?.length) render(item.subitems, depth + 1);
     });
   };
   render(toc);
   if (!toc.length) {
-    tocList.innerHTML = '<p style="color:var(--chrome-fg);font-size:13px">No table of contents.</p>';
+    tocList.innerHTML = '<p style="color:var(--chrome-fg);font-size:13px;padding:16px 20px">No table of contents.</p>';
   }
+  // The book is already displayed by the time the TOC is built, so seed the
+  // highlight and the position line from where we actually are.
+  try {
+    const loc = runtime.rendition?.currentLocation();
+    markTocCurrent(loc?.start?.index);
+    setTocPosition(loc?.start?.percentage);
+  } catch {}
+}
+
+// Reading position shown under the title. pct is 0..1, or null to hide.
+export function setTocPosition(pct) {
+  const row = $('toc-position');
+  if (!row) return;
+  const ok = typeof pct === 'number' && pct >= 0 && pct <= 1;
+  row.hidden = !ok;
+  if (ok) $('toc-position-value').textContent = Math.round(pct * 100) + '%';
+}
+
+// Highlight the entry covering the given spine index: the first entry that
+// starts in this section, else the last entry that starts before it.
+export function markTocCurrent(spineIndex) {
+  if (typeof spineIndex !== 'number' || !tocLinks.length) return;
+  let match = tocLinks.find(a => a.spineIndex === spineIndex);
+  if (!match) {
+    for (const a of tocLinks) {
+      if (a.spineIndex >= 0 && a.spineIndex < spineIndex) match = a;
+    }
+  }
+  if (match === currentTocLink) return;
+  currentTocLink?.classList.remove('current');
+  currentTocLink = match || null;
+  currentTocLink?.classList.add('current');
+}
+
+// Called when the drawer opens — the current chapter is often far down a long
+// list, so bring it into view before the sheet is looked at.
+export function scrollTocToCurrent() {
+  if (!currentTocLink) return;
+  const target = currentTocLink.offsetTop - tocList.clientHeight / 2
+    + currentTocLink.offsetHeight / 2;
+  tocList.scrollTop = Math.max(0, target);
 }
 
 // ============================================================

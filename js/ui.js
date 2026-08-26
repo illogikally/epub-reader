@@ -18,6 +18,7 @@ import {
   applyCustomCssToParent, applyCustomCssToBook, applyBookStyle,
 } from './theme.js';
 import { closeBook, createRendition } from './reader.js';
+import { scrollTocToCurrent } from './translate.js';
 import { syncDebugPanel } from './debug.js';
 
 const overlay = $('overlay');
@@ -288,7 +289,10 @@ export function initUI() {
   });
 
   // ---- Top-level chrome buttons ----
-  $('btn-toc').addEventListener('click', () => showDrawer(tocDrawer));
+  $('btn-toc').addEventListener('click', () => {
+    showDrawer(tocDrawer);
+    requestAnimationFrame(scrollTocToCurrent);
+  });
   $('btn-settings').addEventListener('click', showSettingsModal);
   $('btn-library').addEventListener('click', async () => {
     hideAllDrawers();
