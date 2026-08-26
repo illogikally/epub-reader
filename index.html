@@ -61,7 +61,14 @@
     <button class="drawer-close icon-circle-btn" data-side="left" title="Close">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
     </button>
-    <h2>Contents</h2>
+    <!-- Apple-Books-style header: cover thumb + title + reading position -->
+    <div id="toc-header">
+      <img id="toc-cover" alt="" hidden>
+      <div id="toc-headmeta">
+        <div id="toc-book-title"></div>
+        <div id="toc-position"><span class="toc-pos-label">Progress</span><span id="toc-position-value"></span></div>
+      </div>
+    </div>
     <div id="toc-list"></div>
   </aside>
 
