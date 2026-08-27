@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=36';
+import { openBookFromDb } from './reader.js?v=37';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=36';
+} from './state.js?v=37';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=36';
+} from './touchselect.js?v=37';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -215,6 +215,13 @@ export function showPopupAt(rect) {
   const arrowX = rect.left + rect.width / 2 - left;
   popup.style.setProperty('--arrow-x', Math.max(20, Math.min(W - 20, arrowX)) + 'px');
   popupWrapper.classList.add('visible');
+  // Restart the pop-in. Looking up a second word moves the popup rather than
+  // reopening it, so the class is already there and the animation would not
+  // replay — removing it and forcing a reflow is what makes it retrigger.
+  // Cheap here: the placement above has already flushed layout.
+  popup.classList.remove('popping');
+  void popup.offsetWidth;
+  popup.classList.add('popping');
   // Desktop: leave the selection alone so the user can still copy / re-select.
 }
 
@@ -238,6 +245,7 @@ function finishHide() {
   closeTimer = null;
   closing = false;
   popupWrapper.classList.remove('visible', 'shown');
+  popup.classList.remove('popping');
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
