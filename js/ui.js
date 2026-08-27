@@ -1,21 +1,18 @@
 // ============================================================
-// UI wiring: drawers, settings modal, tab switching, all input
-// bindings, theme presets (save/delete current bg+fg).
+// UI wiring: drawers, the settings sheet and every input inside it.
 //
-// Fix #5: every range input calls updateSliderFill on init AND on input
-// so the Apple-style track gradient (filled left / faded right) reflects
-// the value at all times.
-// Fix #6: Color tab supports saving the current bg+fg as a named preset,
-// rendered alongside built-in themes; presets persist via settings.customThemes.
+// The sheet is one scrolling page of grouped rows (see index.html and the
+// "Grouped rows" block in reader.css). Three row shapes are wired here:
+//   .set-select  — disclosure row that expands into an inline option list
+//   .set-slider  — range input; updateSliderFill keeps the track gradient honest
+//   .set-switch  — iOS-style on/off switch
 // ============================================================
 
 import {
-  $, settings, runtime, persistSettings,
-  MODELS, attachPullToDismiss,
+  $, settings, runtime, persistSettings, MODELS, attachPullToDismiss,
 } from './state.js';
 import {
-  applyChromeTheme, applyAll, updateSliderFill,
-  applyCustomCssToParent, applyCustomCssToBook, applyBookStyle,
+  applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
 } from './theme.js';
 import { closeBook, createRendition } from './reader.js';
 import { scrollTocToCurrent } from './translate.js';
@@ -24,12 +21,11 @@ import { syncDebugPanel } from './debug.js';
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
 const settingsModal = $('settings-modal');
-const modelSelect = $('model-select');
 const colorOptions = $('color-options');
 const viewer = $('viewer');
 
 // ============================================================
-// Drawers / modal show + hide
+// Drawers / sheet show + hide
 // ============================================================
 export function showDrawer(drawer) {
   document.querySelectorAll('.drawer').forEach(d => d.classList.remove('visible'));
@@ -49,54 +45,77 @@ export function hideAllDrawers() {
 }
 
 // ============================================================
-// Theme swatch rendering — built-ins + saved presets in one grid
+// Disclosure select — a row showing the current value that expands into an
+// inline list of options. `options` is [{ value, label, style? }]; `get`
+// returns the current value, `set` applies a picked one. Values are compared
+// as strings, so callers hand back strings and parse if they need a number.
+// Only one list stays open at a time.
 // ============================================================
-function renderThemeSwatches() {
-  // Remove existing saved-preset buttons (keep built-ins)
-  colorOptions.querySelectorAll('.theme-swatch.saved').forEach(b => b.remove());
+const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
 
-  settings.customThemes.forEach((t, idx) => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'theme-swatch saved';
-    btn.dataset.bg = t.bg;
-    btn.dataset.fg = t.fg;
-    btn.style.background = t.bg;
-    btn.style.color = t.fg;
-    btn.title = t.name;
-    btn.textContent = 'Aa';
+function bindSelectRow(id, { options, get, set }) {
+  const root = $(id);
+  if (!root) return () => {};
+  const disclosure = root.querySelector('.set-disclosure');
+  const valueEl = root.querySelector('.set-value');
+  const list = root.querySelector('.set-options');
 
-    const del = document.createElement('span');
-    del.className = 'delete-preset';
-    del.textContent = '×';
-    del.title = `Delete "${t.name}"`;
-    del.addEventListener('click', (e) => {
-      e.stopPropagation();
-      e.preventDefault();
-      settings.customThemes.splice(idx, 1);
-      persistSettings();
-      renderThemeSwatches();
+  const sync = () => {
+    const cur = String(get());
+    const hit = options.find(o => o.value === cur);
+    valueEl.textContent = hit ? hit.label : '';
+    list.querySelectorAll('.set-option').forEach(el =>
+      el.classList.toggle('selected', el.dataset.value === cur));
+  };
+
+  options.forEach(o => {
+    const el = document.createElement('button');
+    el.type = 'button';
+    el.className = 'set-option';
+    el.dataset.value = o.value;
+    el.innerHTML = `<span></span>${CHECK_SVG}`;
+    el.firstChild.textContent = o.label;
+    if (o.style) el.firstChild.style.cssText = o.style;
+    el.addEventListener('click', () => {
+      set(o.value);
+      sync();
+      close();
     });
-    btn.appendChild(del);
-
-    btn.addEventListener('click', () => {
-      settings.bg = t.bg;
-      settings.fg = t.fg;
-      applyAll();
-    });
-    colorOptions.appendChild(btn);
+    list.appendChild(el);
   });
 
-  // Update active class for ALL swatches
-  colorOptions.querySelectorAll('.theme-swatch').forEach(b => {
-    const matches = b.dataset.bg.toLowerCase() === settings.bg.toLowerCase()
-                 && b.dataset.fg.toLowerCase() === settings.fg.toLowerCase();
-    b.classList.toggle('active', matches);
+  const close = () => {
+    root.classList.remove('open');
+    disclosure.setAttribute('aria-expanded', 'false');
+  };
+  disclosure.addEventListener('click', () => {
+    const willOpen = !root.classList.contains('open');
+    document.querySelectorAll('#settings-body .set-select.open').forEach(s => {
+      s.classList.remove('open');
+      s.querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
+    });
+    root.classList.toggle('open', willOpen);
+    disclosure.setAttribute('aria-expanded', String(willOpen));
   });
+
+  sync();
+  return sync;
 }
 
+// Option list for the font row — each entry previews its own face.
+const FONTS = [
+  ["'Seravek', ui-sans-serif, system-ui, sans-serif", 'Seravek'],
+  ["Georgia, 'Iowan Old Style', serif", 'Georgia'],
+  ["'Iowan Old Style', Palatino, 'Palatino Linotype', serif", 'Iowan / Palatino'],
+  ["ui-serif, 'Charter', 'Bitstream Charter', serif", 'Charter'],
+  ["'Times New Roman', Times, serif", 'Times'],
+  ['ui-sans-serif, system-ui, -apple-system, sans-serif', 'System sans'],
+  ["'Helvetica Neue', Helvetica, Arial, sans-serif", 'Helvetica'],
+  ["ui-monospace, 'SF Mono', Menlo, monospace", 'Mono'],
+].map(([value, label]) => ({ value, label, style: `font-family:${value}` }));
+
 // ============================================================
-// Slider bindings — every helper calls updateSliderFill on init + input
+// Slider bindings — every helper calls updateSliderFill on init + on input
 // ============================================================
 function bindSlider(id, key, suffix) {
   const input = $(id);
@@ -146,47 +165,9 @@ function bindPaddingSlider(id, key) {
   });
 }
 
-// One delegated click handler for every .step-btn. Buttons reference their
-// hidden range input via data-for; clicking bumps input.value by data-step *
-// input.step (clamped to min/max) and dispatches 'input' so the existing
-// bindSlider/bindLineHeight/bindPaddingSlider/bindContextLength listeners run.
-function bindStepperButtons() {
-  document.querySelectorAll('.step-btn[data-for]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const input = $(btn.dataset.for);
-      if (!input) return;
-      const stepUnit = parseFloat(input.step) || 1;
-      const dir = parseFloat(btn.dataset.step) || 0;
-      const min = input.min === '' ? -Infinity : parseFloat(input.min);
-      const max = input.max === '' ?  Infinity : parseFloat(input.max);
-      let next = (parseFloat(input.value) || 0) + dir * stepUnit;
-      next = Math.max(min, Math.min(max, next));
-      // Round to the same precision as `step` to avoid float drift.
-      const decimals = (String(input.step).split('.')[1] || '').length;
-      next = parseFloat(next.toFixed(decimals));
-      input.value = next;
-      input.dispatchEvent(new Event('input', { bubbles: true }));
-    });
-  });
-}
-
-function bindContextLength() {
-  const input = $('context-length');
-  const valueEl = $('context-length-value');
-  const fmt = n => n + ' sentence' + (n === 1 ? '' : 's');
-  input.value = settings.contextSentences;
-  valueEl.textContent = fmt(settings.contextSentences);
-  updateSliderFill(input);
-  input.addEventListener('input', () => {
-    settings.contextSentences = parseInt(input.value);
-    valueEl.textContent = fmt(settings.contextSentences);
-    updateSliderFill(input);
-    persistSettings();
-  });
-}
-
 // ============================================================
-// Color picker pair (color input + hex text)
+// Color picker pair (round chip + hex text). applyAll -> applyChromeTheme
+// re-marks the matching theme swatch, so nothing extra is needed here.
 // ============================================================
 function bindColorPair(colorId, hexId, key) {
   const c = $(colorId);
@@ -210,21 +191,20 @@ function bindColorPair(colorId, hexId, key) {
 }
 
 // ============================================================
-// Model select + popup label sync
+// Switch row
 // ============================================================
-function populateModelSelect() {
-  modelSelect.innerHTML = '';
-  MODELS.forEach((m, idx) => {
-    const o = document.createElement('option');
-    o.value = idx;
-    o.textContent = m.name;
-    if (idx === settings.selectedModelIdx) o.selected = true;
-    modelSelect.appendChild(o);
+function bindSwitch(id, get, set) {
+  const btn = $(id);
+  const sync = () => btn.setAttribute('aria-checked', String(!!get()));
+  sync();
+  btn.addEventListener('click', () => {
+    set(!get());
+    sync();
   });
 }
 
 // ============================================================
-// API key input bindings
+// API key input
 // ============================================================
 function bindKeyInput(id, ref) {
   const input = $(id);
@@ -236,57 +216,22 @@ function bindKeyInput(id, ref) {
 }
 
 // ============================================================
-// Custom CSS textarea
-// ============================================================
-function bindCustomCss() {
-  const ta = $('custom-css');
-  if (!ta) return;
-  ta.value = settings.customCss || '';
-  let cssTimer;
-  ta.addEventListener('input', () => {
-    settings.customCss = ta.value;
-    applyCustomCssToParent();
-    clearTimeout(cssTimer);
-    cssTimer = setTimeout(() => {
-      applyCustomCssToBook();
-      persistSettings();
-    }, 250);
-  });
-}
-
-// ============================================================
 // Init — call once at boot
 // ============================================================
 export function initUI() {
-  // ---- Drawers / modal ----
+  // ---- Drawers / sheet ----
   overlay.addEventListener('click', hideAllDrawers);
   document.querySelectorAll('.drawer-close').forEach(btn => {
     btn.addEventListener('click', hideAllDrawers);
   });
-  const settingsCloseBtn = $('settings-close');
-  if (settingsCloseBtn) settingsCloseBtn.addEventListener('click', hideAllDrawers);
+  $('settings-close').addEventListener('click', hideAllDrawers);
 
   // Pull-down-to-dismiss for mobile bottom sheets
   attachPullToDismiss(tocDrawer, () => $('toc-list'), hideAllDrawers);
-  attachPullToDismiss(
-    settingsModal,
-    () => settingsModal.querySelector('.tab-panel.active'),
-    hideAllDrawers,
-  );
+  attachPullToDismiss(settingsModal, () => $('settings-body'), hideAllDrawers);
 
   // Custom event from reader.js (Esc key) closes drawers
   document.addEventListener('reader:hideAllDrawers', hideAllDrawers);
-
-  // ---- Tab switching ----
-  document.querySelectorAll('#settings-tabs button.tab').forEach(tabBtn => {
-    tabBtn.addEventListener('click', () => {
-      const target = tabBtn.dataset.tab;
-      document.querySelectorAll('#settings-tabs button.tab').forEach(b =>
-        b.classList.toggle('active', b === tabBtn));
-      document.querySelectorAll('#settings-modal .tab-panel').forEach(p =>
-        p.classList.toggle('active', p.dataset.panel === target));
-    });
-  });
 
   // ---- Top-level chrome buttons ----
   $('btn-toc').addEventListener('click', () => {
@@ -299,15 +244,43 @@ export function initUI() {
     await closeBook();
   });
 
-  // ---- Layout mode toggle ----
-  document.querySelectorAll('#mode-toggle button').forEach(btn => {
-    btn.classList.toggle('active', btn.dataset.mode === settings.layout);
-    btn.addEventListener('click', () => {
-      const mode = btn.dataset.mode;
+  // ---- Text: font + alignment ----
+  bindSelectRow('sel-font', {
+    options: FONTS,
+    get: () => settings.fontFamily,
+    set: v => { settings.fontFamily = v; applyAll(); },
+  });
+
+  bindSelectRow('sel-align', {
+    options: [
+      { value: 'default', label: 'Default' },
+      { value: 'left',    label: 'Left' },
+      { value: 'justify', label: 'Justified' },
+    ],
+    get: () => settings.textAlign,
+    set: v => {
+      settings.textAlign = v;
+      persistSettings();
+      applyBookStyle();
+    },
+  });
+
+  // ---- Text: sliders ----
+  bindSlider('font-size', 'fontSize', 'px');
+  bindLineHeight();
+  bindSlider('letter-spacing', 'letterSpacing', 'px');
+  bindSlider('word-spacing', 'wordSpacing', 'px');
+
+  // ---- Layout: page mode (hidden on phones — they are always single page) ----
+  bindSelectRow('sel-layout', {
+    options: [
+      { value: 'single', label: 'Single page' },
+      { value: 'dual',   label: 'Two pages' },
+    ],
+    get: () => settings.layout,
+    set: mode => {
       if (mode === settings.layout) return;
       settings.layout = mode;
-      document.querySelectorAll('#mode-toggle button').forEach(b =>
-        b.classList.toggle('active', b.dataset.mode === mode));
       persistSettings();
       if (runtime.book && runtime.rendition) {
         const cfi = runtime.rendition.currentLocation()?.start?.cfi;
@@ -316,104 +289,41 @@ export function initUI() {
         createRendition();
         runtime.rendition.display(cfi || undefined);
       }
-    });
+    },
   });
 
-  // ---- Built-in theme swatches (also wires saved ones via renderThemeSwatches) ----
-  colorOptions.querySelectorAll('.theme-swatch:not(.saved)').forEach(btn => {
+  // ---- Layout: margins ----
+  bindPaddingSlider('pad-top',    'padTop');
+  bindPaddingSlider('pad-bottom', 'padBottom');
+  bindPaddingSlider('pad-left',   'padLeft');
+  bindPaddingSlider('pad-right',  'padRight');
+
+  // ---- Theme ----
+  colorOptions.querySelectorAll('.theme-swatch').forEach(btn => {
     btn.addEventListener('click', () => {
       settings.bg = btn.dataset.bg;
       settings.fg = btn.dataset.fg;
       applyAll();
     });
   });
-  renderThemeSwatches();
-
-  // ---- Save current as preset ----
-  $('save-theme-preset').addEventListener('click', () => {
-    settings.customThemes.push({
-      name: '',
-      bg: settings.bg,
-      fg: settings.fg,
-    });
-    persistSettings();
-    renderThemeSwatches();
-  });
-
-  // ---- Font select ----
-  const fontSelect = $('font-family');
-  fontSelect.value = settings.fontFamily;
-  fontSelect.addEventListener('change', () => {
-    settings.fontFamily = fontSelect.value;
-    applyAll();
-  });
-
-  // ---- Sliders (font + spacing) ----
-  bindSlider('font-size', 'fontSize', 'px');
-  bindSlider('letter-spacing', 'letterSpacing', 'px');
-  bindSlider('word-spacing', 'wordSpacing', 'px');
-  bindLineHeight();
-
-  // ---- Text align toggle (Default / Left / Justify) ----
-  const alignToggle = $('align-toggle');
-  const syncAlignActive = () => alignToggle.querySelectorAll('button').forEach(b =>
-    b.classList.toggle('active', b.dataset.align === settings.textAlign));
-  syncAlignActive();
-  alignToggle.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      if (btn.dataset.align === settings.textAlign) return;
-      settings.textAlign = btn.dataset.align;
-      syncAlignActive();
-      persistSettings();
-      applyBookStyle();
-    });
-  });
-
-  // ---- Debug log toggle (Off / On) ----
-  // Mirrors the align toggle above. Lives in Settings rather than only behind
-  // ?debug=1 because the manifest's start_url drops the query string when the
-  // app is launched from the home-screen icon.
-  const debugToggle = $('debug-toggle');
-  const syncDebugActive = () => debugToggle.querySelectorAll('button').forEach(b =>
-    b.classList.toggle('active', (b.dataset.debug === 'on') === !!settings.debug));
-  syncDebugActive();
-  debugToggle.querySelectorAll('button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const on = btn.dataset.debug === 'on';
-      if (on === !!settings.debug) return;
-      settings.debug = on;
-      syncDebugActive();
-      persistSettings();
-      syncDebugPanel();
-    });
-  });
-
-  // ---- Padding sliders ----
-  bindPaddingSlider('pad-top',    'padTop');
-  bindPaddingSlider('pad-bottom', 'padBottom');
-  bindPaddingSlider('pad-left',   'padLeft');
-  bindPaddingSlider('pad-right',  'padRight');
-
-  // ---- Color pair inputs ----
   bindColorPair('bg-color', 'bg-color-hex', 'bg');
   bindColorPair('fg-color', 'fg-color-hex', 'fg');
 
-  // ---- Translation tab ----
-  bindContextLength();
-  populateModelSelect();
-  modelSelect.addEventListener('change', () => {
-    settings.selectedModelIdx = parseInt(modelSelect.value);
-    persistSettings();
+  // ---- Translation ----
+  bindSelectRow('sel-model', {
+    options: MODELS.map((m, idx) => ({ value: String(idx), label: m.name })),
+    get: () => settings.selectedModelIdx,
+    set: v => {
+      settings.selectedModelIdx = parseInt(v);
+      persistSettings();
+    },
   });
   bindKeyInput('key-groq', 'GROQ_API_KEY');
 
-  // ---- Stepper buttons (drive the hidden range inputs) ----
-  bindStepperButtons();
-
-  // ---- Custom CSS ----
-  bindCustomCss();
-
-  // After applyChromeTheme runs its theme-swatch active toggle, ensure saved
-  // presets are also marked correctly by re-running our renderer once more.
-  renderThemeSwatches();
+  // ---- Advanced ----
+  bindSwitch('toggle-debug', () => settings.debug, on => {
+    settings.debug = on;
+    persistSettings();
+    syncDebugPanel();
+  });
 }

@@ -51,12 +51,26 @@
   /* Surface tint used for soft button backgrounds (icon-circle-btn etc) */
   --surface-soft: rgba(0, 0, 0, 0.06);
   --surface-soft-hover: rgba(0, 0, 0, 0.12);
+  /* Settings sheet: cards sit on a slightly recessed page, iOS-grouped-list
+     style. The plain values are the fallback where color-mix is unsupported. */
+  --sheet-bg: var(--bg);
+  --sheet-bg: color-mix(in srgb, var(--bg) 94%, #000);
+  --card-bg: var(--bg);
+  --set-line: rgba(0, 0, 0, 0.09);
+  --set-muted: rgba(0, 0, 0, 0.45);
+  --switch-on: #34c759;
 }
 body.dark-chrome {
   --slider-fill: rgba(255, 255, 255, 0.7);
   --slider-empty: rgba(255, 255, 255, 0.15);
   --surface-soft: rgba(255, 255, 255, 0.1);
   --surface-soft-hover: rgba(255, 255, 255, 0.18);
+  --sheet-bg: var(--bg);
+  --sheet-bg: color-mix(in srgb, var(--bg) 88%, #000);
+  --card-bg: var(--bg);
+  --card-bg: color-mix(in srgb, var(--bg) 92%, #fff);
+  --set-line: rgba(255, 255, 255, 0.12);
+  --set-muted: rgba(255, 255, 255, 0.5);
 }
 
 * { box-sizing: border-box; }
@@ -429,17 +443,19 @@ body.dark-chrome #chrome-controls button {
 }
 
 /* ============================================================
-   Settings modal — centered card on desktop, bottom sheet on phone
+   Settings sheet — centered card on desktop, bottom sheet on phone.
+   One scrolling page; content is grouped-row cards (see "Grouped rows").
    ============================================================ */
 #settings-modal {
   position: fixed; z-index: 30;
   top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 8px));
   width: 480px; max-width: calc(100vw - 24px);
-  max-height: 80vh;
-  background: var(--bg); color: var(--fg);
+  max-height: 84vh;
+  background: var(--sheet-bg); color: var(--fg);
   border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 0 0 1px var(--border);
   display: flex; flex-direction: column;
+  overflow: hidden;
   opacity: 0; pointer-events: none;
   transition: opacity 0.2s ease, transform 0.2s ease;
 }
@@ -448,47 +464,30 @@ body.dark-chrome #chrome-controls button {
   transform: translate(-50%, -50%);
 }
 
-#settings-tabs {
-  display: flex; align-items: center; gap: 2px;
-  padding: 10px 8px 0 16px;
-  border-bottom: 1px solid var(--border);
+#settings-head {
   flex-shrink: 0;
-  overflow-x: auto;
-  scrollbar-width: none;
+  position: relative;
+  display: flex; align-items: center; justify-content: center;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--set-line);
 }
-#settings-tabs::-webkit-scrollbar { display: none; }
-/* Sticky X: pinned to the right edge of the visible tabs row.
-   Solid background covers any tab content scrolling underneath. */
-#settings-tabs > #settings-close {
-  position: sticky;
-  right: 0;
-  margin-left: auto;
-  background: var(--bg);
-  box-shadow: -8px 0 8px -4px var(--bg);
-  z-index: 1;
+#settings-title { font-size: 16px; font-weight: 600; }
+#settings-close {
+  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  padding: 4px 6px;
+  font-size: 16px;
+  color: var(--accent);
+  border-radius: 6px;
 }
-#settings-tabs button.tab {
-  padding: 9px 14px;
-  border-radius: 8px 8px 0 0;
-  font-size: 14px;
-  color: var(--chrome-fg);
-  white-space: nowrap;
-  transition: background 0.12s ease, color 0.12s ease;
-}
-#settings-tabs button.tab:hover { color: var(--fg); }
-#settings-tabs button.tab.active {
-  color: var(--fg);
-  background: var(--surface-soft);
-}
+#settings-close:hover { opacity: 0.7; }
 
-.tab-panel { display: none; padding: 20px 24px 26px; overflow-y: auto; overscroll-behavior-y: contain; min-height: 0; }
-.tab-panel.active { display: block; flex: 1; }
-.tab-panel h2 {
-  margin: 0 0 14px;
-  font-size: 12px; font-weight: 600;
-  text-transform: uppercase; letter-spacing: 0.08em;
-  color: var(--chrome-fg);
+#settings-body {
+  flex: 1; min-height: 0;
+  overflow-y: auto; overscroll-behavior-y: contain;
+  padding: 4px 14px 30px;
+  scrollbar-width: none; -ms-overflow-style: none;
 }
+#settings-body::-webkit-scrollbar { width: 0; height: 0; display: none; }
 
 /* One row per entry: label left, position right, hairline underneath that is
    inset to the row's own indentation (so nested entries read as a group). */
@@ -531,77 +530,121 @@ body.dark-chrome #chrome-controls button {
 #toc-list a:has(+ a.current)::after { display: none; }
 
 /* ============================================================
-   Setting row — slightly larger fonts
+   Grouped rows — the settings-sheet vocabulary.
+
+   A section is a bold header followed by one or more .set-group cards.
+   Inside a card, siblings are separated by a hairline that is inset to
+   wherever that row's text begins; each row shape declares that offset as
+   --set-inset so the pseudo-element on the row picks up its own value.
    ============================================================ */
-.setting { margin-bottom: 22px; }
-.setting-label {
-  display: flex; justify-content: space-between; align-items: center;
-  font-size: 13px; color: var(--chrome-fg);
-  margin-bottom: 10px;
-  text-transform: uppercase; letter-spacing: 0.05em;
+.set-section {
+  margin: 22px 0 8px; padding: 0 6px;
+  font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+  color: var(--fg);
 }
-.setting-value {
+#settings-body > .set-section:first-child { margin-top: 12px; }
+
+.set-group {
+  --set-inset: 54px;
+  background: var(--card-bg);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.set-group + .set-group { margin-top: 14px; }
+.set-group > * { position: relative; }
+.set-group > * + *::before {
+  content: ''; position: absolute; top: 0; right: 0;
+  left: var(--set-inset);
+  height: 1px; background: var(--set-line);
+}
+
+/* ---- The row itself: icon · label · value · trailing control ---- */
+.set-row {
+  display: flex; align-items: center;
+  width: 100%; min-height: 46px;
+  padding: 8px 16px;
+  font-size: 15px; color: var(--fg);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+.set-icon {
+  flex: none;
+  width: 38px;                     /* 16px padding + 38 = the 54px inset */
+  display: inline-flex; align-items: center;
+  color: var(--fg);
+}
+.set-icon svg {
+  width: 19px; height: 19px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+}
+.set-icon-text { font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+.set-icon-aa { font-size: 18px; }
+.set-label { flex: 1; min-width: 0; }
+.set-value {
+  flex: none; margin-left: 10px; max-width: 48%;
+  color: var(--set-muted);
   font-variant-numeric: tabular-nums;
-  color: var(--fg);
-  font-size: 13px;
-  text-transform: none;
-  letter-spacing: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.set-chevron {
+  flex: none; width: 14px; height: 14px; margin-left: 6px;
+  fill: none; stroke: var(--set-muted);
+  stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round;
+  transition: transform 0.18s ease;
 }
 
-/* Stepper row: label · value · − · +  (replaces sliders) */
-.setting-stepper {
+/* ---- Disclosure row → inline option list ---- */
+.set-disclosure:hover .set-label { color: var(--accent); }
+.set-select.open > .set-disclosure .set-chevron { transform: rotate(90deg); }
+.set-options { display: none; }
+.set-select.open > .set-options { display: block; }
+.set-option {
+  position: relative;
   display: flex; align-items: center; gap: 10px;
-  margin-bottom: 14px;
+  width: 100%; min-height: 44px;
+  padding: 10px 16px 10px 26px;
+  font-size: 15px; color: var(--fg); text-align: left;
+  -webkit-tap-highlight-color: transparent;
 }
-.setting-stepper .setting-label-line {
-  flex: 1;
-  font-size: 14px;
-  color: var(--fg);
+.set-option::before {
+  content: ''; position: absolute; top: 0; left: 26px; right: 0;
+  height: 1px; background: var(--set-line);
 }
-.setting-stepper .setting-value {
-  font-size: 14px;
-  color: var(--fg);
-  min-width: 44px;
-  text-align: right;
-  margin-right: 2px;
+.set-option:hover { background: var(--surface-soft); }
+.set-option span { flex: 1; min-width: 0; }
+.set-option svg {
+  flex: none; width: 15px; height: 15px;
+  fill: none; stroke: var(--accent); stroke-width: 2.6;
+  stroke-linecap: round; stroke-linejoin: round;
+  opacity: 0;
 }
-.step-btn {
-  width: 28px; height: 28px;
-  border-radius: 50%;
-  border: none;
-  background: var(--slider-empty);
-  color: var(--fg);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center;
-  padding: 0;
-  user-select: none;
-  -webkit-user-select: none;
-  transition: background 0.12s, transform 0.08s;
-}
-.step-btn:hover { background: var(--slider-fill); color: var(--bg); }
-.step-btn:active { transform: scale(0.92); }
+.set-option.selected svg { opacity: 1; }
 
-/* ============================================================
-   Apple-style sliders
-   filled portion (left of thumb) = solid; rest = faded.
-   thumb = white circle with subtle shadow.
-   --val is updated by JS (updateSliderFill) on input + on init.
-   ============================================================ */
-.setting input[type="range"] {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 100%;
-  height: 22px;                  /* hit target */
-  background: transparent;
-  outline: none;
-  cursor: pointer;
-  margin: 4px 0;
+/* ---- Slider block: uppercase sub-label over icon · track · value ---- */
+.set-slider { --set-inset: 16px; padding: 9px 16px 11px; }
+.set-sublabel {
+  font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--set-muted);
+  margin-bottom: 1px;
 }
-.setting input[type="range"]::-webkit-slider-runnable-track {
-  height: 4px;
-  border-radius: 2px;
+.set-slider-row { display: flex; align-items: center; gap: 12px; }
+.set-slider-row .set-icon { width: 22px; }
+.set-slider-row .set-value {
+  margin-left: 0; min-width: 52px; max-width: none; text-align: right;
+}
+
+/* Filled portion (left of thumb) = solid, rest = faded; thumb = white disc.
+   --val is written by JS (updateSliderFill) on init and on every input. */
+.set-slider input[type="range"] {
+  -webkit-appearance: none; appearance: none;
+  flex: 1; min-width: 0;
+  height: 26px;                  /* hit target */
+  background: transparent; outline: none; cursor: pointer;
+  margin: 0;
+}
+.set-slider input[type="range"]::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 2px;
   background: linear-gradient(
     to right,
     var(--slider-fill) 0%,
@@ -610,160 +653,100 @@ body.dark-chrome #chrome-controls button {
     var(--slider-empty) 100%
   );
 }
-.setting input[type="range"]::-moz-range-track {
-  height: 4px;
-  border-radius: 2px;
+.set-slider input[type="range"]::-moz-range-track {
+  height: 4px; border-radius: 2px; background: var(--slider-empty);
+}
+.set-slider input[type="range"]::-moz-range-progress {
+  height: 4px; border-radius: 2px; background: var(--slider-fill);
+}
+.set-slider input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none; appearance: none;
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #fff; border: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(0,0,0,0.06);
+  cursor: pointer;
+  margin-top: -10px;
+}
+.set-slider input[type="range"]::-moz-range-thumb {
+  width: 24px; height: 24px; border-radius: 50%;
+  background: #fff; border: none;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.22), 0 0 0 0.5px rgba(0,0,0,0.06);
+  cursor: pointer;
+}
+
+/* ---- Switch row ---- */
+.set-track {
+  flex: none;
+  width: 47px; height: 29px; border-radius: 15px;
+  padding: 2px;
   background: var(--slider-empty);
+  display: inline-flex; align-items: center;
+  transition: background 0.2s ease;
 }
-.setting input[type="range"]::-moz-range-progress {
-  height: 4px;
-  border-radius: 2px;
-  background: var(--slider-fill);
-}
-.setting input[type="range"]::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  appearance: none;
-  width: 22px; height: 22px;
-  border-radius: 50%;
+.set-knob {
+  width: 25px; height: 25px; border-radius: 50%;
   background: #fff;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.06);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3), 0 0 0 0.5px rgba(0,0,0,0.06);
+  transition: transform 0.2s ease;
+}
+.set-switch[aria-checked="true"] .set-track { background: var(--switch-on); }
+.set-switch[aria-checked="true"] .set-knob { transform: translateX(18px); }
+
+/* ---- Free-text row (API key) ---- */
+.set-input-row { --set-inset: 16px; }
+.set-input-row .set-label { flex: none; }
+.set-input-row input {
+  flex: 1; min-width: 0; margin-left: 14px;
+  border: none; background: transparent; outline: none;
+  color: var(--fg); text-align: right;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+}
+.set-input-row input::placeholder { color: var(--set-muted); }
+
+/* ---- Color row: hex field + a round chip that is the native picker ---- */
+.set-color-row { --set-inset: 16px; }
+.set-hex {
+  flex: none; width: 88px;
+  border: none; background: transparent; outline: none;
+  color: var(--set-muted); text-align: right; text-transform: uppercase;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+}
+.set-chip {
+  position: relative; flex: none;
+  width: 26px; height: 26px; margin-left: 10px;
+  border-radius: 50%; overflow: hidden;
+  box-shadow: inset 0 0 0 1px var(--set-line);
   cursor: pointer;
-  border: none;
-  margin-top: -9px;
 }
-.setting input[type="range"]::-moz-range-thumb {
-  width: 22px; height: 22px;
-  border-radius: 50%;
-  background: #fff;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.18), 0 0 0 0.5px rgba(0,0,0,0.06);
-  cursor: pointer;
-  border: none;
+.set-chip input[type="color"] {
+  position: absolute; inset: -6px;
+  width: calc(100% + 12px); height: calc(100% + 12px);
+  padding: 0; border: none; background: transparent; cursor: pointer;
 }
+.set-chip input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+.set-chip input[type="color"]::-webkit-color-swatch { border: none; }
 
-/* ============================================================
-   Inputs / selects / textarea — slightly larger, theme-aware
-   ============================================================ */
-.setting input[type="text"],
-.setting input[type="password"] {
-  width: 100%; padding: 9px 11px;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: transparent; color: var(--fg);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 13px; outline: none;
-}
-.setting input[type="password"]:focus,
-.setting input[type="text"]:focus { border-color: var(--accent); }
-
-.setting select {
-  width: 100%; padding: 9px 11px;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: transparent; color: var(--fg);
-  font-family: inherit; font-size: 15px; outline: none;
-}
-
-.setting textarea {
-  width: 100%; min-height: 200px;
-  padding: 11px 13px;
-  border: 1px solid var(--border); border-radius: 8px;
-  background: transparent; color: var(--fg);
-  font-family: ui-monospace, Menlo, Consolas, monospace;
-  font-size: 13px; line-height: 1.5; outline: none;
-  resize: vertical;
-}
-.setting textarea:focus { border-color: var(--accent); }
-
-.help-text {
-  font-size: 12px; color: var(--chrome-fg);
-  line-height: 1.5;
-  margin-top: -10px; margin-bottom: 16px;
-}
-
-/* ============================================================
-   Theme swatches (built-in + saved presets)
-   ============================================================ */
+/* ---- Theme swatches ---- */
+.set-swatches { --set-inset: 16px; padding: 14px 16px; }
 .color-options {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 10px;
-  margin-bottom: 12px;
+  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
 }
 .theme-swatch {
-  position: relative;
   aspect-ratio: 1; border-radius: 10px;
-  border: 2px solid transparent;
-  font-family: inherit;
-  font-size: 18px;
-  font-weight: 500;
+  border: 2px solid var(--set-line);
+  font-family: inherit; font-size: 17px; font-weight: 500;
   letter-spacing: -0.01em;
   display: flex; align-items: center; justify-content: center;
   transition: border-color 0.15s ease, transform 0.1s ease;
 }
 .theme-swatch:hover { transform: scale(1.05); }
 .theme-swatch.active { border-color: var(--accent); }
-.theme-swatch .delete-preset {
-  position: absolute;
-  top: -6px; right: -6px;
-  width: 18px; height: 18px; border-radius: 50%;
-  background: rgba(0,0,0,0.7); color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 12px; line-height: 1;
-  z-index: 2;
-}
-.theme-swatch .delete-preset:hover { background: rgba(220,60,60,0.9); }
 
-.save-preset-row {
-  display: flex;
-  gap: 8px;
-  align-items: stretch;
-}
-
-.save-preset-btn {
-  flex: 1;
-  padding: 10px 16px;
-  border: 1px dashed var(--border); border-radius: 10px;
-  color: var(--chrome-fg);
-  font-size: 13px;
-  transition: color 0.12s ease, border-color 0.12s ease;
-}
-.save-preset-btn:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.color-input-row {
-  display: flex;
-  gap: 8px;
-  align-items: center;
-}
-.color-input-row input[type="color"] {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  background: transparent;
-  cursor: pointer;
-  flex-shrink: 0;
-}
-.color-input-row input[type="color"]::-webkit-color-swatch-wrapper { padding: 2px; }
-.color-input-row input[type="color"]::-webkit-color-swatch { border: none; border-radius: 6px; }
-.color-input-row input[type="text"] {
-  flex: 1;
-  text-transform: uppercase;
-}
-
-.mode-toggle {
-  display: flex;
-  background: var(--surface-soft);
-  border-radius: 9px; padding: 3px;
-}
-.mode-toggle button {
-  flex: 1; padding: 9px; border-radius: 7px;
-  font-size: 14px; transition: all 0.15s ease;
-}
-.mode-toggle button.active {
-  background: var(--bg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+/* ---- Footnote under a card ---- */
+.set-footnote {
+  margin: 8px 6px 0;
+  font-size: 12px; line-height: 1.45;
+  color: var(--set-muted);
 }
 
 /* ============================================================
@@ -913,20 +896,29 @@ body.dark-chrome #chrome-controls button {
 @media (max-width: 599px), (pointer: coarse) {
   :root { --side-padding: 18px; }
 
-  /* Settings modal hugs the bottom of the screen on phones, max 80vh */
+  /* Settings sheet hugs the bottom of the screen on phones, max 84vh */
   #settings-modal {
     top: auto; bottom: 0; left: 0;
     transform: translate(0, 100%);
     width: 100vw; max-width: 100vw;
-    max-height: 80vh;
-    border-radius: 8px 8px 0 0;
+    max-height: 84vh;
+    border-radius: 12px 12px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
   }
   #settings-modal.visible {
     transform: translate(0, 0);
   }
-  #settings-tabs button.tab { font-size: 15px; padding: 10px 14px; }
-  .tab-panel { padding: 22px 22px 28px; }
+  #settings-body { padding-bottom: calc(30px + env(safe-area-inset-bottom)); }
+  /* Touch sizing: iOS grouped-list metrics. */
+  #settings-title, #settings-close { font-size: 17px; }
+  .set-section { font-size: 20px; margin-top: 26px; }
+  .set-row, .set-option { font-size: 17px; min-height: 50px; }
+  .set-icon-text { font-size: 17px; }
+  .set-icon-aa { font-size: 20px; }
+  .set-sublabel { font-size: 13px; }
+  .set-slider-row .set-value { font-size: 16px; }
+  /* Single/dual page is a desktop-only choice — phones are always single. */
+  .desktop-only { display: none; }
 
   /* Page number hidden on phones */
   #page-indicator { display: none; }
