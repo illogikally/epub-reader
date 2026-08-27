@@ -855,8 +855,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   background: var(--bg); color: var(--fg);
   border-radius: 12px;
   box-shadow: 0 14px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--border);
-  font: 14px/1.5 consolas;
-  font-size: 110%;
+  font: 14px/1.5 consolas menlo;
   letter-spacing: -0.2px;
   display: flex; flex-direction: column;
   max-height: min(60vh, 480px);
@@ -926,6 +925,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 
 #popup-out {
   font-size: 15px;
+  letter-spacing: -1px;
   flex: 1; overflow-y: auto; padding: 12px 14px 20px;
   overscroll-behavior-y: contain;
   white-space: pre-wrap; word-wrap: break-word;
