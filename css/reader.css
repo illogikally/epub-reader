@@ -216,7 +216,14 @@ button {
   display: flex; align-items: center; gap: 12px;
 }
 .library-header h1 { margin: 0; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; }
-#btn-add-book { width: 30px; height: 30px; }
+#btn-add-book, #btn-sync { width: 30px; height: 30px; }
+
+/* The cloud spins while a pass is running and goes red if one failed. Both
+   states are also spelled out in the Sync section of the settings sheet — this
+   is the ambient version, for when the sheet is closed. */
+#btn-sync.syncing svg { animation: sync-spin 1.1s linear infinite; }
+#btn-sync.sync-error { color: #c0392b; }
+@keyframes sync-spin { to { transform: rotate(360deg); } }
 .library-header .count { margin-left: auto; color: var(--chrome-fg); font-size: 13px; }
 
 .library-grid {
@@ -797,6 +804,21 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   transition: opacity 0.12s ease;
 }
 .set-btn:active { opacity: 0.75; }
+/* Secondary button inside a form — "Open Dropbox…" sits above the field it
+   fills in, so it must not read as the form's submit. */
+.set-btn-quiet {
+  margin-top: 0;
+  background: transparent; color: var(--fg);
+  box-shadow: inset 0 0 0 1px var(--set-line);
+}
+
+/* A whole row that is a button and does something, rather than revealing or
+   toggling: Sync now, Disconnect. */
+.set-action { cursor: pointer; }
+.set-action:active { background: var(--set-line); }
+.set-action-danger .set-label,
+.set-action-danger .set-icon { color: #d7473c; }
+
 .set-form-error {
   margin: 10px 0 0;
   font-size: 12px; line-height: 1.4; color: #d7473c;

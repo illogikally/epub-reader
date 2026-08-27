@@ -2,13 +2,14 @@
 // Bootstrap. Wires modules together in the correct order.
 // ============================================================
 
-import { applyChromeTheme } from './theme.js?v=30';
-import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=30';
-import { openBookFromDb, initReaderEvents } from './reader.js?v=30';
-import { initTranslateEvents } from './translate.js?v=30';
-import { initUI } from './ui.js?v=30';
-import { dbGet } from './state.js?v=30';
-import { syncDebugPanel } from './debug.js?v=30';
+import { applyChromeTheme } from './theme.js?v=31';
+import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=31';
+import { openBookFromDb, initReaderEvents } from './reader.js?v=31';
+import { initTranslateEvents } from './translate.js?v=31';
+import { initUI } from './ui.js?v=31';
+import { initSyncUI, initDropboxSettings, requestSync } from './sync.js?v=31';
+import { dbGet } from './state.js?v=31';
+import { syncDebugPanel } from './debug.js?v=31';
 
 // 0. Debug panel first, so anything that fails during the wiring below is
 //    visible on a phone instead of silent. No-op unless debug is enabled.
@@ -30,14 +31,23 @@ initTranslateEvents();
 // 5. Wire all the UI bindings (drawers, the settings sheet and every row in it)
 initUI();
 
-// 6. First paint of the library (async — the boot guard in index.html watches
+// 6. Wire Dropbox sync — the Sync section in the sheet and the library button.
+//    After initUI, because the settings section reuses its disclosure binder.
+initDropboxSettings();
+initSyncUI();
+
+// 7. First paint of the library (async — the boot guard in index.html watches
 //    the flag below, not the grid, because this has not painted yet on 'load')
 renderLibrary();
 
-// 7. Tell the boot guard the module graph ran end to end.
+// 8. Tell the boot guard the module graph ran end to end.
 window.__readerBooted = true;
 
-// 8. Auto-resume the last-read book if one is marked. Pre-check via dbGet so a
+// 9. Pull anything new from Dropbox. A no-op when sync isn't set up, and
+//    delayed so it never competes with opening the last-read book.
+requestSync(1500);
+
+// 10. Auto-resume the last-read book if one is marked. Pre-check via dbGet so a
 //    stale marker (book deleted from another tab, etc.) clears silently
 //    instead of triggering openBookFromDb's "Book not found" alert.
 (async () => {

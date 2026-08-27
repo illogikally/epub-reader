@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=30';
+} from './state.js?v=31';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=30';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=30';
-import { scrollTocToCurrent } from './translate.js?v=30';
-import { syncDebugPanel } from './debug.js?v=30';
+} from './theme.js?v=31';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=31';
+import { scrollTocToCurrent } from './translate.js?v=31';
+import { syncDebugPanel } from './debug.js?v=31';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -47,6 +47,18 @@ export function hideAllDrawers() {
 }
 
 // ============================================================
+// Every row reads its value out of `settings` once, when it is bound. Settings
+// sync can rewrite `settings` long after that, so each binder registers the
+// closure that re-reads it and refreshSettingsUI() runs the lot.
+// ============================================================
+const refreshers = [];
+function register(fn) { refreshers.push(fn); return fn; }
+
+export function refreshSettingsUI() {
+  refreshers.forEach(fn => { try { fn(); } catch {} });
+}
+
+// ============================================================
 // Disclosure select — a row showing the current value that expands into an
 // inline list of options. `options` is [{ value, label, style? }] or a function
 // returning one (for lists the user can edit); `get` returns the current value,
@@ -61,7 +73,7 @@ const TRASH_SVG = '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8
 // Makes a .set-select row expand and collapse. Used both by the option lists
 // below and by rows that reveal something else entirely (the add-model form) —
 // which is why it is not buried inside bindSelectRow.
-function bindDisclosure(root) {
+export function bindDisclosure(root) {
   const disclosure = root.querySelector('.set-disclosure');
   const close = () => {
     root.classList.remove('open');
@@ -154,7 +166,7 @@ function bindSelectRow(id, { options, get, set, remove, emptyLabel }) {
   };
 
   refresh();
-  return refresh;
+  return register(refresh);
 }
 
 // Option list for the font row — each entry previews its own face.
@@ -175,9 +187,13 @@ const FONTS = [
 function bindSlider(id, key, suffix) {
   const input = $(id);
   const valueEl = $(id + '-value');
-  input.value = settings[key];
-  valueEl.textContent = settings[key] + suffix;
-  updateSliderFill(input);
+  const sync = () => {
+    input.value = settings[key];
+    valueEl.textContent = settings[key] + suffix;
+    updateSliderFill(input);
+  };
+  sync();
+  register(sync);
   input.addEventListener('input', () => {
     settings[key] = parseFloat(input.value);
     valueEl.textContent = settings[key] + suffix;
@@ -189,9 +205,13 @@ function bindSlider(id, key, suffix) {
 function bindLineHeight() {
   const input = $('line-height');
   const valueEl = $('line-height-value');
-  input.value = settings.lineHeight;
-  valueEl.textContent = settings.lineHeight.toFixed(2);
-  updateSliderFill(input);
+  const sync = () => {
+    input.value = settings.lineHeight;
+    valueEl.textContent = settings.lineHeight.toFixed(2);
+    updateSliderFill(input);
+  };
+  sync();
+  register(sync);
   input.addEventListener('input', () => {
     settings.lineHeight = parseFloat(input.value);
     valueEl.textContent = settings.lineHeight.toFixed(2);
@@ -203,9 +223,13 @@ function bindLineHeight() {
 function bindPaddingSlider(id, key) {
   const input = $(id);
   const valueEl = $(id + '-value');
-  input.value = settings[key];
-  valueEl.textContent = settings[key] + 'px';
-  updateSliderFill(input);
+  const sync = () => {
+    input.value = settings[key];
+    valueEl.textContent = settings[key] + 'px';
+    updateSliderFill(input);
+  };
+  sync();
+  register(sync);
   let padResizeTimer;
   input.addEventListener('input', () => {
     settings[key] = parseInt(input.value);
@@ -227,8 +251,12 @@ function bindPaddingSlider(id, key) {
 function bindColorPair(colorId, hexId, key) {
   const c = $(colorId);
   const h = $(hexId);
-  c.value = settings[key];
-  h.value = settings[key].toUpperCase();
+  const sync = () => {
+    c.value = settings[key];
+    h.value = settings[key].toUpperCase();
+  };
+  sync();
+  register(sync);
   c.addEventListener('input', () => {
     settings[key] = c.value;
     applyAll();
@@ -253,7 +281,9 @@ function initModelSettings() {
   const modelInput = $('nm-model');
   const errEl = $('nm-error');
 
-  keyInput.value = settings.apiKeys[GROQ_KEY_REF] || '';
+  const syncKey = () => { keyInput.value = settings.apiKeys[GROQ_KEY_REF] || ''; };
+  syncKey();
+  register(syncKey);
   keyInput.addEventListener('change', () => {
     settings.apiKeys[GROQ_KEY_REF] = keyInput.value.trim();
     persistSettings();
@@ -323,6 +353,7 @@ function bindSwitch(id, get, set) {
   const btn = $(id);
   const sync = () => btn.setAttribute('aria-checked', String(!!get()));
   sync();
+  register(sync);
   btn.addEventListener('click', () => {
     set(!get());
     sync();
