@@ -1,14 +1,16 @@
 // ============================================================
 // Two-way sync between the library and a Dropbox folder.
 //
-// The folder holds the EPUBs themselves plus one manifest:
+// Everything lives in the Dropbox app folder itself — Apps/<app name>/:
 //
-//   <folder>/*.epub
-//   <folder>/.reader-sync.json
+//   Apps/<app name>/*.epub
+//   Apps/<app name>/.reader-sync.json
 //
-// The Dropbox app has App-folder access, so every path here is rooted at
-// Apps/<app name>/ — '' means that folder itself, and '/Books' means a Books
-// subfolder inside it, not Dropbox/Books. See js/dropbox.js.
+// The app has App-folder access, so the API roots every path there and spells
+// that folder '' (see js/dropbox.js). There is nothing to configure: the app
+// folder is created when you authorise and cannot be pointed elsewhere, so a
+// folder setting could only ever name a subfolder of it — one more thing to
+// get wrong for no gain.
 //
 // The manifest is what makes the sync more than a file copy. A folder listing
 // can say what exists; only the manifest can say what used to exist and was
@@ -29,13 +31,13 @@ import {
   dbGet, dbDelete, dbAllIds, makeBookId,
   getProgress, setProgress, clearProgress,
   allTombstones, clearTombstone,
-} from './state.js?v=32';
-import * as dbx from './dropbox.js?v=32';
-import { addBookFromBuffer, renderLibrary } from './library.js?v=32';
-import { applyAll } from './theme.js?v=32';
-import { createRendition } from './reader.js?v=32';
-import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=32';
-import { dbg } from './debug.js?v=32';
+} from './state.js?v=33';
+import * as dbx from './dropbox.js?v=33';
+import { addBookFromBuffer, renderLibrary } from './library.js?v=33';
+import { applyAll } from './theme.js?v=33';
+import { createRendition } from './reader.js?v=33';
+import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=33';
+import { dbg } from './debug.js?v=33';
 
 const MANIFEST_NAME = '.reader-sync.json';
 // Past this, Dropbox wants a chunked upload session. An EPUB that big is a
@@ -65,29 +67,9 @@ function setStatus(state, message = '') {
 // ============================================================
 // Paths
 // ============================================================
-// '' is Dropbox's root, and it will not accept '/' for it. Anything else is
-// normalised to a leading slash and no trailing one.
-function folderPath() {
-  const raw = String(settings.dropbox?.folder || '').trim().replace(/\/+$/, '');
-  if (!raw || raw === '/') return '';
-  return raw.startsWith('/') ? raw : '/' + raw;
-}
-const childPath = name => `${folderPath()}/${name}`;
-
-// Lists the sync folder, creating it first if it isn't there. The app-folder
-// root ('') always exists and is never created; a named subfolder may well not,
-// and failing the whole pass because nobody had made it yet is not useful.
-async function listSyncFolder() {
-  const folder = folderPath();
-  try {
-    return await dbx.listFolder(folder);
-  } catch (err) {
-    if (!folder || !(err instanceof dbx.DropboxError) || !err.isTag('path', 'not_found')) throw err;
-    dbg('sync: creating', folder);
-    await dbx.createFolder(folder);
-    return dbx.listFolder(folder);
-  }
-}
+// SYNC_ROOT is the app folder. Dropbox spells it '' — it will not accept '/'.
+const SYNC_ROOT = '';
+const childPath = name => `/${name}`;
 
 export function isReady() {
   return dbx.isConfigured() && dbx.isConnected();
@@ -199,12 +181,6 @@ function explain(err) {
   if (err.isTag('missing_scope')) {
     return 'Reconnect — the app\'s permissions changed since you authorised it.';
   }
-  if (err.isTag('path', 'not_found')) {
-    return `No such folder in Dropbox: ${folderPath() || 'the app folder'}`;
-  }
-  if (err.isTag('path', 'malformed_path')) {
-    return `Dropbox will not accept that folder name: ${folderPath()}`;
-  }
   if (err.isUnspecified) {
     return `Dropbox gave no reason (${err.endpoint}). Try again.`;
   }
@@ -216,7 +192,7 @@ async function reconcile(isRetry) {
 
   // ---- what each side has ----
   const remoteFiles = new Map();   // id -> Dropbox file entry
-  for (const e of await listSyncFolder()) {
+  for (const e of await dbx.listFolder(SYNC_ROOT)) {
     if (!/\.epub$/i.test(e.name)) continue;
     // Prefer the id the manifest already filed this path under: a book whose
     // file was renamed in Dropbox keeps its progress and its tombstone history.
@@ -440,7 +416,6 @@ export function initSyncUI() {
 export function initDropboxSettings() {
   const stateEl = $('sync-state');
   const noteEl = $('sync-note');
-  const folderInput = $('sync-folder');
   const codeInput = $('sync-code');
   const errEl = $('sync-error');
   const nowBtn = $('sync-now');
@@ -456,11 +431,9 @@ export function initDropboxSettings() {
   const refresh = () => {
     const connected = dbx.isConnected();
     const s = getStatus();
-    // Everything lives inside Apps/<app name>/ — the folder field names a
-    // subfolder of that, not a folder in the wider Dropbox. Worth spelling out:
-    // reading "/Books" as "Dropbox/Books" is exactly the wrong guess to make.
-    const where = 'Files go in your Dropbox under Apps/<your app>/. Leave Folder empty '
-      + 'to use that folder itself, or name a subfolder and it will be created.';
+    // Worth spelling out where the files actually land, since the app folder
+    // is not somewhere people look by habit.
+    const where = 'Books live in your Dropbox under Apps/<your app>/.';
     if (!dbx.isConfigured()) {
       stateEl.textContent = 'No app key';
       noteEl.textContent = 'Paste your Dropbox app key into DROPBOX_APP_KEY in js/dropbox.js. '
@@ -469,7 +442,7 @@ export function initDropboxSettings() {
     } else if (!connected) {
       stateEl.textContent = 'Not connected';
       noteEl.textContent = 'Books, reading position and every setting — including your '
-        + 'translation key — are kept in this folder. Anyone with access to it can read '
+        + 'translation key — are kept there. Anyone with access to that folder can read '
         + 'the key. ' + where;
     } else {
       stateEl.textContent = s.state === 'syncing' ? 'Syncing…' : (dbx.connectedAccount() || 'Connected');
@@ -489,13 +462,6 @@ export function initDropboxSettings() {
   };
 
   onStatus(refresh);
-
-  folderInput.value = settings.dropbox.folder || '';
-  folderInput.addEventListener('change', () => {
-    settings.dropbox.folder = folderInput.value.trim();
-    persistSettingsQuiet();   // device-local, same reasoning as lastSync above
-    refresh();
-  });
 
   $('sync-open').addEventListener('click', async () => {
     errEl.hidden = true;

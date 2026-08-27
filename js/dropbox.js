@@ -310,14 +310,3 @@ export function upload(path, data, mode = 'add', autorename = false) {
 export function deletePath(path) {
   return rpc('files/delete_v2', { path });
 }
-
-// A folder that already exists is the outcome we wanted, so a conflict is
-// success. Dropbox creates intermediate folders for us.
-export async function createFolder(path) {
-  try {
-    return await rpc('files/create_folder_v2', { path, autorename: false });
-  } catch (err) {
-    if (err instanceof DropboxError && err.isTag('path', 'conflict')) return null;
-    throw err;
-  }
-}
