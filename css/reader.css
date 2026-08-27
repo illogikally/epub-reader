@@ -52,9 +52,11 @@
   --surface-soft: rgba(0, 0, 0, 0.06);
   --surface-soft-hover: rgba(0, 0, 0, 0.12);
   /* Settings sheet: cards sit on a slightly recessed page, iOS-grouped-list
-     style. The plain values are the fallback where color-mix is unsupported. */
+     style. Custom properties are not validated at parse time, so a second
+     color-mix declaration would win even where it is unsupported and then
+     poison every var() that reads it — hence @supports below, not a
+     declaration-order fallback. */
   --sheet-bg: var(--bg);
-  --sheet-bg: color-mix(in srgb, var(--bg) 94%, #000);
   --card-bg: var(--bg);
   --set-line: rgba(0, 0, 0, 0.09);
   --set-muted: rgba(0, 0, 0, 0.45);
@@ -66,11 +68,20 @@ body.dark-chrome {
   --surface-soft: rgba(255, 255, 255, 0.1);
   --surface-soft-hover: rgba(255, 255, 255, 0.18);
   --sheet-bg: var(--bg);
-  --sheet-bg: color-mix(in srgb, var(--bg) 88%, #000);
   --card-bg: var(--bg);
-  --card-bg: color-mix(in srgb, var(--bg) 92%, #fff);
   --set-line: rgba(255, 255, 255, 0.12);
   --set-muted: rgba(255, 255, 255, 0.5);
+}
+/* Where color-mix exists, separate the card from the page it sits on. Without
+   it both stay --bg and the hairlines alone carry the grouping. */
+@supports (background: color-mix(in srgb, red 50%, blue)) {
+  :root {
+    --sheet-bg: color-mix(in srgb, var(--bg) 94%, #000);
+  }
+  body.dark-chrome {
+    --sheet-bg: color-mix(in srgb, var(--bg) 88%, #000);
+    --card-bg: color-mix(in srgb, var(--bg) 92%, #fff);
+  }
 }
 
 * { box-sizing: border-box; }
@@ -876,6 +887,15 @@ body.dark-chrome #chrome-controls button {
   border: none; font: inherit; outline: none;
 }
 #popup-form input:disabled { opacity: 0.5; }
+
+/* Boot guard banner — see the classic script at the foot of index.html.
+   Only ever shown when the module graph failed to start. */
+#boot-error {
+  position: fixed; left: 0; right: 0; top: 0; z-index: 200;
+  padding: 10px 14px;
+  background: #b3261e; color: #fff;
+  font-size: 13px; line-height: 1.4;
+}
 
 /* ============================================================
    Loading

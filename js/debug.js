@@ -5,7 +5,7 @@
 // in the touch-selection gesture costs a full round-trip to diagnose.
 //
 // Two ways to switch it on:
-//   * Settings → CSS tab → Debug log        (works in the standalone PWA)
+//   * Settings → Advanced → Debug log       (works in the standalone PWA)
 //   * ?debug=1 / #debug in the URL          (works in Safari)
 //
 // The manifest's start_url is "." with display:standalone, so launching from
@@ -14,7 +14,7 @@
 // immediately without a reload.
 // ============================================================
 
-import { settings } from './state.js';
+import { settings } from './state.js?v=16';
 
 const URL_FLAG = (() => {
   try {
@@ -25,7 +25,7 @@ const URL_FLAG = (() => {
 
 // Bump on every change that gets pushed. Rounds were lost to testing stale
 // builds; this makes "is the phone running what I just wrote" readable on screen.
-const BUILD = 15;
+const BUILD = 16;
 
 // 24, not 12: repeated 'attached to chapter' lines nearly buried the one line
 // that mattered last round.

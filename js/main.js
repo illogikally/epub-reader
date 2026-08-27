@@ -2,13 +2,13 @@
 // Bootstrap. Wires modules together in the correct order.
 // ============================================================
 
-import { applyChromeTheme } from './theme.js';
-import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js';
-import { openBookFromDb, initReaderEvents } from './reader.js';
-import { initTranslateEvents } from './translate.js';
-import { initUI } from './ui.js';
-import { dbGet } from './state.js';
-import { syncDebugPanel } from './debug.js';
+import { applyChromeTheme } from './theme.js?v=16';
+import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=16';
+import { openBookFromDb, initReaderEvents } from './reader.js?v=16';
+import { initTranslateEvents } from './translate.js?v=16';
+import { initUI } from './ui.js?v=16';
+import { dbGet } from './state.js?v=16';
+import { syncDebugPanel } from './debug.js?v=16';
 
 // 0. Debug panel first, so anything that fails during the wiring below is
 //    visible on a phone instead of silent. No-op unless debug is enabled.
@@ -30,10 +30,14 @@ initTranslateEvents();
 // 5. Wire all the UI bindings (drawers, the settings sheet and every row in it)
 initUI();
 
-// 6. First paint of the library
+// 6. First paint of the library (async — the boot guard in index.html watches
+//    the flag below, not the grid, because this has not painted yet on 'load')
 renderLibrary();
 
-// 7. Auto-resume the last-read book if one is marked. Pre-check via dbGet so a
+// 7. Tell the boot guard the module graph ran end to end.
+window.__readerBooted = true;
+
+// 8. Auto-resume the last-read book if one is marked. Pre-check via dbGet so a
 //    stale marker (book deleted from another tab, etc.) clears silently
 //    instead of triggering openBookFromDb's "Book not found" alert.
 (async () => {
