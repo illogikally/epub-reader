@@ -7,7 +7,9 @@
 //     double-click word selection without false chrome toggles).
 // ============================================================
 
-import { settings, runtime, $, dbGet, dbPut } from './state.js?v=30';
+import {
+  settings, runtime, $, dbGet, dbPut, getProgress, setProgress,
+} from './state.js?v=30';
 import { applyBookTheme, injectBookStyle } from './theme.js?v=30';
 import {
   hidePopup, isPopupVisible,
@@ -70,8 +72,8 @@ export async function openBookFromDb(id) {
 
     createRendition();
 
-    const savedCfi = localStorage.getItem(`reader-progress-${runtime.currentBookKey}`);
-    await runtime.rendition.display(savedCfi || undefined);
+    const saved = getProgress(runtime.currentBookKey);
+    await runtime.rendition.display(saved?.cfi || undefined);
     localStorage.setItem('reader-last-book', id);
     requestAnimationFrame(() => { try { runtime.rendition.resize(); } catch {} });
     setTimeout(() => { try { runtime.rendition && runtime.rendition.resize(); } catch {} }, 80);
@@ -109,6 +111,8 @@ export async function closeBook() {
   library.hidden = false;
   hidePopup();
   await renderLibrary();
+  // Leaving a book is the natural moment to get its position off this device.
+  document.dispatchEvent(new CustomEvent('reader:syncRequest'));
   document.title = 'Xulgon'
 }
 
@@ -201,7 +205,7 @@ export function createRendition() {
   applyBookTheme();
   runtime.rendition.on('relocated', loc => {
     if (loc?.start?.cfi && runtime.currentBookKey) {
-      localStorage.setItem(`reader-progress-${runtime.currentBookKey}`, loc.start.cfi);
+      setProgress(runtime.currentBookKey, loc.start.cfi);
     }
     updatePageIndicator(loc);
     clearTouchSelection();
