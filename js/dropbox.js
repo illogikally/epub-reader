@@ -20,7 +20,7 @@
 //   3. Paste the App key below. No redirect URI needs registering.
 // ============================================================
 
-export const DROPBOX_APP_KEY = '';
+export const DROPBOX_APP_KEY = 'vmpzl8r39gqarek';
 
 const SCOPES = [
   'account_info.read',
