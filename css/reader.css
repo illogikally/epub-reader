@@ -100,7 +100,10 @@ body.dark-chrome {
 html, body {
   margin: 0; padding: 0; height: 100vh; width: 100vw; overflow: hidden;
   background: var(--bg); color: var(--fg);
-  font-family: 'Seravek', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  /* SF Pro on Apple platforms, the platform UI face elsewhere. This is chrome
+     only — Seravek and the rest stay available as book reading fonts. */
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display',
+               system-ui, 'Segoe UI', Roboto, sans-serif;
   transition: background 0.3s ease, color 0.3s ease;
   /* Kills double-tap-to-zoom. The viewport meta's maximum-scale=1.0 has been
      ignored by iOS since iOS 10, so this is the only thing that works.
@@ -161,10 +164,8 @@ button {
   background: var(--surface-soft-hover);
   color: var(--fg);
 }
-/* The glyph fills 90% of the circle. Lucide art is inset ~25% inside its own
-   24-unit viewBox, so the drawn mark still lands well short of the edge. */
 .icon-circle-btn svg {
-  width: 90%; height: 90%;
+  width: 13px; height: 13px;
 }
 
 /* ============================================================
@@ -184,17 +185,18 @@ button {
 }
 .library-header {
   max-width: 1100px; margin: 0 auto 36px;
-  display: flex; align-items: baseline; justify-content: space-between;
+  display: flex; align-items: center; gap: 12px;
 }
-.library-header h1 { margin: 0; font-weight: 300; font-size: 28px; letter-spacing: 0.02em; }
-.library-header .count { color: var(--chrome-fg); font-size: 13px; }
+.library-header h1 { margin: 0; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; }
+#btn-add-book { width: 30px; height: 30px; }
+.library-header .count { margin-left: auto; color: var(--chrome-fg); font-size: 13px; }
 
 .library-grid {
   max-width: 1100px; margin: 0 auto;
   display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 24px;
 }
 .book-card {
-  cursor: pointer; display: flex; flex-direction: column; gap: 10px;
+  cursor: pointer; display: block;
   transition: transform 0.15s ease; position: relative;
 }
 .book-card:hover { transform: translateY(-3px); }
@@ -208,15 +210,6 @@ button {
   font-size: 11px; text-align: center; padding: 16px; line-height: 1.3;
 }
 .book-cover img { width: 100%; height: 100%; object-fit: cover; display: block; }
-.book-title {
-  font-size: 13px; line-height: 1.35; color: var(--fg);
-  overflow: hidden; display: -webkit-box;
-  -webkit-line-clamp: 2; -webkit-box-orient: vertical;
-}
-.book-author {
-  font-size: 11px; color: var(--chrome-fg);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
 .book-delete {
   position: absolute; top: 6px; right: 6px;
   width: 22px; height: 22px; border-radius: 50%;
@@ -225,16 +218,7 @@ button {
 }
 .book-card:hover .book-delete { display: flex; }
 .book-delete:hover { background: rgba(220, 60, 60, 0.9); }
-.book-delete svg { width: 90%; height: 90%; }
-
-.add-card .book-cover {
-  background: transparent;
-  border: 1.5px dashed var(--border);
-  box-shadow: none;
-  color: var(--chrome-fg);
-}
-.add-card:hover .book-cover { border-color: var(--accent); color: var(--accent); }
-.add-card .book-cover svg { width: 32px; height: 32px; }
+.book-delete svg { width: 12px; height: 12px; }
 
 /* ============================================================
    Reader
@@ -333,14 +317,18 @@ button {
 /* Full-screen dimmed wrapper that contains the floating buttons. Tapping the
    wrapper background dismisses the cluster (handler in reader.js checks that
    e.target === the wrap, so button clicks aren't swallowed). */
+/* The dimmer fades via background-color, not opacity: an opacity-animated
+   ancestor is what made Safari drop the rows' own fade below. Nothing on the
+   chain from here to .chrome-row animates opacity any more. */
 #chrome-wrap {
   position: fixed; inset: 0; z-index: 9;
-  background: rgba(0, 0, 0, 0.18);
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.18s ease;
+  background: rgba(0, 0, 0, 0);
+  pointer-events: none;
+  transition: background-color 0.18s ease;
 }
 body.chrome-visible #chrome-wrap {
-  opacity: 1; pointer-events: auto;
+  background: rgba(0, 0, 0, 0.18);
+  pointer-events: auto;
 }
 
 /* Persistent dot — always visible, tapping it shows/hides chrome-controls. */
@@ -361,10 +349,9 @@ body.chrome-visible #chrome-wrap {
   right: 12px; bottom: calc(46px + env(safe-area-inset-bottom));
   width: min(430px, calc(100vw - 24px));
   display: flex; flex-direction: column; gap: 10px;
-  opacity: 0; pointer-events: none;
-  transition: opacity 0.15s ease;
+  pointer-events: none;
 }
-body.chrome-visible #chrome-controls { opacity: 1; pointer-events: auto; }
+body.chrome-visible #chrome-controls { pointer-events: auto; }
 
 .chrome-row {
   display: flex; align-items: center; justify-content: space-between; gap: 14px;
@@ -376,10 +363,17 @@ body.chrome-visible #chrome-controls { opacity: 1; pointer-events: auto; }
   font-size: 17px; text-align: left;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--border);
   -webkit-tap-highlight-color: transparent;
-  transition: transform 0.12s ease, filter 0.12s ease;
+  /* Hidden resting state; .chrome-visible above animates it in. */
+  opacity: 0;
+  transform: translateY(12px) scale(0.9);
+  transform-origin: bottom right;
+  transition: opacity 0.26s ease,
+              transform 0.32s cubic-bezier(0.22, 1.25, 0.36, 1),
+              filter 0.12s ease;
+  transition-delay: 0ms;
 }
 .chrome-row:hover { filter: brightness(0.97); }
-.chrome-row:active { transform: scale(0.985); }
+body.chrome-visible .chrome-row:active { transform: scale(0.985); }
 /* The lead row is inverted, the way Apple Books marks the contents bar. */
 .chrome-row-primary { background: var(--fg); color: var(--bg); }
 body.dark-chrome .chrome-row-primary:hover { filter: brightness(1.06); }
@@ -388,22 +382,21 @@ body.dark-chrome .chrome-row-primary:hover { filter: brightness(1.06); }
 .chrome-row .icon { width: 26px; height: 26px; stroke-width: 1.8; }
 
 /* Pop in from the bottom of the stack upward: the row nearest the dot lands
-   first and each one above it waits a little longer. */
-@keyframes chrome-pop {
-  from { opacity: 0; transform: translateY(12px) scale(0.9); }
-  to   { opacity: 1; transform: none; }
-}
-body.chrome-visible .chrome-row {
-  transform-origin: bottom right;
-  animation: chrome-pop 0.3s cubic-bezier(0.22, 1.25, 0.36, 1) both;
-}
-body.chrome-visible .chrome-row:nth-last-child(1) { animation-delay: 0ms; }
-body.chrome-visible .chrome-row:nth-last-child(2) { animation-delay: 55ms; }
-body.chrome-visible .chrome-row:nth-last-child(3) { animation-delay: 110ms; }
-body.chrome-visible .chrome-row:nth-last-child(4) { animation-delay: 165ms; }
-body.chrome-visible .chrome-row:nth-last-child(n+5) { animation-delay: 220ms; }
+   first and each one above it waits a little longer.
+
+   Transitions rather than @keyframes: Safari ran the delay but skipped the
+   interpolation, so rows appeared fully opaque the moment their delay elapsed.
+   Staggering transition-delay is driven by the same class toggle and behaves.
+   The delays live only under .chrome-visible, so closing reverses at once
+   instead of unwinding row by row. */
+body.chrome-visible .chrome-row { opacity: 1; transform: none; }
+body.chrome-visible .chrome-row:nth-last-child(1) { transition-delay: 0ms; }
+body.chrome-visible .chrome-row:nth-last-child(2) { transition-delay: 55ms; }
+body.chrome-visible .chrome-row:nth-last-child(3) { transition-delay: 110ms; }
+body.chrome-visible .chrome-row:nth-last-child(4) { transition-delay: 165ms; }
+body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 220ms; }
 @media (prefers-reduced-motion: reduce) {
-  body.chrome-visible .chrome-row { animation: none; }
+  .chrome-row { transition: none; }
 }
 
 /* book title hidden — kept for back-compat */
@@ -526,20 +519,11 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { animation-delay: 220ms; }
 
 #settings-head {
   flex-shrink: 0;
-  position: relative;
-  display: flex; align-items: center; justify-content: center;
-  padding: 14px 16px;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 13px 14px 13px 20px;
   border-bottom: 1px solid var(--set-line);
 }
-#settings-title { font-size: 16px; font-weight: 600; }
-#settings-close {
-  position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-  padding: 4px 6px;
-  font-size: 16px;
-  color: var(--accent);
-  border-radius: 6px;
-}
-#settings-close:hover { opacity: 0.7; }
+#settings-title { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
 
 #settings-body {
   flex: 1; min-height: 0;
@@ -979,7 +963,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { animation-delay: 220ms; }
   }
   #settings-body { padding-bottom: calc(30px + env(safe-area-inset-bottom)); }
   /* Touch sizing: iOS grouped-list metrics. */
-  #settings-title, #settings-close { font-size: 17px; }
   .set-section { font-size: 20px; margin-top: 26px; }
   .set-row, .set-option { font-size: 17px; min-height: 50px; }
   .set-icon-text { font-size: 17px; }

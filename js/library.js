@@ -6,7 +6,7 @@
 import {
   $, escapeHtml,
   dbAll, dbPut, dbDelete, makeBookId,
-} from './state.js?v=17';
+} from './state.js?v=18';
 
 // Lazy import to avoid circular dependency: reader imports from library.
 let _openBookFromDb = null;
@@ -69,15 +69,17 @@ export async function renderLibrary() {
     ? 'No books yet'
     : `${books.length} book${books.length === 1 ? '' : 's'}`;
 
+  // Covers only. Title and author are carried by the tooltip and the alt text
+  // rather than shown, and the coverless fallback still prints the title.
   books.forEach(b => {
     const card = document.createElement('div');
     card.className = 'book-card';
+    const label = escapeHtml([b.title, b.author].filter(Boolean).join(' — '));
+    card.title = [b.title, b.author].filter(Boolean).join(' — ');
     card.innerHTML = `
       <div class="book-cover">
-        ${b.cover ? `<img src="${b.cover}" alt="">` : `<span>${escapeHtml(b.title)}</span>`}
+        ${b.cover ? `<img src="${b.cover}" alt="${label}">` : `<span>${escapeHtml(b.title)}</span>`}
       </div>
-      <div class="book-title">${escapeHtml(b.title)}</div>
-      <div class="book-author">${escapeHtml(b.author || '')}</div>
       <button class="book-delete" title="Remove">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
       </button>
@@ -97,21 +99,12 @@ export async function renderLibrary() {
     });
     libraryGrid.appendChild(card);
   });
-
-  const add = document.createElement('div');
-  add.className = 'book-card add-card';
-  add.innerHTML = `
-    <div class="book-cover">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-    </div>
-    <div class="book-title" style="text-align:center;color:var(--chrome-fg)">Add book</div>
-    <div class="book-author"></div>
-  `;
-  add.addEventListener('click', () => fileInput.click());
-  libraryGrid.appendChild(add);
 }
 
 export function initLibraryEvents() {
+  // Adding a book lives in the header now, next to the title.
+  $('btn-add-book').addEventListener('click', () => fileInput.click());
+
   fileInput.addEventListener('change', async (e) => {
     for (const f of e.target.files) await addBookFromFile(f);
     fileInput.value = '';
