@@ -14,10 +14,17 @@
 // then the refresh token carries it forever.
 //
 // SETUP (once, by hand):
-//   1. dropbox.com/developers → Create app → Scoped access → Full Dropbox
+//   1. dropbox.com/developers → Create app → Scoped access → App folder
 //   2. Permissions tab → account_info.read, files.metadata.read,
 //      files.metadata.write, files.content.read, files.content.write → Submit
 //   3. Paste the App key below. No redirect URI needs registering.
+//
+// App folder, not Full Dropbox: every path below is rooted at Apps/<app name>/,
+// '' is that folder itself, and nothing outside it is reachable. So the reader
+// can never see a library you keep elsewhere in Dropbox — that is the price of
+// not handing a web page the keys to the whole account. An earlier version of
+// this comment said Full Dropbox while the code assumed nothing of the kind,
+// which is how '/Books' ended up meaning a subfolder that had never been made.
 // ============================================================
 
 export const DROPBOX_APP_KEY = 'vmpzl8r39gqarek';
@@ -170,14 +177,27 @@ function asciiArg(obj) {
 // Carries Dropbox's structured `error` object, so callers can tell "the file
 // isn't there" from "your token is bad" without matching on message strings.
 export class DropboxError extends Error {
-  constructor(status, body) {
+  constructor(endpoint, status, body) {
     let parsed = null;
     try { parsed = JSON.parse(body); } catch {}
-    super(parsed?.error_summary || `Dropbox request failed (${status})`);
+    const summary = parsed?.error_summary || String(body || '').slice(0, 300);
+    // The endpoint belongs in the message, not just in a field. Dropbox's
+    // catch-all union tag serialises as the complete summary "other/...", so
+    // without the call's name five different failures are indistinguishable —
+    // which is exactly how one of them cost a debugging round-trip.
+    super(`${endpoint} → ${status} ${summary || 'no detail'}`);
     this.name = 'DropboxError';
+    this.endpoint = endpoint;
     this.status = status;
-    this.summary = parsed?.error_summary || String(body || '');
+    this.summary = summary;
+    this.body = String(body || '');
     this.detail = parsed?.error || null;
+  }
+
+  // Dropbox's unions all carry an `other` variant meaning "no reason given".
+  // Worth one retry before it reaches a person.
+  get isUnspecified() {
+    return this.summary.startsWith('other/');
   }
   // e.g. isTag('path', 'not_found') — the summary reads "path/not_found/...".
   isTag(...tags) {
@@ -185,7 +205,10 @@ export class DropboxError extends Error {
   }
 }
 
-async function authedFetch(url, headers, body) {
+// Every path through here is labelled with the endpoint it is calling, so a
+// failure names itself. `body` is always a string, ArrayBuffer or typed array
+// — never a stream — so the retries below can re-send it as-is.
+async function authedFetch(endpoint, url, headers, body) {
   const send = async () => fetch(url, {
     method: 'POST',
     headers: { ...headers, Authorization: `Bearer ${await accessToken()}` },
@@ -204,18 +227,30 @@ async function authedFetch(url, headers, body) {
     await new Promise(r => setTimeout(r, wait * 1000));
     res = await send();
   }
+  if (!res.ok) {
+    const err = new DropboxError(endpoint, res.status, await res.text());
+    // "other/..." is Dropbox declining to say what went wrong. Give it one more
+    // go before passing that non-answer on.
+    if (err.isUnspecified) {
+      await new Promise(r => setTimeout(r, 700));
+      const retry = await send();
+      if (retry.ok) return retry;
+      throw new DropboxError(endpoint, retry.status, await retry.text());
+    }
+    throw err;
+  }
   return res;
 }
 
-async function request(url, headers, body) {
-  const res = await authedFetch(url, headers, body);
-  if (!res.ok) throw new DropboxError(res.status, await res.text());
+async function request(endpoint, url, headers, body) {
+  const res = await authedFetch(endpoint, url, headers, body);
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
 
-function rpc(path, arg) {
-  return request(RPC_BASE + path, { 'Content-Type': 'application/json' }, JSON.stringify(arg));
+function rpc(endpoint, arg) {
+  return request(endpoint, RPC_BASE + endpoint,
+    { 'Content-Type': 'application/json' }, JSON.stringify(arg));
 }
 
 // ============================================================
@@ -223,7 +258,7 @@ function rpc(path, arg) {
 // ============================================================
 export function getAccount() {
   // This one takes a bare null body, not an empty object.
-  return request(RPC_BASE + 'users/get_current_account',
+  return request('users/get_current_account', RPC_BASE + 'users/get_current_account',
     { 'Content-Type': 'application/json' }, 'null');
 }
 
@@ -248,11 +283,11 @@ export async function listFolder(path) {
 // No body and no Content-Type — the download endpoint rejects one.
 export async function download(path) {
   const res = await authedFetch(
+    'files/download',
     CONTENT_BASE + 'files/download',
     { 'Dropbox-API-Arg': asciiArg({ path }) },
     undefined,
   );
-  if (!res.ok) throw new DropboxError(res.status, await res.text());
   let meta = null;
   try { meta = JSON.parse(res.headers.get('Dropbox-API-Result') || 'null'); } catch {}
   return { buffer: await res.arrayBuffer(), meta };
@@ -262,6 +297,7 @@ export async function download(path) {
 // is how the manifest write refuses to clobber a newer one.
 export function upload(path, data, mode = 'add', autorename = false) {
   return request(
+    'files/upload',
     CONTENT_BASE + 'files/upload',
     {
       'Content-Type': 'application/octet-stream',
@@ -273,4 +309,15 @@ export function upload(path, data, mode = 'add', autorename = false) {
 
 export function deletePath(path) {
   return rpc('files/delete_v2', { path });
+}
+
+// A folder that already exists is the outcome we wanted, so a conflict is
+// success. Dropbox creates intermediate folders for us.
+export async function createFolder(path) {
+  try {
+    return await rpc('files/create_folder_v2', { path, autorename: false });
+  } catch (err) {
+    if (err instanceof DropboxError && err.isTag('path', 'conflict')) return null;
+    throw err;
+  }
 }

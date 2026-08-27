@@ -823,6 +823,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   margin: 10px 0 0;
   font-size: 12px; line-height: 1.4; color: #d7473c;
 }
+/* The same message standing on its own under a group rather than inside a
+   form — line it up with .set-footnote, which it sits directly beneath. */
+#sync-failure { margin: 6px 6px 0; word-break: break-word; }
 
 /* ---- Slider block: uppercase sub-label over icon · track · value ---- */
 .set-slider { --set-inset: 16px; padding: 9px 16px 11px; }

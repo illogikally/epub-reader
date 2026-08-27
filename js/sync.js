@@ -6,6 +6,10 @@
 //   <folder>/*.epub
 //   <folder>/.reader-sync.json
 //
+// The Dropbox app has App-folder access, so every path here is rooted at
+// Apps/<app name>/ — '' means that folder itself, and '/Books' means a Books
+// subfolder inside it, not Dropbox/Books. See js/dropbox.js.
+//
 // The manifest is what makes the sync more than a file copy. A folder listing
 // can say what exists; only the manifest can say what used to exist and was
 // deliberately deleted, or where in a book you had got to, or which device
@@ -25,13 +29,13 @@ import {
   dbGet, dbDelete, dbAllIds, makeBookId,
   getProgress, setProgress, clearProgress,
   allTombstones, clearTombstone,
-} from './state.js?v=31';
-import * as dbx from './dropbox.js?v=31';
-import { addBookFromBuffer, renderLibrary } from './library.js?v=31';
-import { applyAll } from './theme.js?v=31';
-import { createRendition } from './reader.js?v=31';
-import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=31';
-import { dbg } from './debug.js?v=31';
+} from './state.js?v=32';
+import * as dbx from './dropbox.js?v=32';
+import { addBookFromBuffer, renderLibrary } from './library.js?v=32';
+import { applyAll } from './theme.js?v=32';
+import { createRendition } from './reader.js?v=32';
+import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=32';
+import { dbg } from './debug.js?v=32';
 
 const MANIFEST_NAME = '.reader-sync.json';
 // Past this, Dropbox wants a chunked upload session. An EPUB that big is a
@@ -69,6 +73,21 @@ function folderPath() {
   return raw.startsWith('/') ? raw : '/' + raw;
 }
 const childPath = name => `${folderPath()}/${name}`;
+
+// Lists the sync folder, creating it first if it isn't there. The app-folder
+// root ('') always exists and is never created; a named subfolder may well not,
+// and failing the whole pass because nobody had made it yet is not useful.
+async function listSyncFolder() {
+  const folder = folderPath();
+  try {
+    return await dbx.listFolder(folder);
+  } catch (err) {
+    if (!folder || !(err instanceof dbx.DropboxError) || !err.isTag('path', 'not_found')) throw err;
+    dbg('sync: creating', folder);
+    await dbx.createFolder(folder);
+    return dbx.listFolder(folder);
+  }
+}
 
 export function isReady() {
   return dbx.isConfigured() && dbx.isConnected();
@@ -163,18 +182,41 @@ async function runPass() {
     setStatus('ok', summary);
   } catch (err) {
     console.error(err);
+    // The on-screen debug log is the only console on iOS, and is where this
+    // actually gets read — give it everything, including the raw body.
     dbg('sync failed —', err.message);
-    setStatus('error', err.message || 'Sync failed');
+    if (err instanceof dbx.DropboxError && err.body) dbg('  body:', err.body.slice(0, 500));
+    setStatus('error', explain(err));
   }
+}
+
+// Turns a Dropbox failure into something worth reading. Anything unrecognised
+// keeps the labelled summary rather than being flattened into "Sync failed" —
+// a message naming the endpoint is the difference between a fixable report and
+// a shrug.
+function explain(err) {
+  if (!(err instanceof dbx.DropboxError)) return err.message || 'Sync failed';
+  if (err.isTag('missing_scope')) {
+    return 'Reconnect — the app\'s permissions changed since you authorised it.';
+  }
+  if (err.isTag('path', 'not_found')) {
+    return `No such folder in Dropbox: ${folderPath() || 'the app folder'}`;
+  }
+  if (err.isTag('path', 'malformed_path')) {
+    return `Dropbox will not accept that folder name: ${folderPath()}`;
+  }
+  if (err.isUnspecified) {
+    return `Dropbox gave no reason (${err.endpoint}). Try again.`;
+  }
+  return err.message;
 }
 
 async function reconcile(isRetry) {
   const { manifest, rev } = await readManifest();
-  const folder = folderPath();
 
   // ---- what each side has ----
   const remoteFiles = new Map();   // id -> Dropbox file entry
-  for (const e of await dbx.listFolder(folder)) {
+  for (const e of await listSyncFolder()) {
     if (!/\.epub$/i.test(e.name)) continue;
     // Prefer the id the manifest already filed this path under: a book whose
     // file was renamed in Dropbox keeps its progress and its tombstone history.
@@ -404,6 +446,7 @@ export function initDropboxSettings() {
   const nowBtn = $('sync-now');
   const disconnectBtn = $('sync-disconnect');
   const connectRow = $('sync-connect');
+  const syncErrEl = $('sync-failure');
   if (!stateEl) return;
 
   const closeConnect = bindDisclosure(connectRow);
@@ -413,22 +456,33 @@ export function initDropboxSettings() {
   const refresh = () => {
     const connected = dbx.isConnected();
     const s = getStatus();
+    // Everything lives inside Apps/<app name>/ — the folder field names a
+    // subfolder of that, not a folder in the wider Dropbox. Worth spelling out:
+    // reading "/Books" as "Dropbox/Books" is exactly the wrong guess to make.
+    const where = 'Files go in your Dropbox under Apps/<your app>/. Leave Folder empty '
+      + 'to use that folder itself, or name a subfolder and it will be created.';
     if (!dbx.isConfigured()) {
       stateEl.textContent = 'No app key';
       noteEl.textContent = 'Paste your Dropbox app key into DROPBOX_APP_KEY in js/dropbox.js. '
-        + 'Create the app at dropbox.com/developers with Full Dropbox access and the '
+        + 'Create the app at dropbox.com/developers with App folder access and the '
         + 'files.content, files.metadata and account_info.read permissions.';
     } else if (!connected) {
       stateEl.textContent = 'Not connected';
       noteEl.textContent = 'Books, reading position and every setting — including your '
-        + 'translation key — are kept in the folder below. Anyone with access to that '
-        + 'folder can read the key.';
+        + 'translation key — are kept in this folder. Anyone with access to it can read '
+        + 'the key. ' + where;
     } else {
       stateEl.textContent = s.state === 'syncing' ? 'Syncing…' : (dbx.connectedAccount() || 'Connected');
       const last = settings.dropbox.lastSync;
-      noteEl.textContent = (s.state === 'error' ? s.message : (s.message || ''))
-        + (last ? `${s.message ? ' · ' : ''}Last synced ${new Date(last).toLocaleString()}` : '');
+      const ok = s.state === 'error' ? '' : (s.message || '');
+      noteEl.textContent = [ok, last ? `Last synced ${new Date(last).toLocaleString()}` : '', where]
+        .filter(Boolean).join(' · ');
     }
+    // A failed sync gets its own line rather than being appended to the
+    // footnote: these messages name an endpoint and a status, and are too long
+    // to read buried in a paragraph or squeezed into a tooltip.
+    if (s.state === 'error') { syncErrEl.textContent = s.message; syncErrEl.hidden = false; }
+    else syncErrEl.hidden = true;
     connectRow.hidden = connected;
     nowBtn.hidden = !connected;
     disconnectBtn.hidden = !connected;

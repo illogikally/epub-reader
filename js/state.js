@@ -54,7 +54,9 @@ const defaultSettings = {
   debug: false,       // on-screen debug log — see js/debug.js
   // Dropbox sync. Device-local — deliberately not in SYNCED_SETTING_KEYS,
   // so one device's folder choice never overwrites another's.
-  dropbox: { folder: '/Books', lastSync: 0 },
+  // Empty folder = the Dropbox app folder itself (Apps/<app name>/), which
+  // always exists. A named subfolder is created on first sync.
+  dropbox: { folder: '', lastSync: 0 },
   // Stamped by persistSettings on every write. Settings sync is
   // whole-blob last-writer-wins, and this is the timestamp it compares.
   updatedAt: 0,
