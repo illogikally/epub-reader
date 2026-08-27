@@ -884,7 +884,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 /* ---- Theme swatches ---- */
 .set-swatches { --set-inset: 16px; padding: 14px 16px; }
 .color-options {
-  display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px;
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
 }
 .theme-swatch {
   aspect-ratio: 1; border-radius: 10px;

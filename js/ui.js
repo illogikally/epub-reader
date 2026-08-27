@@ -11,13 +11,13 @@
 import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   MODEL_FORMATS, allModels, currentModel, addCustomModel, removeCustomModel,
-} from './state.js?v=24';
+} from './state.js?v=25';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=24';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=24';
-import { scrollTocToCurrent } from './translate.js?v=24';
-import { syncDebugPanel } from './debug.js?v=24';
+} from './theme.js?v=25';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=25';
+import { scrollTocToCurrent } from './translate.js?v=25';
+import { syncDebugPanel } from './debug.js?v=25';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -55,18 +55,35 @@ export function hideAllDrawers() {
 // ============================================================
 const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
 
-function bindSelectRow(id, { options, get, set }) {
-  const root = $(id);
-  if (!root) return () => {};
+// Makes a .set-select row expand and collapse. Used both by the option lists
+// below and by rows that reveal something else entirely (the add-model form) —
+// which is why it is not buried inside bindSelectRow.
+function bindDisclosure(root) {
   const disclosure = root.querySelector('.set-disclosure');
-  const valueEl = root.querySelector('.set-value');
-  const list = root.querySelector('.set-options');
-  const optionsOf = () => (typeof options === 'function' ? options() : options);
-
   const close = () => {
     root.classList.remove('open');
     disclosure.setAttribute('aria-expanded', 'false');
   };
+  disclosure.addEventListener('click', () => {
+    const willOpen = !root.classList.contains('open');
+    // Accordion: only one panel open at a time.
+    document.querySelectorAll('#settings-body .set-select.open').forEach(s => {
+      s.classList.remove('open');
+      s.querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
+    });
+    root.classList.toggle('open', willOpen);
+    disclosure.setAttribute('aria-expanded', String(willOpen));
+  });
+  return close;
+}
+
+function bindSelectRow(id, { options, get, set }) {
+  const root = $(id);
+  if (!root) return () => {};
+  const valueEl = root.querySelector('.set-value');
+  const list = root.querySelector('.set-options');
+  const optionsOf = () => (typeof options === 'function' ? options() : options);
+  const close = bindDisclosure(root);
 
   const refresh = () => {
     const opts = optionsOf();
@@ -93,16 +110,6 @@ function bindSelectRow(id, { options, get, set }) {
       valueEl.textContent = hit ? hit.label : '';
     }
   };
-
-  disclosure.addEventListener('click', () => {
-    const willOpen = !root.classList.contains('open');
-    document.querySelectorAll('#settings-body .set-select.open').forEach(s => {
-      s.classList.remove('open');
-      s.querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
-    });
-    root.classList.toggle('open', willOpen);
-    disclosure.setAttribute('aria-expanded', String(willOpen));
-  });
 
   refresh();
   return refresh;
@@ -256,6 +263,7 @@ function initModelSettings() {
   };
 
   // ---- Add-model form ----
+  const closeAddForm = bindDisclosure($('add-model'));
   const seg = $('nm-format');
   let format = MODEL_FORMATS[0];
   const urlInput = $('nm-url');
@@ -297,8 +305,7 @@ function initModelSettings() {
     settings.selectedModelId = added.id;   // adding it means you want to use it
     persistSettings();
     ['nm-name', 'nm-url', 'nm-model'].forEach(id => { $(id).value = ''; });
-    $('add-model').classList.remove('open');
-    $('add-model').querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
+    closeAddForm();
     refreshAll();
   });
 

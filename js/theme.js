@@ -4,7 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=24';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=25';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
