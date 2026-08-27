@@ -4,7 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=16';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=17';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
@@ -66,6 +66,10 @@ function bookForceCss() {
   if (settings.wordSpacing)   decls.push(`word-spacing:${settings.wordSpacing}px !important`);
   parts.push(`*{${decls.join(';')}}`);
   parts.push(`${MONO_SEL}{font-family:monospace !important}`);
+
+  // The book renders in its own document, so the parent's ::selection rule does
+  // not reach it. Desktop selects natively, so it needs the blue here too.
+  parts.push(`::selection{background:#3d8bfd !important;color:#fff !important}`);
 
   // Touch: kill native selection outright. iOS shows its Copy / Look Up /
   // Translate callout bar whenever a native selection exists and offers no way

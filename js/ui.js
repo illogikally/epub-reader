@@ -10,13 +10,13 @@
 
 import {
   $, settings, runtime, persistSettings, MODELS, attachPullToDismiss,
-} from './state.js?v=16';
+} from './state.js?v=17';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=16';
-import { closeBook, createRendition } from './reader.js?v=16';
-import { scrollTocToCurrent } from './translate.js?v=16';
-import { syncDebugPanel } from './debug.js?v=16';
+} from './theme.js?v=17';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=17';
+import { scrollTocToCurrent } from './translate.js?v=17';
+import { syncDebugPanel } from './debug.js?v=17';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -227,19 +227,28 @@ export function initUI() {
   $('settings-close').addEventListener('click', hideAllDrawers);
 
   // Pull-down-to-dismiss for mobile bottom sheets
-  attachPullToDismiss(tocDrawer, () => $('toc-list'), hideAllDrawers);
-  attachPullToDismiss(settingsModal, () => $('settings-body'), hideAllDrawers);
+  // The header of each sheet is a drag handle: swiping it down closes the sheet
+  // even when its list is scrolled somewhere in the middle.
+  attachPullToDismiss(tocDrawer, () => $('toc-list'), hideAllDrawers, { grab: '#toc-header' });
+  attachPullToDismiss(settingsModal, () => $('settings-body'), hideAllDrawers, { grab: '#settings-head' });
 
   // Custom event from reader.js (Esc key) closes drawers
   document.addEventListener('reader:hideAllDrawers', hideAllDrawers);
 
   // ---- Top-level chrome buttons ----
+  // Each row opens its sheet and takes the floating chrome down with it —
+  // otherwise its dimmer stacks under the sheet's own overlay.
   $('btn-toc').addEventListener('click', () => {
+    hideChrome();
     showDrawer(tocDrawer);
     requestAnimationFrame(scrollTocToCurrent);
   });
-  $('btn-settings').addEventListener('click', showSettingsModal);
+  $('btn-settings').addEventListener('click', () => {
+    hideChrome();
+    showSettingsModal();
+  });
   $('btn-library').addEventListener('click', async () => {
+    hideChrome();
     hideAllDrawers();
     await closeBook();
   });

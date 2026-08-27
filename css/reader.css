@@ -61,6 +61,12 @@
   --set-line: rgba(0, 0, 0, 0.09);
   --set-muted: rgba(0, 0, 0, 0.45);
   --switch-on: #34c759;
+  /* Opaque card tint for the floating chrome rows; --bg until color-mix. */
+  --chrome-card: var(--bg);
+  /* Selection is deliberately NOT --accent: it has to read as "selected text"
+     rather than as a themed accent, so it stays blue in every book theme. */
+  --selection: #3d8bfd;
+  --selection-fg: #ffffff;
 }
 body.dark-chrome {
   --slider-fill: rgba(255, 255, 255, 0.7);
@@ -77,12 +83,16 @@ body.dark-chrome {
 @supports (background: color-mix(in srgb, red 50%, blue)) {
   :root {
     --sheet-bg: color-mix(in srgb, var(--bg) 94%, #000);
+    --chrome-card: color-mix(in srgb, var(--bg) 90%, var(--fg));
   }
   body.dark-chrome {
     --sheet-bg: color-mix(in srgb, var(--bg) 88%, #000);
     --card-bg: color-mix(in srgb, var(--bg) 92%, #fff);
   }
 }
+
+/* Text selection — light blue everywhere, including inside the book. */
+::selection { background: var(--selection); color: var(--selection-fg); }
 
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -151,8 +161,10 @@ button {
   background: var(--surface-soft-hover);
   color: var(--fg);
 }
+/* The glyph fills 90% of the circle. Lucide art is inset ~25% inside its own
+   24-unit viewBox, so the drawn mark still lands well short of the edge. */
 .icon-circle-btn svg {
-  width: 13px; height: 13px;
+  width: 90%; height: 90%;
 }
 
 /* ============================================================
@@ -213,7 +225,7 @@ button {
 }
 .book-card:hover .book-delete { display: flex; }
 .book-delete:hover { background: rgba(220, 60, 60, 0.9); }
-.book-delete svg { width: 12px; height: 12px; }
+.book-delete svg { width: 90%; height: 90%; }
 
 .add-card .book-cover {
   background: transparent;
@@ -309,8 +321,8 @@ button {
 
 #sel-overlay .sel-rect {
   position: fixed;
-  background: var(--accent);
-  opacity: 0.28;
+  background: var(--selection);
+  opacity: 0.32;
   border-radius: 2px;
   pointer-events: none;
 }
@@ -342,29 +354,57 @@ body.chrome-visible #chrome-wrap {
 }
 #chrome-dot:hover, #chrome-dot:active, body.chrome-visible #chrome-dot { opacity: 0.5; }
 
+/* Stack of full-width rows anchored above the dot. Capped and right-aligned
+   so a wide desktop window doesn't stretch them across the whole screen. */
 #chrome-controls {
-  position: fixed; right: 14px; bottom: 50px; z-index: 10;
-  display: flex; flex-direction: column; gap: 8px;
+  position: fixed; z-index: 10;
+  right: 12px; bottom: calc(46px + env(safe-area-inset-bottom));
+  width: min(430px, calc(100vw - 24px));
+  display: flex; flex-direction: column; gap: 10px;
   opacity: 0; pointer-events: none;
-  transform: translateY(6px);
-  transition: opacity 0.18s ease, transform 0.18s ease;
+  transition: opacity 0.15s ease;
 }
-body.chrome-visible #chrome-controls {
-  opacity: 1; pointer-events: auto; transform: translateY(0);
+body.chrome-visible #chrome-controls { opacity: 1; pointer-events: auto; }
+
+.chrome-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  width: 100%; min-height: 58px;
+  padding: 10px 20px;
+  border-radius: 15px;
+  background: var(--chrome-card);
+  color: var(--fg);
+  font-size: 17px; text-align: left;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--border);
+  -webkit-tap-highlight-color: transparent;
+  transition: transform 0.12s ease, filter 0.12s ease;
 }
-#chrome-controls button {
-  width: 40px; height: 40px; border-radius: 50%;
-  background: var(--bg);
-  color: var(--chrome-fg);
-  box-shadow: 0 2px 10px rgba(0,0,0,0.15), 0 0 0 1px var(--border);
-  display: inline-flex; align-items: center; justify-content: center;
-  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+.chrome-row:hover { filter: brightness(0.97); }
+.chrome-row:active { transform: scale(0.985); }
+/* The lead row is inverted, the way Apple Books marks the contents bar. */
+.chrome-row-primary { background: var(--fg); color: var(--bg); }
+body.dark-chrome .chrome-row-primary:hover { filter: brightness(1.06); }
+.chrome-row-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#chrome-progress { opacity: 0.6; }
+.chrome-row .icon { width: 26px; height: 26px; stroke-width: 1.8; }
+
+/* Pop in from the bottom of the stack upward: the row nearest the dot lands
+   first and each one above it waits a little longer. */
+@keyframes chrome-pop {
+  from { opacity: 0; transform: translateY(12px) scale(0.9); }
+  to   { opacity: 1; transform: none; }
 }
-#chrome-controls button:hover { color: var(--chrome-hover); transform: scale(1.05); }
-body.dark-chrome #chrome-controls button {
-  box-shadow: 0 2px 10px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.1);
+body.chrome-visible .chrome-row {
+  transform-origin: bottom right;
+  animation: chrome-pop 0.3s cubic-bezier(0.22, 1.25, 0.36, 1) both;
 }
-#chrome-controls button .icon { width: 18px; height: 18px; }
+body.chrome-visible .chrome-row:nth-last-child(1) { animation-delay: 0ms; }
+body.chrome-visible .chrome-row:nth-last-child(2) { animation-delay: 55ms; }
+body.chrome-visible .chrome-row:nth-last-child(3) { animation-delay: 110ms; }
+body.chrome-visible .chrome-row:nth-last-child(4) { animation-delay: 165ms; }
+body.chrome-visible .chrome-row:nth-last-child(n+5) { animation-delay: 220ms; }
+@media (prefers-reduced-motion: reduce) {
+  body.chrome-visible .chrome-row { animation: none; }
+}
 
 /* book title hidden — kept for back-compat */
 #book-title { display: none; }
@@ -406,10 +446,19 @@ body.dark-chrome #chrome-controls button {
 #toc-drawer .drawer-close { z-index: 2; }
 
 #toc-header {
+  position: relative;
   flex-shrink: 0;
   display: flex; align-items: flex-start; gap: 14px;
   padding: 20px 56px 16px 20px;
   border-bottom: 1px solid var(--border);
+}
+/* Drag handle for the bottom sheets. Hidden on desktop, where the TOC is a
+   side drawer and there is nothing to swipe. */
+.sheet-grabber {
+  display: none;
+  position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
+  width: 36px; height: 5px; border-radius: 3px;
+  background: var(--fg); opacity: 0.18;
 }
 #toc-cover {
   width: 54px; flex: none;
@@ -461,7 +510,7 @@ body.dark-chrome #chrome-controls button {
   position: fixed; z-index: 30;
   top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 8px));
   width: 480px; max-width: calc(100vw - 24px);
-  max-height: 84vh;
+  max-height: 95vh;
   background: var(--sheet-bg); color: var(--fg);
   border-radius: 14px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.25), 0 0 0 1px var(--border);
@@ -870,7 +919,7 @@ body.dark-chrome #chrome-controls button {
 #popup-out .e { color: #c0392b; }
 #popup-out .sys { color: var(--chrome-fg); }
 #popup-out .meta { color: var(--chrome-fg); font-style: italic; font-size: 92%; }
-#popup-out ::selection { background: var(--accent); color: #fff; }
+#popup-out ::selection { background: var(--selection); color: var(--selection-fg); }
 #popup-out .cursor::after {
   content: '\2588'; opacity: 0.5;
   animation: blink 1s steps(2) infinite;
@@ -921,7 +970,7 @@ body.dark-chrome #chrome-controls button {
     top: auto; bottom: 0; left: 0;
     transform: translate(0, 100%);
     width: 100vw; max-width: 100vw;
-    max-height: 84vh;
+    max-height: 95vh;
     border-radius: 12px 12px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
   }
@@ -958,7 +1007,7 @@ body.dark-chrome #chrome-controls button {
     width: 100vw;
     max-width: 100vw;
     min-height: 40vh;
-    max-height: 90vh;
+    max-height: 95vh;
     border-radius: 8px 8px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
     /* Slide up from the bottom edge. `display` can't be transitioned, so the
@@ -993,11 +1042,14 @@ body.dark-chrome #chrome-controls button {
   .drawer {
     top: auto; bottom: 0; left: 0; right: 0;
     width: 100vw; max-width: 100vw;
-    height: auto; min-height: 40vh; max-height: 90vh;
+    height: auto; min-height: 40vh; max-height: 95vh;
     padding: 18px 20px 28px;
     border-radius: 8px 8px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
   }
+  /* Bottom sheets get their drag handle, and the TOC header makes room for it. */
+  .sheet-grabber { display: block; }
+  #toc-header { padding-top: 26px; }
   .drawer-left { left: 0; transform: translateY(100%); }
   .drawer.visible { transform: translateY(0); }
 

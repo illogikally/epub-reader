@@ -11,15 +11,15 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=16';
+import { openBookFromDb } from './reader.js?v=17';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=16';
+} from './state.js?v=17';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=16';
+} from './touchselect.js?v=17';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -817,13 +817,18 @@ export function buildToc(toc, meta = {}) {
   } catch {}
 }
 
-// Reading position shown under the title. pct is 0..1, or null to hide.
+// Reading position shown under the TOC title, and echoed on the Contents row
+// of the floating chrome ("Contents · 12%"). pct is 0..1, or null to hide.
 export function setTocPosition(pct) {
-  const row = $('toc-position');
-  if (!row) return;
   const ok = typeof pct === 'number' && pct >= 0 && pct <= 1;
-  row.hidden = !ok;
-  if (ok) $('toc-position-value').textContent = Math.round(pct * 100) + '%';
+  const text = ok ? Math.round(pct * 100) + '%' : '';
+  const row = $('toc-position');
+  if (row) {
+    row.hidden = !ok;
+    if (ok) $('toc-position-value').textContent = text;
+  }
+  const chip = $('chrome-progress');
+  if (chip) chip.textContent = ok ? ' · ' + text : '';
 }
 
 // Highlight the entry covering the given spine index: the first entry that
