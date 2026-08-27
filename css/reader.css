@@ -958,17 +958,20 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-chip input[type="color"]::-webkit-color-swatch { border: none; }
 
 /* ---- Segmented buttons (alignment, one page or two) ----
-   Filled tiles rather than outlined ones: the selected segment takes the accent
-   as a solid fill, which is the same "accent means chosen" language the theme
-   swatches and the option checkmarks use. Icon-only, so the hit area is
-   generous and the meaning is in the drawing plus a title tooltip. */
-.set-segments { --set-inset: 16px; padding: 9px 16px 14px; }
+   An ordinary .set-row — icon, label, then the choices as the trailing control,
+   where every other row in the sheet puts its value. Icon-only chips, so the
+   meaning is in the drawing plus a title tooltip.
+
+   The chosen one inverts to --fg on --bg rather than taking a colour: the same
+   thing .set-btn does for a primary action, and it stays legible whatever the
+   book theme sets --bg and --fg to. */
 .set-segment-row {
-  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 10px;
+  flex: none; margin-left: 10px;
+  display: flex; gap: 6px;
 }
 .set-segment {
-  min-height: 46px;
-  border-radius: 10px;
+  width: 42px; height: 34px;
+  border-radius: 8px;
   background: var(--surface-soft);
   color: var(--fg);
   display: flex; align-items: center; justify-content: center;
@@ -977,12 +980,12 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 }
 .set-segment:hover { background: var(--surface-soft-hover); }
 .set-segment svg {
-  width: 22px; height: 22px;
+  width: 18px; height: 18px;
   fill: none; stroke: currentColor;
-  stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
 }
 .set-segment.active,
-.set-segment.active:hover { background: var(--accent); color: var(--bg); }
+.set-segment.active:hover { background: var(--fg); color: var(--bg); }
 
 /* ---- Theme swatches ---- */
 .set-swatches { --set-inset: 16px; padding: 14px 16px; }

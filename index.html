@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=35">
+<link rel="stylesheet" href="css/reader.css?v=36">
 </head>
 <body>
 
@@ -147,8 +147,9 @@
       <!-- Icon-only: the words are in the tooltips. "Default" is the one that
            cannot be drawn as an alignment, so it is drawn as the page itself —
            whatever the book already asks for. -->
-      <div class="set-segments">
-        <div class="set-sublabel">Alignment</div>
+      <div class="set-row set-segments">
+        <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M3 12h12"/><path d="M3 18h18"/></svg></span>
+        <span class="set-label">Alignment</span>
         <div class="set-segment-row" id="seg-align">
           <button class="set-segment" type="button" data-value="default" title="Default" aria-label="Default alignment">
             <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
@@ -202,8 +203,9 @@
     <h2 class="set-section">Layout</h2>
     <!-- Own group so hiding it on phones takes the whole card with it. -->
     <div class="set-group desktop-only">
-      <div class="set-segments">
-        <div class="set-sublabel">Pages</div>
+      <div class="set-row set-segments">
+        <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></span>
+        <span class="set-label">Pages</span>
         <div class="set-segment-row" id="seg-layout">
           <button class="set-segment" type="button" data-value="single" title="One page" aria-label="One page">
             <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="1.5"/></svg>
@@ -412,6 +414,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=35"></script>
+<script type="module" src="js/main.js?v=36"></script>
 </body>
 </html>
