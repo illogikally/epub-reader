@@ -52,6 +52,12 @@ const defaultSettings = {
   models: [],   // [{ id, model, reasoning }] — seeded on first run, then all user data
   apiKeys: { GROQ_API_KEY: '' },
   debug: false,       // on-screen debug log — see js/debug.js
+  // Dropbox sync. Device-local — deliberately not in SYNCED_SETTING_KEYS,
+  // so one device's folder choice never overwrites another's.
+  dropbox: { folder: '/Books', lastSync: 0 },
+  // Stamped by persistSettings on every write. Settings sync is
+  // whole-blob last-writer-wins, and this is the timestamp it compares.
+  updatedAt: 0,
 };
 
 // Load synchronously at module-eval time.
@@ -65,6 +71,7 @@ const _loaded = (() => {
       if (saved[k] !== undefined) merged[k] = saved[k];
     }
     merged.apiKeys = { ...defaultSettings.apiKeys, ...(saved.apiKeys || {}) };
+    merged.dropbox = { ...defaultSettings.dropbox, ...(saved.dropbox || {}) };
     // Models are one flat, fully editable list now. Earlier versions kept two
     // fixed built-ins plus a `customModels` array; fold that into `models`,
     // seeding the former built-ins so an upgrade doesn't arrive empty.
@@ -109,8 +116,111 @@ const _loaded = (() => {
 // Single shared object — modules mutate properties; the reference never changes.
 export const settings = _loaded;
 
-export function persistSettings() {
+function writeSettings() {
   localStorage.setItem('reader-settings', JSON.stringify(settings));
+}
+
+export function persistSettings() {
+  settings.updatedAt = Date.now();
+  writeSettings();
+}
+
+// Save without stamping updatedAt. For a settings blob that arrived from
+// another device: it has to keep the timestamp it was saved with, or the next
+// sync would read this device as newer than the one it just copied from and
+// push the same values straight back.
+export function persistSettingsQuiet() {
+  writeSettings();
+}
+
+// ============================================================
+// Settings sync payload
+// ============================================================
+// Everything except the three device-local keys: where this device points at
+// Dropbox, its debug toggle, and the timestamp itself.
+export const SYNCED_SETTING_KEYS = Object.keys(defaultSettings)
+  .filter(k => k !== 'dropbox' && k !== 'debug' && k !== 'updatedAt');
+
+// Deep copies, so the caller can serialise them without aliasing live state.
+export function exportSettings() {
+  const out = {};
+  for (const k of SYNCED_SETTING_KEYS) out[k] = settings[k];
+  return JSON.parse(JSON.stringify(out));
+}
+
+// Mutates `settings` in place — the reference is shared across modules and must
+// not change. Returns true if anything actually differed.
+export function importSettings(values) {
+  if (!values || typeof values !== 'object') return false;
+  let changed = false;
+  for (const k of SYNCED_SETTING_KEYS) {
+    if (values[k] === undefined) continue;
+    if (JSON.stringify(settings[k]) === JSON.stringify(values[k])) continue;
+    settings[k] = JSON.parse(JSON.stringify(values[k]));
+    changed = true;
+  }
+  return changed;
+}
+
+// ============================================================
+// Reading position
+// ============================================================
+// Stored as {cfi, at} rather than a bare CFI so two devices can be compared.
+// Earlier versions wrote the bare string; that reads back as at:0, so any real
+// remote position wins over it — which is the right way round.
+const progressKey = id => `reader-progress-${id}`;
+
+export function getProgress(id) {
+  const raw = localStorage.getItem(progressKey(id));
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    if (v && typeof v === 'object' && typeof v.cfi === 'string') {
+      return { cfi: v.cfi, at: Number(v.at) || 0 };
+    }
+    if (typeof v === 'string') return { cfi: v, at: 0 };
+  } catch {
+    // A bare epubcfi(...) is not valid JSON — that is the legacy format.
+  }
+  return { cfi: raw, at: 0 };
+}
+
+export function setProgress(id, cfi, at) {
+  if (!id || !cfi) return;
+  localStorage.setItem(progressKey(id), JSON.stringify({ cfi, at: at || Date.now() }));
+}
+
+export function clearProgress(id) {
+  localStorage.removeItem(progressKey(id));
+}
+
+// ============================================================
+// Deleted-book tombstones
+// ============================================================
+// A delete has to survive as a fact, not just an absence: without this, the
+// next sync would see a book present in Dropbox and missing locally and
+// helpfully download it again.
+const TOMB_KEY = 'reader-deleted-books';
+
+export function allTombstones() {
+  try {
+    const v = JSON.parse(localStorage.getItem(TOMB_KEY) || '{}');
+    return (v && typeof v === 'object') ? v : {};
+  } catch { return {}; }
+}
+function writeTombstones(map) {
+  localStorage.setItem(TOMB_KEY, JSON.stringify(map));
+}
+export function addTombstone(id, fileName) {
+  const map = allTombstones();
+  map[id] = { at: Date.now(), fileName: fileName || '' };
+  writeTombstones(map);
+}
+export function clearTombstone(id) {
+  const map = allTombstones();
+  if (map[id] === undefined) return;
+  delete map[id];
+  writeTombstones(map);
 }
 
 // ============================================================
@@ -343,6 +453,18 @@ export async function dbDelete(id) {
     tx.objectStore(STORE).delete(id);
     tx.oncomplete = () => resolve();
     tx.onerror = () => reject(tx.error);
+  });
+}
+
+// Ids only. dbAll() pulls every book's full ArrayBuffer into memory, which the
+// sync pass must not do on every run — it reads whole records with dbGet, and
+// only for the handful of books that actually need uploading.
+export async function dbAllIds() {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const req = db.transaction(STORE, 'readonly').objectStore(STORE).getAllKeys();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
   });
 }
 
