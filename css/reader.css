@@ -892,6 +892,12 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 220ms; }
 .pop-actions a.action.used {
   opacity: 0.4;
 }
+/* Already run for this lookup — its answer is in the transcript below. */
+.pop-actions a.action.spent {
+  opacity: 0.35;
+  pointer-events: none;
+  cursor: default;
+}
 
 #popup-out {
   font-size: 15px;

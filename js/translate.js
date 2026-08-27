@@ -11,15 +11,15 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=19';
+import { openBookFromDb } from './reader.js?v=20';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=19';
+} from './state.js?v=20';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=19';
+} from './touchselect.js?v=20';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -268,6 +268,7 @@ function finishHide() {
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
+  spentActions.clear();          // new word — every action is available again
   popupForm.hidden = true;
   popupInput.value = '';
   lastLookup = null;
@@ -453,6 +454,39 @@ async function sendToLLM(text, metaLabel, followup, silent) {
   }
 }
 
+// An action is spent once it has been used: its answer is already in the
+// transcript below, so running it again only appends a duplicate. Tracked in a
+// set rather than on the element because renderActionsBar rebuilds the whole
+// row from scratch (today when a lookup's own reply lands), which would
+// otherwise hand back a fresh, clickable button. doLookup clears it when a new
+// word is looked up.
+const spentActions = new Set();
+
+function markSpent(a) {
+  a.classList.add('used', 'spent');
+  a.setAttribute('aria-disabled', 'true');
+}
+
+// Builds one action link. `key` identifies it across rebuilds; `run` fires on
+// the first click and never again.
+function addAction(key, label, title, run) {
+  const a = document.createElement('a');
+  a.href = '#';
+  a.className = 'action';
+  a.textContent = label;
+  a.title = title;
+  if (spentActions.has(key)) markSpent(a);
+  a.onclick = (e) => {
+    e.preventDefault();
+    if (popupBusy || spentActions.has(key)) return;
+    spentActions.add(key);
+    markSpent(a);
+    run();
+  };
+  popupActions.appendChild(a);
+  return a;
+}
+
 // Renders the action buttons into the top bar (#popup-actions),
 // alongside the close + input-toggle icons. One scrollable row.
 function renderActionsBar(phrase, context) {
@@ -461,16 +495,10 @@ function renderActionsBar(phrase, context) {
 
   const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
 
-  // [5] [10] [15] — re-run lookup with N sentences of context
+  // deep — re-run the lookup as a literary/historical analysis
   [1].forEach(n => {
-    const a = document.createElement('a');
-    a.href = '#';
-    a.className = 'action';
-    a.textContent = 'deep';
-    a.title = `Re-run with ${n} sentences of context`;
-    a.onclick = async (e) => {
-      e.preventDefault();
-      if (popupBusy || !lastLookup) return;
+    addAction('deep', 'deep', `Re-run with ${n} sentences of context`, async () => {
+      if (!lastLookup) return;
       const context = extractContextFromRange(lastLookup.range, n);
       const bookMetadata = await runtime.book.loaded.metadata;
       const prompt = `Bạn là nhà phân tích văn học, sử học. Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân và các thông tin sau, tối đa 50 từ:
@@ -479,8 +507,7 @@ function renderActionsBar(phrase, context) {
       TỪ/CỤM TỪ: ${phrase}
       NGỮ CẢNH: ${context}`
       sendToLLM(prompt, null, null, true);
-    };
-    popupActions.appendChild(a);
+    });
   });
 
   // Short-label follow-up queries — single words only.
@@ -498,23 +525,15 @@ function renderActionsBar(phrase, context) {
     ['ety', `Giải thích ngắn gọn etymology của <${phrase}> sử dụng mẫu sau: **ETYMOLOGY**: etymology.`, 'Etymology'],
   ];
   items.forEach(([label, q, longLabel]) => {
-    const a = document.createElement('a');
-    a.href = '#';
-    a.className = 'action';
-    a.textContent = label;
-    a.title = longLabel;
-    a.onclick = (e) => {
-      e.preventDefault();
-      if (popupBusy) return;
-      a.classList.add('used');
+    addAction(label, label, longLabel, () => {
       sendToLLM(q, longLabel + ': "' + phrase + '"', null, true);
-    };
-    popupActions.appendChild(a);
+    });
   });
 
   // Last in the row, and touch only: it exists because native selection is
   // disabled on coarse pointers, so there is no iOS Copy button. Desktop keeps
-  // native selection and doesn't need it.
+  // native selection and doesn't need it. Not spendable — copying twice is
+  // harmless and appends nothing.
   // Gated on isCoarsePointer rather than isMobileViewport(): a narrow desktop
   // window gets the .mobile sheet but still has real selection.
   if (isCoarsePointer) {
@@ -583,6 +602,7 @@ export function doLookup(phrase, range, sentenceCount) {
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
+  spentActions.clear();          // new word — every action is available again
   popupForm.hidden = true;
 
   const is_a_word = phrase.trim().split(' ').length == 1
