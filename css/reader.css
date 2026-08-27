@@ -20,7 +20,28 @@
   font-weight: 400;
   font-style: normal;
   font-display: swap;
-  src: url('./consolas.ttf');
+  src: url('./consola.ttf');
+}
+@font-face {
+  font-family: 'Consolas';
+  font-weight: 600;
+  font-style: bold;
+  font-display: swap;
+  src: url('./consolab.ttf');
+}
+@font-face {
+  font-family: 'Consolas';
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+  src: url('./consolai.ttf');
+}
+@font-face {
+  font-family: 'Consolas';
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+  src: url('./consolaz.ttf');
 }
 @font-face {
   font-family: 'Seravek';
