@@ -2,7 +2,7 @@
 // Bootstrap. Wires modules together in the correct order.
 // ============================================================
 
-import { applyChromeTheme, applyCustomCssToParent } from './theme.js';
+import { applyChromeTheme } from './theme.js';
 import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js';
 import { openBookFromDb, initReaderEvents } from './reader.js';
 import { initTranslateEvents } from './translate.js';
@@ -14,9 +14,8 @@ import { syncDebugPanel } from './debug.js';
 //    visible on a phone instead of silent. No-op unless debug is enabled.
 syncDebugPanel();
 
-// 1. Initial CSS (variables + user-custom-css contents)
+// 1. Initial CSS (theme variables on :root)
 applyChromeTheme();
-applyCustomCssToParent();
 
 // 2. Wire library (and let it know how to open books — avoids circular import)
 setBookOpener(openBookFromDb);
@@ -28,8 +27,7 @@ initReaderEvents();
 // 4. Wire translation popup (close/+ buttons, outside-click, sel change)
 initTranslateEvents();
 
-// 5. Wire all the UI bindings (drawers, modal, tabs, settings inputs,
-//    theme swatches + presets, font/layout/translation/css panels)
+// 5. Wire all the UI bindings (drawers, the settings sheet and every row in it)
 initUI();
 
 // 6. First paint of the library

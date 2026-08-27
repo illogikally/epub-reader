@@ -21,6 +21,8 @@ export const MODELS = [
 ];
 export const DEFAULT_MODEL_INDEX = 1;
 export const MAX_TOKENS = 1024;
+// Sentences of surrounding text sent with a lookup. Fixed — no longer a setting.
+export const CONTEXT_SENTENCES = 1;
 
 const defaultSettings = {
   fontFamily: "'Seravek', ui-sans-serif, system-ui, sans-serif",
@@ -37,11 +39,8 @@ const defaultSettings = {
   fg: '#2a2520',
   dark: false,
   layout: 'single',
-  contextSentences: 1,
   selectedModelIdx: DEFAULT_MODEL_INDEX,
   apiKeys: { GROQ_API_KEY: '' },
-  customCss: '',
-  customThemes: [],   // [{ name, bg, fg }]
   debug: false,       // on-screen debug log — see js/debug.js
 };
 
@@ -49,12 +48,14 @@ const defaultSettings = {
 const _loaded = (() => {
   try {
     const saved = JSON.parse(localStorage.getItem('reader-settings') || '{}');
-    return {
-      ...defaultSettings,
-      ...saved,
-      apiKeys: { ...defaultSettings.apiKeys, ...(saved.apiKeys || {}) },
-      customThemes: Array.isArray(saved.customThemes) ? saved.customThemes : [],
-    };
+    // Only keys we still know about survive, so dropped settings (custom CSS,
+    // saved presets, context length) don't linger in localStorage forever.
+    const merged = { ...defaultSettings };
+    for (const k of Object.keys(defaultSettings)) {
+      if (saved[k] !== undefined) merged[k] = saved[k];
+    }
+    merged.apiKeys = { ...defaultSettings.apiKeys, ...(saved.apiKeys || {}) };
+    return merged;
   } catch {
     return { ...defaultSettings };
   }

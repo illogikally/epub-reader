@@ -1,7 +1,7 @@
 // ============================================================
 // Theme application: CSS variables on :root, book-content theming
-// via epub.js themes API, custom-CSS injection, color input sync,
-// and the slider fill helper used by every range input.
+// via epub.js themes API, color input sync, and the slider fill
+// helper used by every range input.
 // ============================================================
 
 import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js';
@@ -18,7 +18,7 @@ export function applyChromeTheme() {
   root.style.setProperty('--pad-left', settings.padLeft + 'px');
   root.style.setProperty('--pad-right', settings.padRight + 'px');
   document.body.classList.toggle('dark-chrome', !!settings.dark);
-  // Mark active theme swatch (works for both built-ins and saved presets)
+  // Mark the swatch matching the current bg/fg pair, if any
   document.querySelectorAll('#color-options .theme-swatch').forEach(b => {
     const matches = b.dataset.bg.toLowerCase() === settings.bg.toLowerCase()
                  && b.dataset.fg.toLowerCase() === settings.fg.toLowerCase();
@@ -41,7 +41,6 @@ export function applyBookTheme() {
   // only reaches the book's <body>, and a book's own `p { -webkit-user-select }`
   // would win over the inherited value.
   applyBookStyle();
-  applyCustomCssToBook();
 }
 
 // The typography settings above are pushed through themes.override, which only sets
@@ -93,19 +92,6 @@ export function applyBookStyle() {
   const r = runtime.rendition;
   if (!r) return;
   try { r.getContents().forEach(c => injectBookStyle(c.document)); } catch {}
-}
-
-export function applyCustomCssToParent() {
-  const el = document.getElementById('user-custom-css');
-  if (el) el.textContent = settings.customCss || '';
-}
-export function applyCustomCssToBook() {
-  const r = runtime.rendition;
-  if (!r) return;
-  try {
-    r.themes.registerCss('user-custom', settings.customCss || '');
-    r.themes.select('user-custom');
-  } catch {}
 }
 
 export function syncColorInputs() {

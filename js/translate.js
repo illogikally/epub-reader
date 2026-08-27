@@ -14,7 +14,7 @@
 import { openBookFromDb } from './reader.js';
 import {
   $, escapeHtml, settings, runtime,
-  MODELS, MAX_TOKENS, attachPullToDismiss, isCoarsePointer,
+  MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
 } from './state.js';
 import {
   onSelectionSettled, onBookTap,
@@ -646,7 +646,7 @@ function fireLookupForSelection(sel, doc, iframe, capturedRange) {
   lastLookup = { phrase, range: savedRange, doc };
 
   showPopupAt(viewportRect);
-  doLookup(phrase, savedRange, settings.contextSentences);
+  doLookup(phrase, savedRange, CONTEXT_SENTENCES);
 }
 
 // ============================================================
@@ -701,7 +701,7 @@ function lookupSelection(sel) {
   } catch {}
 
   showPopupAt(viewportRect);
-  doLookup(sel.text, sel.range, settings.contextSentences);
+  doLookup(sel.text, sel.range, CONTEXT_SENTENCES);
 }
 
 // Kept for closeBook(): drop any live selection when the book goes away.
