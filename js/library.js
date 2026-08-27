@@ -7,7 +7,7 @@ import {
   $, escapeHtml,
   dbAll, dbPut, dbDelete, makeBookId,
   clearProgress, addTombstone, clearTombstone,
-} from './state.js?v=37';
+} from './state.js?v=38';
 
 // Something changed that Dropbox should hear about. A custom event rather than
 // an import so library.js stays free of sync.js — which imports from here.
