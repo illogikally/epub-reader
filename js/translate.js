@@ -11,15 +11,15 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=23';
+import { openBookFromDb } from './reader.js?v=24';
 import {
   $, escapeHtml, settings, runtime,
-  MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=23';
+  currentModel, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
+} from './state.js?v=24';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=23';
+} from './touchselect.js?v=24';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -113,7 +113,7 @@ async function* streamGoogle(cfg, messages, system, apiKey) {
 const VENDORS = { openai: streamOpenAI, google: streamGoogle };
 
 async function* llmStream(messages, system) {
-  const cfg = MODELS[settings.selectedModelIdx];
+  const cfg = currentModel();
   if (!cfg) throw new Error('no model selected');
   const apiKey = (settings.apiKeys[cfg.keyRef] || '').trim();
   if (!apiKey) throw new Error(`missing ${cfg.keyRef} — paste it in Settings`);

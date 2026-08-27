@@ -6,7 +6,7 @@
 import {
   $, escapeHtml,
   dbAll, dbPut, dbDelete, makeBookId,
-} from './state.js?v=23';
+} from './state.js?v=24';
 
 // Lazy import to avoid circular dependency: reader imports from library.
 let _openBookFromDb = null;

@@ -9,14 +9,15 @@
 // ============================================================
 
 import {
-  $, settings, runtime, persistSettings, MODELS, attachPullToDismiss,
-} from './state.js?v=23';
+  $, settings, runtime, persistSettings, attachPullToDismiss,
+  MODEL_FORMATS, allModels, currentModel, addCustomModel, removeCustomModel,
+} from './state.js?v=24';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=23';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=23';
-import { scrollTocToCurrent } from './translate.js?v=23';
-import { syncDebugPanel } from './debug.js?v=23';
+} from './theme.js?v=24';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=24';
+import { scrollTocToCurrent } from './translate.js?v=24';
+import { syncDebugPanel } from './debug.js?v=24';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -46,10 +47,11 @@ export function hideAllDrawers() {
 
 // ============================================================
 // Disclosure select — a row showing the current value that expands into an
-// inline list of options. `options` is [{ value, label, style? }]; `get`
-// returns the current value, `set` applies a picked one. Values are compared
-// as strings, so callers hand back strings and parse if they need a number.
-// Only one list stays open at a time.
+// inline list of options. `options` is [{ value, label, style? }] or a function
+// returning one (for lists the user can edit); `get` returns the current value,
+// `set` applies a picked one. Values are compared as strings, so callers hand
+// back strings and parse if they need a number. Only one list stays open at a
+// time. Returns a refresh() that re-reads the options and the selection.
 // ============================================================
 const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
 
@@ -59,35 +61,39 @@ function bindSelectRow(id, { options, get, set }) {
   const disclosure = root.querySelector('.set-disclosure');
   const valueEl = root.querySelector('.set-value');
   const list = root.querySelector('.set-options');
-
-  const sync = () => {
-    const cur = String(get());
-    const hit = options.find(o => o.value === cur);
-    valueEl.textContent = hit ? hit.label : '';
-    list.querySelectorAll('.set-option').forEach(el =>
-      el.classList.toggle('selected', el.dataset.value === cur));
-  };
-
-  options.forEach(o => {
-    const el = document.createElement('button');
-    el.type = 'button';
-    el.className = 'set-option';
-    el.dataset.value = o.value;
-    el.innerHTML = `<span></span>${CHECK_SVG}`;
-    el.firstChild.textContent = o.label;
-    if (o.style) el.firstChild.style.cssText = o.style;
-    el.addEventListener('click', () => {
-      set(o.value);
-      sync();
-      close();
-    });
-    list.appendChild(el);
-  });
+  const optionsOf = () => (typeof options === 'function' ? options() : options);
 
   const close = () => {
     root.classList.remove('open');
     disclosure.setAttribute('aria-expanded', 'false');
   };
+
+  const refresh = () => {
+    const opts = optionsOf();
+    const cur = String(get());
+    list.innerHTML = '';
+    opts.forEach(o => {
+      const el = document.createElement('button');
+      el.type = 'button';
+      el.className = 'set-option';
+      el.dataset.value = o.value;
+      el.innerHTML = `<span></span>${CHECK_SVG}`;
+      el.firstChild.textContent = o.label;
+      if (o.style) el.firstChild.style.cssText = o.style;
+      el.classList.toggle('selected', o.value === cur);
+      el.addEventListener('click', () => {
+        set(o.value);
+        refresh();
+        close();
+      });
+      list.appendChild(el);
+    });
+    if (valueEl) {
+      const hit = opts.find(o => o.value === cur);
+      valueEl.textContent = hit ? hit.label : '';
+    }
+  };
+
   disclosure.addEventListener('click', () => {
     const willOpen = !root.classList.contains('open');
     document.querySelectorAll('#settings-body .set-select.open').forEach(s => {
@@ -98,8 +104,8 @@ function bindSelectRow(id, { options, get, set }) {
     disclosure.setAttribute('aria-expanded', String(willOpen));
   });
 
-  sync();
-  return sync;
+  refresh();
+  return refresh;
 }
 
 // Option list for the font row — each entry previews its own face.
@@ -191,6 +197,115 @@ function bindColorPair(colorId, hexId, key) {
 }
 
 // ============================================================
+// Translation models — pick one, key it, add and remove your own
+// ============================================================
+function initModelSettings() {
+  const keyInput = $('key-model');
+  const keyNote = $('key-note');
+  const removeCard = $('del-model');
+
+  // Keys are filed per endpoint host, so the row shows whichever key the
+  // selected model will actually send.
+  const refreshKeyRow = () => {
+    const ref = currentModel()?.keyRef || '';
+    keyInput.value = settings.apiKeys[ref] || '';
+    keyInput.placeholder = ref ? 'key for ' + ref : 'paste key';
+    keyNote.textContent = ref
+      ? `Saved in this browser under "${ref}" and shared by every model on that host. `
+        + 'Requests stream straight from the page to the endpoint — no backend.'
+      : '';
+  };
+  keyInput.addEventListener('change', () => {
+    const ref = currentModel()?.keyRef;
+    if (!ref) return;
+    settings.apiKeys[ref] = keyInput.value.trim();
+    persistSettings();
+  });
+
+  const refreshModelRow = bindSelectRow('sel-model', {
+    options: () => allModels().map(m => ({
+      value: m.id,
+      label: m.custom ? `${m.name} · custom` : m.name,
+    })),
+    get: () => settings.selectedModelId,
+    set: id => {
+      settings.selectedModelId = id;
+      persistSettings();
+      refreshKeyRow();
+    },
+  });
+
+  const refreshRemoveRow = bindSelectRow('del-model', {
+    // Built-ins are not listed: something has to remain selectable.
+    options: () => settings.customModels.map(m => ({ value: m.id, label: m.name })),
+    get: () => '',
+    set: id => {
+      const model = settings.customModels.find(m => m.id === id);
+      if (!model || !confirm(`Remove "${model.name}"?`)) return;
+      removeCustomModel(id);
+      refreshAll();
+    },
+  });
+
+  const refreshAll = () => {
+    refreshModelRow();
+    refreshRemoveRow();
+    refreshKeyRow();
+    removeCard.hidden = settings.customModels.length === 0;
+    if (removeCard.hidden) removeCard.classList.remove('open');
+  };
+
+  // ---- Add-model form ----
+  const seg = $('nm-format');
+  let format = MODEL_FORMATS[0];
+  const urlInput = $('nm-url');
+  // Each protocol wants a different shape of endpoint, so the hint follows it.
+  const URL_HINTS = {
+    openai: 'https://…/v1/chat/completions',
+    google: 'https://generativelanguage.googleapis.com/v1beta',
+  };
+  const syncFormat = () => {
+    seg.querySelectorAll('button').forEach(b =>
+      b.classList.toggle('active', b.dataset.format === format));
+    urlInput.placeholder = URL_HINTS[format] || 'https://…';
+  };
+  MODEL_FORMATS.forEach(f => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.format = f;
+    b.textContent = f;
+    b.addEventListener('click', () => { format = f; syncFormat(); });
+    seg.appendChild(b);
+  });
+  syncFormat();
+
+  const errEl = $('nm-error');
+  $('nm-add').addEventListener('click', () => {
+    const name = $('nm-name').value.trim();
+    const url = urlInput.value.trim();
+    const model = $('nm-model').value.trim();
+    const fail = msg => { errEl.textContent = msg; errEl.hidden = false; };
+
+    if (!name) return fail('Give the model a name.');
+    if (!model) return fail('Model ID is required — the name the provider knows it by.');
+    let host = '';
+    try { host = new URL(url).host; } catch {}
+    if (!host) return fail('Endpoint must be a full URL, starting with https://');
+    errEl.hidden = true;
+
+    const added = addCustomModel({ name, url, model, format });
+    settings.selectedModelId = added.id;   // adding it means you want to use it
+    persistSettings();
+    ['nm-name', 'nm-url', 'nm-model'].forEach(id => { $(id).value = ''; });
+    $('add-model').classList.remove('open');
+    $('add-model').querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
+    refreshAll();
+  });
+
+  refreshAll();
+}
+
+// ============================================================
 // Switch row
 // ============================================================
 function bindSwitch(id, get, set) {
@@ -200,18 +315,6 @@ function bindSwitch(id, get, set) {
   btn.addEventListener('click', () => {
     set(!get());
     sync();
-  });
-}
-
-// ============================================================
-// API key input
-// ============================================================
-function bindKeyInput(id, ref) {
-  const input = $(id);
-  input.value = settings.apiKeys[ref] || '';
-  input.addEventListener('change', () => {
-    settings.apiKeys[ref] = input.value.trim();
-    persistSettings();
   });
 }
 
@@ -319,15 +422,7 @@ export function initUI() {
   bindColorPair('fg-color', 'fg-color-hex', 'fg');
 
   // ---- Translation ----
-  bindSelectRow('sel-model', {
-    options: MODELS.map((m, idx) => ({ value: String(idx), label: m.name })),
-    get: () => settings.selectedModelIdx,
-    set: v => {
-      settings.selectedModelIdx = parseInt(v);
-      persistSettings();
-    },
-  });
-  bindKeyInput('key-groq', 'GROQ_API_KEY');
+  initModelSettings();
 
   // ---- Advanced ----
   bindSwitch('toggle-debug', () => settings.debug, on => {

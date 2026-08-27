@@ -724,6 +724,60 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 }
 .set-option.selected svg { opacity: 1; }
 
+/* ---- Inline form inside a disclosure (add-model) ---- */
+.set-form { display: none; padding: 4px 16px 14px; }
+.set-select.open > .set-form { display: block; }
+.set-field {
+  position: relative;
+  display: flex; align-items: center; gap: 12px;
+  min-height: 42px;
+}
+.set-field + .set-field::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 1px; background: var(--set-line);
+}
+.set-field > span {
+  flex: none; width: 86px;
+  font-size: 14px; color: var(--set-muted);
+}
+.set-field input {
+  flex: 1; min-width: 0;
+  border: none; background: transparent; outline: none;
+  color: var(--fg); text-align: right;
+  font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
+}
+.set-field input::placeholder { color: var(--set-muted); }
+
+/* Two-or-three-way picker, for choices too small to deserve a disclosure. */
+.set-seg {
+  margin-left: auto;
+  display: flex; gap: 3px;
+  background: var(--surface-soft);
+  border-radius: 9px; padding: 3px;
+}
+.set-seg button {
+  padding: 5px 13px; border-radius: 7px;
+  font-size: 13px; color: var(--set-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.set-seg button.active {
+  background: var(--card-bg); color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.set-btn {
+  width: 100%; margin-top: 12px; padding: 11px;
+  border-radius: 10px;
+  background: var(--fg); color: var(--bg);
+  font-size: 15px; font-weight: 600;
+  transition: opacity 0.12s ease;
+}
+.set-btn:active { opacity: 0.75; }
+.set-form-error {
+  margin: 10px 0 0;
+  font-size: 12px; line-height: 1.4; color: #d7473c;
+}
+
 /* ---- Slider block: uppercase sub-label over icon · track · value ---- */
 .set-slider { --set-inset: 16px; padding: 9px 16px 11px; }
 .set-sublabel {
@@ -796,7 +850,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-switch[aria-checked="true"] .set-knob { transform: translateX(18px); }
 
 /* ---- Free-text row (API key) ---- */
-.set-input-row { --set-inset: 16px; }
 .set-input-row .set-label { flex: none; }
 .set-input-row input {
   flex: 1; min-width: 0; margin-left: 14px;
@@ -807,7 +860,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-input-row input::placeholder { color: var(--set-muted); }
 
 /* ---- Color row: hex field + a round chip that is the native picker ---- */
-.set-color-row { --set-inset: 16px; }
 .set-hex {
   flex: none; width: 88px;
   border: none; background: transparent; outline: none;

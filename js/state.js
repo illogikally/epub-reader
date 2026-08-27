@@ -3,8 +3,15 @@
 // and shared mutable runtime state.
 // ============================================================
 
-export const MODELS = [
+// Inference protocols we can speak. Must stay in step with VENDORS in
+// translate.js — the settings UI builds its type picker from this list.
+export const MODEL_FORMATS = ['openai', 'google'];
+
+// Shipped models. Users add their own alongside these; only custom ones can be
+// removed, so there is always something to fall back to.
+export const BUILTIN_MODELS = [
   {
+    id: 'groq-gpt-oss-120b',
     name: 'groq · openai/gpt-oss-120b',
     url: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'openai/gpt-oss-120b',
@@ -12,6 +19,7 @@ export const MODELS = [
     keyRef: 'GROQ_API_KEY',
   },
   {
+    id: 'groq-qwen3-8-27b',
     name: 'groq · qwen3.8-27b',
     url: 'https://api.groq.com/openai/v1/chat/completions',
     model: 'qwen/qwen3.8-27b',
@@ -19,7 +27,7 @@ export const MODELS = [
     keyRef: 'GROQ_API_KEY',
   },
 ];
-export const DEFAULT_MODEL_INDEX = 1;
+export const DEFAULT_MODEL_ID = 'groq-qwen3-8-27b';
 export const MAX_TOKENS = 1024;
 // Sentences of surrounding text sent with a lookup. Fixed — no longer a setting.
 export const CONTEXT_SENTENCES = 1;
@@ -39,7 +47,8 @@ const defaultSettings = {
   fg: '#2a2520',
   dark: false,
   layout: 'single',
-  selectedModelIdx: DEFAULT_MODEL_INDEX,
+  selectedModelId: DEFAULT_MODEL_ID,
+  customModels: [],   // [{ id, name, url, model, format, keyRef, custom: true }]
   apiKeys: { GROQ_API_KEY: '' },
   debug: false,       // on-screen debug log — see js/debug.js
 };
@@ -55,6 +64,12 @@ const _loaded = (() => {
       if (saved[k] !== undefined) merged[k] = saved[k];
     }
     merged.apiKeys = { ...defaultSettings.apiKeys, ...(saved.apiKeys || {}) };
+    if (!Array.isArray(merged.customModels)) merged.customModels = [];
+    // Models used to be picked by index into a fixed array. The list is now
+    // user-editable, so the selection is an id — carry the old index over.
+    if (saved.selectedModelId === undefined && typeof saved.selectedModelIdx === 'number') {
+      merged.selectedModelId = BUILTIN_MODELS[saved.selectedModelIdx]?.id || DEFAULT_MODEL_ID;
+    }
     return merged;
   } catch {
     return { ...defaultSettings };
@@ -66,6 +81,55 @@ export const settings = _loaded;
 
 export function persistSettings() {
   localStorage.setItem('reader-settings', JSON.stringify(settings));
+}
+
+// ============================================================
+// Model registry — built-ins plus whatever the user has added
+// ============================================================
+export function allModels() {
+  return [...BUILTIN_MODELS, ...settings.customModels];
+}
+
+export function currentModel() {
+  const list = allModels();
+  return list.find(m => m.id === settings.selectedModelId)
+      || list.find(m => m.id === DEFAULT_MODEL_ID)
+      || list[0]
+      || null;
+}
+
+// API keys are filed under the endpoint's host, not the model, so every model
+// pointed at the same provider shares one key and adding a second Groq model
+// doesn't mean pasting the key again. Built-ins keep their historical
+// GROQ_API_KEY ref so existing saved keys keep working.
+export function keyRefForUrl(url) {
+  try {
+    const host = new URL(url).host;
+    return host || 'CUSTOM_API_KEY';
+  } catch { return 'CUSTOM_API_KEY'; }
+}
+
+export function addCustomModel({ name, url, model, format }) {
+  const entry = {
+    id: 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+    name, url, model,
+    format: MODEL_FORMATS.includes(format) ? format : MODEL_FORMATS[0],
+    keyRef: keyRefForUrl(url),
+    custom: true,
+  };
+  settings.customModels.push(entry);
+  persistSettings();
+  return entry;
+}
+
+export function removeCustomModel(id) {
+  const idx = settings.customModels.findIndex(m => m.id === id);
+  if (idx < 0) return false;
+  settings.customModels.splice(idx, 1);
+  // Don't leave the selection pointing at something that no longer exists.
+  if (settings.selectedModelId === id) settings.selectedModelId = DEFAULT_MODEL_ID;
+  persistSettings();
+  return true;
 }
 
 // ============================================================
