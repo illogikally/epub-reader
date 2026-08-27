@@ -16,11 +16,9 @@ export const GROQ_KEY_REF = 'GROQ_API_KEY';
 // fails the request, so it is a per-model setting rather than something guessed
 // from the model's name.
 export const REASONING_MODES = [
-  { value: 'off',    label: 'off',    hint: 'parameter omitted — llama, gemma, mixtral, kimi' },
-  { value: 'none',   label: 'none',   hint: 'qwen3' },
-  { value: 'low',    label: 'low',    hint: 'gpt-oss' },
-  { value: 'medium', label: 'medium', hint: 'gpt-oss' },
-  { value: 'high',   label: 'high',   hint: 'gpt-oss' },
+  { value: 'off',  label: 'off' },    // parameter omitted entirely
+  { value: 'none', label: 'none' },
+  { value: 'low',  label: 'low' },
 ];
 export const DEFAULT_REASONING = 'off';   // the only value every model accepts
 

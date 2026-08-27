@@ -702,9 +702,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-select.open > .set-disclosure .set-chevron { transform: rotate(90deg); }
 .set-options { display: none; }
 .set-select.open > .set-options { display: block; }
-/* A list short enough to show in full, with no disclosure to hide it. */
-.set-options-inline { display: block; }
-.set-model-list > .set-sublabel { padding: 11px 16px 3px; }
 .set-option-empty {
   padding: 12px 16px 12px 26px;
   font-size: 15px; color: var(--set-muted);

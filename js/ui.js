@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=29';
+} from './state.js?v=30';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=29';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=29';
-import { scrollTocToCurrent } from './translate.js?v=29';
-import { syncDebugPanel } from './debug.js?v=29';
+} from './theme.js?v=30';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=30';
+import { scrollTocToCurrent } from './translate.js?v=30';
+import { syncDebugPanel } from './debug.js?v=30';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -100,8 +100,7 @@ function bindSelectRow(id, { options, get, set, remove, emptyLabel }) {
   const valueEl = root.querySelector('.set-value');
   const list = root.querySelector('.set-options');
   const optionsOf = () => (typeof options === 'function' ? options() : options);
-  // No disclosure row means the list is always shown (see .set-options-inline).
-  const close = root.querySelector('.set-disclosure') ? bindDisclosure(root) : () => {};
+  const close = bindDisclosure(root);
 
   const refresh = () => {
     const opts = optionsOf();
@@ -150,8 +149,7 @@ function bindSelectRow(id, { options, get, set, remove, emptyLabel }) {
     }
     if (valueEl) {
       const hit = opts.find(o => o.value === cur);
-      // `short` lets a long option label collapse to something that fits the row.
-      valueEl.textContent = hit ? (hit.short || hit.label) : (opts.length ? '' : (emptyLabel || ''));
+      valueEl.textContent = hit ? hit.label : (opts.length ? '' : (emptyLabel || ''));
     }
   };
 
@@ -261,9 +259,9 @@ function initModelSettings() {
     persistSettings();
   });
 
-  const refreshModelRow = bindSelectRow('model-card', {
+  const refreshModelRow = bindSelectRow('sel-model', {
     // Every model is removable, so the list can legitimately end up empty.
-    emptyLabel: 'No models — add one below.',
+    emptyLabel: 'none — add one below',
     options: () => allModels().map(m => ({
       value: m.id,
       label: m.model,
@@ -285,9 +283,7 @@ function initModelSettings() {
   const closeAddForm = bindDisclosure($('add-model'));
   let reasoning = DEFAULT_REASONING;
   const syncReasoning = bindSelectRow('nm-reasoning', {
-    options: REASONING_MODES.map(m => ({
-      value: m.value, label: `${m.label} — ${m.hint}`, short: m.label,
-    })),
+    options: REASONING_MODES.map(m => ({ value: m.value, label: m.label })),
     get: () => reasoning,
     set: v => { reasoning = v; },
   });
