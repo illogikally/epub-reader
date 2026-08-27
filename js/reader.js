@@ -7,19 +7,19 @@
 //     double-click word selection without false chrome toggles).
 // ============================================================
 
-import { settings, runtime, $, dbGet } from './state.js?v=18';
-import { applyBookTheme, injectBookStyle } from './theme.js?v=18';
+import { settings, runtime, $, dbGet } from './state.js?v=19';
+import { applyBookTheme, injectBookStyle } from './theme.js?v=19';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
   buildToc, setTocPosition, markTocCurrent,
-} from './translate.js?v=18';
-import { renderLibrary } from './library.js?v=18';
+} from './translate.js?v=19';
+import { renderLibrary } from './library.js?v=19';
 import {
   initTouchSelection, clearTouchSelection, onBookSwipe,
-} from './touchselect.js?v=18';
-import { dbg } from './debug.js?v=18';
+} from './touchselect.js?v=19';
+import { dbg } from './debug.js?v=19';
 
 const library = $('library');
 const reader = $('reader');
