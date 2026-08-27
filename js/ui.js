@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=33';
+} from './state.js?v=34';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=33';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=33';
-import { scrollTocToCurrent } from './translate.js?v=33';
-import { syncDebugPanel } from './debug.js?v=33';
+} from './theme.js?v=34';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=34';
+import { scrollTocToCurrent } from './translate.js?v=34';
+import { syncDebugPanel } from './debug.js?v=34';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -347,6 +347,33 @@ function initModelSettings() {
 }
 
 // ============================================================
+// Segmented buttons — a row of icons, one selected
+// ============================================================
+// For choices that are inherently visual and few: alignment, one page or two.
+// The value of each button is its data-value; the words are in the title
+// attribute, since the icons carry the meaning.
+function bindSegmented(id, { get, set }) {
+  const row = $(id);
+  if (!row) return () => {};
+  const buttons = [...row.querySelectorAll('.set-segment')];
+  const sync = () => {
+    const cur = String(get());
+    buttons.forEach(b => {
+      const on = b.dataset.value === cur;
+      b.classList.toggle('active', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+  };
+  sync();
+  register(sync);
+  buttons.forEach(b => b.addEventListener('click', () => {
+    set(b.dataset.value);
+    sync();
+  }));
+  return sync;
+}
+
+// ============================================================
 // Switch row
 // ============================================================
 function bindSwitch(id, get, set) {
@@ -405,12 +432,7 @@ export function initUI() {
     set: v => { settings.fontFamily = v; applyAll(); },
   });
 
-  bindSelectRow('sel-align', {
-    options: [
-      { value: 'default', label: 'Default' },
-      { value: 'left',    label: 'Left' },
-      { value: 'justify', label: 'Justified' },
-    ],
+  bindSegmented('seg-align', {
     get: () => settings.textAlign,
     set: v => {
       settings.textAlign = v;
@@ -426,11 +448,7 @@ export function initUI() {
   bindSlider('word-spacing', 'wordSpacing', 'px');
 
   // ---- Layout: page mode (hidden on phones — they are always single page) ----
-  bindSelectRow('sel-layout', {
-    options: [
-      { value: 'single', label: 'Single page' },
-      { value: 'dual',   label: 'Two pages' },
-    ],
+  bindSegmented('seg-layout', {
     get: () => settings.layout,
     set: mode => {
       if (mode === settings.layout) return;
@@ -447,10 +465,8 @@ export function initUI() {
   });
 
   // ---- Layout: margins ----
-  bindPaddingSlider('pad-top',    'padTop');
-  bindPaddingSlider('pad-bottom', 'padBottom');
-  bindPaddingSlider('pad-left',   'padLeft');
-  bindPaddingSlider('pad-right',  'padRight');
+  bindPaddingSlider('pad-v', 'padV');
+  bindPaddingSlider('pad-h', 'padH');
 
   // ---- Theme ----
   colorOptions.querySelectorAll('.theme-swatch').forEach(btn => {
