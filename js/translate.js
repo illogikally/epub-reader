@@ -11,15 +11,15 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=22';
+import { openBookFromDb } from './reader.js?v=23';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=22';
+} from './state.js?v=23';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=22';
+} from './touchselect.js?v=23';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -911,6 +911,9 @@ export function setTocPosition(pct) {
   }
   const chip = $('chrome-progress');
   if (chip) chip.textContent = ok ? ' · ' + text : '';
+  // The Contents row is also the progress bar — see .chrome-row-primary.
+  const bar = $('btn-toc');
+  if (bar) bar.style.setProperty('--progress', ok ? (pct * 100).toFixed(2) + '%' : '0%');
 }
 
 // Highlight the entry covering the given spine index: the first entry that

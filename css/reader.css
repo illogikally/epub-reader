@@ -354,7 +354,7 @@ body.chrome-visible #chrome-wrap {
   position: fixed; z-index: 10;
   right: 12px; bottom: calc(46px + env(safe-area-inset-bottom));
   width: min(430px, calc(100vw - 24px));
-  display: flex; flex-direction: column; gap: 10px;
+  display: flex; flex-direction: column; gap: 6px;
   pointer-events: none;
 }
 body.chrome-visible #chrome-controls { pointer-events: auto; }
@@ -369,20 +369,45 @@ body.chrome-visible #chrome-controls { pointer-events: auto; }
   font-size: 17px; text-align: left;
   box-shadow: 0 4px 18px rgba(0, 0, 0, 0.14), 0 0 0 1px var(--border);
   -webkit-tap-highlight-color: transparent;
-  /* Hidden resting state; .chrome-visible above animates it in. */
+  /* Hidden resting state; .chrome-visible below animates it in. The transform
+     curve overshoots hard (y=1.6) so each row springs past its resting size and
+     settles back; opacity lands well before that, so the bounce is watched
+     rather than faded through. */
   opacity: 0;
-  transform: translateY(12px) scale(0.9);
+  transform: translateY(26px) scale(0.84);
   transform-origin: bottom right;
-  transition: opacity 0.26s ease,
-              transform 0.32s cubic-bezier(0.22, 1.25, 0.36, 1),
+  transition: opacity 0.18s ease-out,
+              transform 0.44s cubic-bezier(0.2, 1.6, 0.4, 1),
               filter 0.12s ease;
   transition-delay: 0ms;
 }
 .chrome-row:hover { filter: brightness(0.97); }
 body.chrome-visible .chrome-row:active { transform: scale(0.985); }
-/* The lead row is inverted, the way Apple Books marks the contents bar. */
-.chrome-row-primary { background: var(--fg); color: var(--bg); }
+/* The lead row is inverted, the way Apple Books marks the contents bar, and
+   doubles as the reading-progress bar: --progress is written by setTocPosition
+   and fills the row from the left. The fill is drawn in --bg so it contrasts
+   against the inverted background in either theme, while the label keeps one
+   colour across both halves. */
+.chrome-row-primary {
+  position: relative; overflow: hidden;
+  background: var(--fg); color: var(--bg);
+}
+.chrome-row-primary::before {
+  content: '';
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: var(--progress, 0%);
+  background: var(--bg);
+  opacity: 0.22;
+  /* Inset rather than border-right: a border still paints when the fill is 0%
+     wide, leaving a stray line at the left edge on page one of a book. */
+  box-shadow: inset -1px 0 0 var(--bg);
+  transition: width 0.35s ease;
+}
+.chrome-row-primary > * { position: relative; z-index: 1; }
 body.dark-chrome .chrome-row-primary:hover { filter: brightness(1.06); }
+@media (prefers-reduced-motion: reduce) {
+  .chrome-row-primary::before { transition: none; }
+}
 .chrome-row-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #chrome-progress { opacity: 0.6; }
 .chrome-row .icon { width: 26px; height: 26px; stroke-width: 1.8; }
@@ -397,10 +422,10 @@ body.dark-chrome .chrome-row-primary:hover { filter: brightness(1.06); }
    instead of unwinding row by row. */
 body.chrome-visible .chrome-row { opacity: 1; transform: none; }
 body.chrome-visible .chrome-row:nth-last-child(1) { transition-delay: 0ms; }
-body.chrome-visible .chrome-row:nth-last-child(2) { transition-delay: 55ms; }
-body.chrome-visible .chrome-row:nth-last-child(3) { transition-delay: 110ms; }
-body.chrome-visible .chrome-row:nth-last-child(4) { transition-delay: 165ms; }
-body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 220ms; }
+body.chrome-visible .chrome-row:nth-last-child(2) { transition-delay: 70ms; }
+body.chrome-visible .chrome-row:nth-last-child(3) { transition-delay: 140ms; }
+body.chrome-visible .chrome-row:nth-last-child(4) { transition-delay: 210ms; }
+body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 @media (prefers-reduced-motion: reduce) {
   .chrome-row { transition: none; }
 }
