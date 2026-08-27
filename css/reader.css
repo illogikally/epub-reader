@@ -1004,7 +1004,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 }
 
 #popup-out {
-  font-size: 15px;
+  font-size: 16px;
   letter-spacing: -1px;
   flex: 1; overflow-y: auto; padding: 12px 14px 20px;
   overscroll-behavior-y: contain;
