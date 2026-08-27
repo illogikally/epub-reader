@@ -31,13 +31,13 @@ import {
   dbGet, dbDelete, dbAllIds, makeBookId,
   getProgress, setProgress, clearProgress,
   allTombstones, clearTombstone,
-} from './state.js?v=34';
-import * as dbx from './dropbox.js?v=34';
-import { addBookFromBuffer, renderLibrary } from './library.js?v=34';
-import { applyAll } from './theme.js?v=34';
-import { createRendition } from './reader.js?v=34';
-import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=34';
-import { dbg } from './debug.js?v=34';
+} from './state.js?v=35';
+import * as dbx from './dropbox.js?v=35';
+import { addBookFromBuffer, renderLibrary } from './library.js?v=35';
+import { applyAll } from './theme.js?v=35';
+import { createRendition } from './reader.js?v=35';
+import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=35';
+import { dbg } from './debug.js?v=35';
 
 const MANIFEST_NAME = '.reader-sync.json';
 // Past this, Dropbox wants a chunked upload session. An EPUB that big is a
@@ -403,7 +403,22 @@ export function initSyncUI() {
   // Always the settings sheet, connected or not. Syncing itself is automatic,
   // so a button that sometimes synced and sometimes opened settings was asking
   // people to guess at state they cannot see from the library.
-  btn.addEventListener('click', showSettingsModal);
+  //
+  // Sync is the second-to-last section of a long sheet, so opening it at the
+  // top would land on Text and leave the reader to scroll for what they asked
+  // for. Jump straight to it. Measured against the scroller's own box rather
+  // than offsetTop, which would be relative to whichever ancestor happens to be
+  // positioned; instant rather than smooth, because the sheet is animating in
+  // at the same time and two motions at once just reads as jitter.
+  btn.addEventListener('click', () => {
+    showSettingsModal();
+    requestAnimationFrame(() => {
+      const body = $('settings-body');
+      const head = $('sync-section');
+      if (!body || !head) return;
+      body.scrollTop += head.getBoundingClientRect().top - body.getBoundingClientRect().top - 8;
+    });
+  });
 
   // Fired by library.js on add/delete and by reader.js on closing a book.
   document.addEventListener('reader:syncRequest', () => requestSync());
