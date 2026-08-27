@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=32">
+<link rel="stylesheet" href="css/reader.css?v=33">
 </head>
 <body>
 
@@ -68,23 +68,6 @@
   <!-- kept for any code that still references it; not displayed -->
   <span id="book-title"></span>
 
-  <aside id="toc-drawer" class="drawer drawer-left">
-    <button class="drawer-close icon-circle-btn" data-side="left" title="Close">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-    </button>
-    <!-- Apple-Books-style header: cover thumb + title + reading position.
-         Doubles as the drag handle — swiping it down closes the sheet. -->
-    <div id="toc-header">
-      <span class="sheet-grabber" aria-hidden="true"></span>
-      <img id="toc-cover" alt="" hidden>
-      <div id="toc-headmeta">
-        <div id="toc-book-title"></div>
-        <div id="toc-position"><span class="toc-pos-label">Progress</span><span id="toc-position-value"></span></div>
-      </div>
-    </div>
-    <div id="toc-list"></div>
-  </aside>
-
   <!-- translation popup -->
   <div id="popup-wrapper">
     <div id="popup">
@@ -108,9 +91,31 @@
   </div>
 </div>
 
-<!-- The dimmer and the settings sheet sit outside #reader: #reader is hidden
-     on the library screen, and the sheet has to be reachable from there too. -->
+<!-- The dimmer, the TOC and the settings sheet all sit outside #reader.
+     #reader is position:fixed, which makes it a stacking context — anything
+     left inside it is trapped below #overlay's z-index no matter how high its
+     own z-index goes, which is how the TOC ended up unclickable under the
+     dimmer. #reader is also hidden on the library screen, and the settings
+     sheet has to be reachable from there. -->
 <div id="overlay"></div>
+
+<aside id="toc-drawer" class="drawer">
+  <button class="drawer-close icon-circle-btn" data-side="left" title="Close">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+  </button>
+  <!-- Apple-Books-style header: cover thumb + title + reading position.
+       Doubles as the drag handle — swiping it down closes the sheet. -->
+  <div id="toc-header">
+    <span class="sheet-grabber" aria-hidden="true"></span>
+    <img id="toc-cover" alt="" hidden>
+    <div id="toc-headmeta">
+      <div id="toc-book-title"></div>
+      <div id="toc-position"><span class="toc-pos-label">Progress</span><span id="toc-position-value"></span></div>
+    </div>
+  </div>
+  <div id="toc-list"></div>
+</aside>
+
 
 <!-- Settings — a single scrolling page of grouped rows (centered card on
      desktop, bottom sheet on phone). Rows come in three shapes: a disclosure
@@ -321,11 +326,6 @@
         <span class="set-label">Dropbox</span>
         <span class="set-value" id="sync-state"></span>
       </div>
-      <div class="set-row set-input-row">
-        <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M4 20V6a2 2 0 0 1 2-2h3.5l2 3H18a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/></svg></span>
-        <span class="set-label">Folder</span>
-        <input type="text" id="sync-folder" placeholder="/Books" spellcheck="false" autocapitalize="off">
-      </div>
     </div>
     <p class="set-footnote" id="sync-note"></p>
     <!-- Populated only when a pass fails. These messages name the Dropbox
@@ -414,6 +414,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=32"></script>
+<script type="module" src="js/main.js?v=33"></script>
 </body>
 </html>

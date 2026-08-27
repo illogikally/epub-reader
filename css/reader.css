@@ -486,18 +486,27 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 }
 #overlay.visible { opacity: 1; pointer-events: auto; }
 
+/* Centred card on desktop, bottom sheet on phone — the same shape as
+   #settings-modal, so the two sheets read as one family rather than one
+   sliding in from the side and one appearing in the middle. */
 .drawer {
-  position: fixed; top: 0; bottom: 0;
-  width: 340px; max-width: 90vw;
-  background: var(--bg); color: var(--fg); z-index: 30;
-  box-shadow: 0 0 40px rgba(0, 0, 0, 0.18);
+  position: fixed; z-index: 30;
+  top: 50%; left: 50%; transform: translate(-50%, calc(-50% + 8px));
+  width: 380px; max-width: calc(100vw - 24px);
+  max-height: 85vh;
+  background: var(--bg); color: var(--fg);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px var(--border);
   display: flex; flex-direction: column;
   overflow: hidden;
   padding: 24px 24px 40px;
-  transition: transform 0.25s ease;
+  opacity: 0; pointer-events: none;
+  transition: opacity 0.2s ease, transform 0.2s ease;
 }
-.drawer-left  { left: 0;  transform: translateX(-100%); }
-.drawer.visible { transform: translateX(0); }
+.drawer.visible {
+  opacity: 1; pointer-events: auto;
+  transform: translate(-50%, -50%);
+}
 
 /* The TOC is full-bleed: rows run edge to edge, so the drawer itself keeps
    no padding and every child brings its own. */
@@ -512,7 +521,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   border-bottom: 1px solid var(--border);
 }
 /* Drag handle for the bottom sheets. Hidden on desktop, where the TOC is a
-   side drawer and there is nothing to swipe. */
+   centred card and there is nothing to swipe. */
 .sheet-grabber {
   display: none;
   position: absolute; top: 7px; left: 50%; transform: translateX(-50%);
@@ -729,7 +738,10 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   font-size: 15px; color: var(--fg); text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
-.set-option:hover { background: var(--surface-soft); }
+/* --surface-soft (0.06) over a card composites to almost exactly --sheet-bg,
+   so a hovered option read as a hole punched through the card rather than a
+   highlight. The stronger tint is the one that actually looks hovered. */
+.set-option:hover { background: var(--surface-soft-hover); }
 .set-option-del {
   flex: none; width: 46px;
   display: flex; align-items: center; justify-content: center;
@@ -1189,18 +1201,18 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 
   /* TOC drawer hugs the bottom on phones, like the popup / settings sheet */
   .drawer {
-    top: auto; bottom: 0; left: 0; right: 0;
+    top: auto; bottom: 0; left: 0;
+    transform: translate(0, 100%);
     width: 100vw; max-width: 100vw;
     height: auto; min-height: 40vh; max-height: 95vh;
     padding: 18px 20px 28px;
-    border-radius: 8px 8px 0 0;
+    border-radius: 12px 12px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
   }
   /* Bottom sheets get their drag handle, and the TOC header makes room for it. */
   .sheet-grabber { display: block; }
   #toc-header { padding-top: 26px; }
-  .drawer-left { left: 0; transform: translateY(100%); }
-  .drawer.visible { transform: translateY(0); }
+  .drawer.visible { transform: translate(0, 0); }
 
   /* library grid more compact */
   .library-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 16px; }
