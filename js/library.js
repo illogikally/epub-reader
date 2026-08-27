@@ -7,7 +7,7 @@ import {
   $, escapeHtml,
   dbAll, dbPut, dbDelete, makeBookId,
   clearProgress, addTombstone, clearTombstone,
-} from './state.js?v=33';
+} from './state.js?v=34';
 
 // Something changed that Dropbox should hear about. A custom event rather than
 // an import so library.js stays free of sync.js — which imports from here.
@@ -22,7 +22,6 @@ export function setBookOpener(fn) { _openBookFromDb = fn; }
 
 const library = $('library');
 const libraryGrid = $('library-grid');
-const libraryCount = $('library-count');
 const fileInput = $('file-input');
 const loading = $('loading');
 
@@ -85,9 +84,6 @@ export async function renderLibrary() {
   const books = await dbAll();
   books.sort((a, b) => (b.addedAt || 0) - (a.addedAt || 0));
   libraryGrid.innerHTML = '';
-  libraryCount.textContent = books.length === 0
-    ? 'No books yet'
-    : `${books.length} book${books.length === 1 ? '' : 's'}`;
 
   // Covers only. Title and author are carried by the tooltip and the alt text
   // rather than shown, and the coverless fallback still prints the title.

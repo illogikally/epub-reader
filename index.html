@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=33">
+<link rel="stylesheet" href="css/reader.css?v=34">
 </head>
 <body>
 
@@ -20,15 +20,12 @@
 <div id="library">
   <div class="library-header">
     <h1>Library</h1>
-    <button id="btn-add-book" class="icon-circle-btn" type="button" title="Add book">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg>
-    </button>
-    <!-- Sync with Dropbox. Not set up yet, this opens Settings; set up, it
-         syncs. Settings are otherwise only reachable from inside a book. -->
-    <button id="btn-sync" class="icon-circle-btn" type="button" title="Sync with Dropbox">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M4.5 15.5a4.5 4.5 0 0 1 2-8.4 6 6 0 0 1 11.2 1.6 4 4 0 0 1 1.1 7.5"/></svg>
-    </button>
-    <span class="count" id="library-count"></span>
+    <button id="btn-add-book" class="header-btn" type="button">Add</button>
+    <!-- Always opens the Sync section of Settings. It used to sync instead once
+         Dropbox was connected, which made one button do two different things
+         depending on state you cannot see from here. Syncing happens on its own
+         anyway — on load, and after a book is added, deleted or closed. -->
+    <button id="btn-sync" class="header-btn" type="button">Sync</button>
   </div>
   <div class="library-grid" id="library-grid"></div>
   <input type="file" id="file-input" accept=".epub" hidden multiple>
@@ -143,14 +140,22 @@
         </button>
         <div class="set-options"></div>
       </div>
-      <div class="set-select" id="sel-align">
-        <button class="set-row set-disclosure" type="button" aria-expanded="false">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M3 12h12"/><path d="M3 18h18"/></svg></span>
-          <span class="set-label">Alignment</span>
-          <span class="set-value"></span>
-          <svg class="set-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-        </button>
-        <div class="set-options"></div>
+      <!-- Icon-only: the words are in the tooltips. "Default" is the one that
+           cannot be drawn as an alignment, so it is drawn as the page itself —
+           whatever the book already asks for. -->
+      <div class="set-segments">
+        <div class="set-sublabel">Alignment</div>
+        <div class="set-segment-row" id="seg-align">
+          <button class="set-segment" type="button" data-value="default" title="Default" aria-label="Default alignment">
+            <svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8"/><path d="M8 12h8"/><path d="M8 16h5"/></svg>
+          </button>
+          <button class="set-segment" type="button" data-value="left" title="Left" aria-label="Left aligned">
+            <svg viewBox="0 0 24 24"><path d="M3 5h18"/><path d="M3 10h12"/><path d="M3 15h16"/><path d="M3 20h9"/></svg>
+          </button>
+          <button class="set-segment" type="button" data-value="justify" title="Justified" aria-label="Justified">
+            <svg viewBox="0 0 24 24"><path d="M3 5h18"/><path d="M3 10h18"/><path d="M3 15h18"/><path d="M3 20h11"/></svg>
+          </button>
+        </div>
       </div>
     </div>
 
@@ -193,48 +198,37 @@
     <h2 class="set-section">Layout</h2>
     <!-- Own group so hiding it on phones takes the whole card with it. -->
     <div class="set-group desktop-only">
-      <div class="set-select" id="sel-layout">
-        <button class="set-row set-disclosure" type="button" aria-expanded="false">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M12 4v16"/></svg></span>
-          <span class="set-label">Pages</span>
-          <span class="set-value"></span>
-          <svg class="set-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-        </button>
-        <div class="set-options"></div>
+      <div class="set-segments">
+        <div class="set-sublabel">Pages</div>
+        <div class="set-segment-row" id="seg-layout">
+          <button class="set-segment" type="button" data-value="single" title="One page" aria-label="One page">
+            <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="1.5"/></svg>
+          </button>
+          <button class="set-segment" type="button" data-value="dual" title="Two pages" aria-label="Two pages">
+            <svg viewBox="0 0 24 24"><rect x="2.5" y="3" width="9" height="18" rx="1.5"/><rect x="12.5" y="3" width="9" height="18" rx="1.5"/></svg>
+          </button>
+        </div>
       </div>
     </div>
 
     <div class="set-group">
+      <!-- One control per axis. Top and bottom, or left and right, were never
+           set to different values in practice — four sliders only made the
+           card longer. -->
       <div class="set-slider">
-        <div class="set-sublabel">Margin top</div>
+        <div class="set-sublabel">Margin vertical</div>
         <div class="set-slider-row">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M4 7h16" stroke-width="3"/></svg></span>
-          <input type="range" id="pad-top" min="0" max="200" step="2" value="44" aria-label="Margin top">
-          <span class="set-value" id="pad-top-value">44px</span>
+          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M4 7h16" stroke-width="3"/><path d="M4 17h16" stroke-width="3"/></svg></span>
+          <input type="range" id="pad-v" min="0" max="200" step="2" value="44" aria-label="Vertical margin">
+          <span class="set-value" id="pad-v-value">44px</span>
         </div>
       </div>
       <div class="set-slider">
-        <div class="set-sublabel">Margin bottom</div>
+        <div class="set-sublabel">Margin horizontal</div>
         <div class="set-slider-row">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M4 17h16" stroke-width="3"/></svg></span>
-          <input type="range" id="pad-bottom" min="0" max="200" step="2" value="44" aria-label="Margin bottom">
-          <span class="set-value" id="pad-bottom-value">44px</span>
-        </div>
-      </div>
-      <div class="set-slider">
-        <div class="set-sublabel">Margin left</div>
-        <div class="set-slider-row">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M7 4v16" stroke-width="3"/></svg></span>
-          <input type="range" id="pad-left" min="0" max="200" step="2" value="24" aria-label="Margin left">
-          <span class="set-value" id="pad-left-value">24px</span>
-        </div>
-      </div>
-      <div class="set-slider">
-        <div class="set-sublabel">Margin right</div>
-        <div class="set-slider-row">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M17 4v16" stroke-width="3"/></svg></span>
-          <input type="range" id="pad-right" min="0" max="200" step="2" value="24" aria-label="Margin right">
-          <span class="set-value" id="pad-right-value">24px</span>
+          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M7 4v16" stroke-width="3"/><path d="M17 4v16" stroke-width="3"/></svg></span>
+          <input type="range" id="pad-h" min="0" max="200" step="2" value="24" aria-label="Horizontal margin">
+          <span class="set-value" id="pad-h-value">24px</span>
         </div>
       </div>
     </div>
@@ -414,6 +408,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=33"></script>
+<script type="module" src="js/main.js?v=34"></script>
 </body>
 </html>

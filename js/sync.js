@@ -31,13 +31,13 @@ import {
   dbGet, dbDelete, dbAllIds, makeBookId,
   getProgress, setProgress, clearProgress,
   allTombstones, clearTombstone,
-} from './state.js?v=33';
-import * as dbx from './dropbox.js?v=33';
-import { addBookFromBuffer, renderLibrary } from './library.js?v=33';
-import { applyAll } from './theme.js?v=33';
-import { createRendition } from './reader.js?v=33';
-import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=33';
-import { dbg } from './debug.js?v=33';
+} from './state.js?v=34';
+import * as dbx from './dropbox.js?v=34';
+import { addBookFromBuffer, renderLibrary } from './library.js?v=34';
+import { applyAll } from './theme.js?v=34';
+import { createRendition } from './reader.js?v=34';
+import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=34';
+import { dbg } from './debug.js?v=34';
 
 const MANIFEST_NAME = '.reader-sync.json';
 // Past this, Dropbox wants a chunked upload session. An EPUB that big is a
@@ -397,14 +397,13 @@ export function initSyncUI() {
   onStatus(s => {
     btn.classList.toggle('syncing', s.state === 'syncing');
     btn.classList.toggle('sync-error', s.state === 'error');
-    btn.title = s.message || (isReady() ? 'Sync with Dropbox' : 'Set up Dropbox sync');
+    btn.title = s.message || (isReady() ? 'Dropbox sync' : 'Set up Dropbox sync');
   });
 
-  btn.addEventListener('click', () => {
-    // Nothing to sync with yet — send them where they can say so.
-    if (!isReady()) { showSettingsModal(); return; }
-    syncNow();
-  });
+  // Always the settings sheet, connected or not. Syncing itself is automatic,
+  // so a button that sometimes synced and sometimes opened settings was asking
+  // people to guess at state they cannot see from the library.
+  btn.addEventListener('click', showSettingsModal);
 
   // Fired by library.js on add/delete and by reader.js on closing a book.
   document.addEventListener('reader:syncRequest', () => requestSync());
