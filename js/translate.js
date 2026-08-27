@@ -11,15 +11,15 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=20';
+import { openBookFromDb } from './reader.js?v=21';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=20';
+} from './state.js?v=21';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=20';
+} from './touchselect.js?v=21';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -66,7 +66,6 @@ async function* streamSSE(url, headers, body) {
 }
 
 async function* streamOpenAI(cfg, messages, system, apiKey) {
-  console.log(cfg);
   const msgs = system ? [{ role: 'system', content: system }, ...messages] : messages;
   const reasoningEffort = 'none'
   const body = {

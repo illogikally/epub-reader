@@ -14,7 +14,7 @@
 // immediately without a reload.
 // ============================================================
 
-import { settings } from './state.js?v=20';
+import { settings } from './state.js?v=21';
 
 const URL_FLAG = (() => {
   try {
@@ -25,7 +25,7 @@ const URL_FLAG = (() => {
 
 // Bump on every change that gets pushed. Rounds were lost to testing stale
 // builds; this makes "is the phone running what I just wrote" readable on screen.
-const BUILD = 20;
+const BUILD = 21;
 
 // 24, not 12: repeated 'attached to chapter' lines nearly buried the one line
 // that mattered last round.
