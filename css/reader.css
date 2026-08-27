@@ -702,6 +702,13 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-select.open > .set-disclosure .set-chevron { transform: rotate(90deg); }
 .set-options { display: none; }
 .set-select.open > .set-options { display: block; }
+/* A list short enough to show in full, with no disclosure to hide it. */
+.set-options-inline { display: block; }
+.set-model-list > .set-sublabel { padding: 11px 16px 3px; }
+.set-option-empty {
+  padding: 12px 16px 12px 26px;
+  font-size: 15px; color: var(--set-muted);
+}
 /* Wrapper so the label and an optional trash button can sit side by side and
    both stay real <button>s. The hairline lives here rather than on the label,
    so it spans the trash button too. */
@@ -749,7 +756,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   display: flex; align-items: center; gap: 12px;
   min-height: 42px;
 }
-.set-field + .set-field::before {
+.set-field + .set-field::before,
+.set-field + .set-select-field::before,
+.set-select-field + .set-field::before {
   content: ''; position: absolute; top: 0; left: 0; right: 0;
   height: 1px; background: var(--set-line);
 }
@@ -765,24 +774,23 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 }
 .set-field input::placeholder { color: var(--set-muted); }
 
-/* Compact picker for a choice too small to deserve a disclosure. Buttons share
-   the leftover width so five of them still fit on a narrow phone. */
-.set-seg {
-  flex: 1; min-width: 0;
-  display: flex; gap: 2px;
-  background: var(--surface-soft);
-  border-radius: 9px; padding: 3px;
+/* A disclosure select sized to sit in a form alongside .set-field rows: the
+   label takes the same 86px gutter, and both it and its options lose the card
+   padding, since .set-form already supplies it. */
+.set-select-field { position: relative; }
+.set-select-field > .set-disclosure {
+  padding: 0; min-height: 42px; font-size: 14px;
 }
-.set-seg button {
-  flex: 1; min-width: 0;
-  padding: 5px 4px; border-radius: 7px;
-  font-size: 12px; color: var(--set-muted);
-  transition: background 0.12s ease, color 0.12s ease;
+.set-select-field > .set-disclosure .set-label {
+  flex: none; width: 86px; color: var(--set-muted);
 }
-.set-seg button.active {
-  background: var(--card-bg); color: var(--fg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+.set-select-field > .set-disclosure .set-value {
+  flex: 1; max-width: none; text-align: right; color: var(--fg);
 }
+.set-select-field .set-option {
+  padding: 9px 0; font-size: 14px; min-height: 0;
+}
+.set-select-field .set-option-row::before { left: 0; }
 
 .set-btn {
   width: 100%; margin-top: 12px; padding: 11px;

@@ -20,8 +20,8 @@
 // Desktop is untouched — everything here no-ops on a fine pointer.
 // ============================================================
 
-import { $, isCoarsePointer, runtime } from './state.js?v=27';
-import { dbg, dbgStatus } from './debug.js?v=27';
+import { $, isCoarsePointer, runtime } from './state.js?v=29';
+import { dbg, dbgStatus } from './debug.js?v=29';
 
 const LONG_PRESS_MS  = 400;
 // Drift allowed while waiting out the long press. Generous on purpose: a finger
@@ -32,10 +32,13 @@ const LONG_PRESS_MS  = 400;
 const HOLD_TOLERANCE = 18;
 // Separate question, asked at touchend: was this a tap or a drag?
 const MOVE_TOLERANCE = 10;
-// Swipe-to-turn-page: a quick, decidedly horizontal flick.
-const SWIPE_MS       = 600;
-const SWIPE_MIN_X    = 60;
-const SWIPE_RATIO    = 1.5;   // |dx| must beat |dy| by this much
+// Swipe-to-turn-page: a horizontal flick. Deliberately loose — a page turn is
+// cheap to undo, and nothing else competes for the gesture: a selection drag
+// clears `swipe` outright, and a tap can only travel MOVE_TOLERANCE (10px),
+// well short of SWIPE_MIN_X.
+const SWIPE_MS       = 900;   // slower, lazier flicks still count
+const SWIPE_MIN_X    = 35;    // about a thumb-width of travel
+const SWIPE_RATIO    = 1.2;   // |dx| must beat |dy| by this much
 
 // The one live selection, or null. Shape matches what translate.js needs:
 // { text, range, doc, ifr }.

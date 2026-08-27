@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=27">
+<link rel="stylesheet" href="css/reader.css?v=29">
 </head>
 <body>
 
@@ -140,7 +140,7 @@
           <div class="set-sublabel">Character spacing</div>
           <div class="set-slider-row">
             <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M3 5v14"/><path d="M21 5v14"/><path d="M7 12h10"/><path d="m10 9-3 3 3 3"/><path d="m14 9 3 3-3 3"/></svg></span>
-            <input type="range" id="letter-spacing" min="-1" max="6" step="0.1" value="0" aria-label="Character spacing">
+            <input type="range" id="letter-spacing" min="-4" max="6" step="0.1" value="0" aria-label="Character spacing">
             <span class="set-value" id="letter-spacing-value">0px</span>
           </div>
         </div>
@@ -231,14 +231,11 @@
       <!-- ===== TRANSLATION ===== -->
       <h2 class="set-section">Translation</h2>
       <div class="set-group">
-        <div class="set-select" id="sel-model">
-          <button class="set-row set-disclosure" type="button" aria-expanded="false">
-            <span class="set-icon"><svg viewBox="0 0 24 24"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg></span>
-            <span class="set-label">Model</span>
-            <span class="set-value"></span>
-            <svg class="set-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
-          </button>
-          <div class="set-options"></div>
+        <!-- The model list is always open: it is short, and hiding it behind a
+             disclosure also hid each row's remove button. -->
+        <div class="set-model-list" id="model-card">
+          <div class="set-sublabel">Model</div>
+          <div class="set-options set-options-inline"></div>
         </div>
         <div class="set-row set-input-row">
           <span class="set-icon"><svg viewBox="0 0 24 24"><circle cx="7.5" cy="15.5" r="3.5"/><path d="m10 13 8.5-8.5"/><path d="m16 7 2 2"/><path d="m19 4 2 2"/></svg></span>
@@ -265,9 +262,13 @@
               <span>Model ID</span>
               <input id="nm-model" placeholder="provider/model" spellcheck="false">
             </label>
-            <div class="set-field">
-              <span>Reasoning</span>
-              <div class="set-seg" id="nm-reasoning"></div>
+            <div class="set-select set-select-field" id="nm-reasoning">
+              <button class="set-row set-disclosure" type="button" aria-expanded="false">
+                <span class="set-label">Reasoning</span>
+                <span class="set-value"></span>
+                <svg class="set-chevron" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></svg>
+              </button>
+              <div class="set-options"></div>
             </div>
             <p class="set-form-error" id="nm-error" hidden></p>
             <button type="button" class="set-btn" id="nm-add">Add model</button>
@@ -349,6 +350,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=27"></script>
+<script type="module" src="js/main.js?v=29"></script>
 </body>
 </html>

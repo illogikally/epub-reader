@@ -8,18 +8,19 @@
 export const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const GROQ_KEY_REF = 'GROQ_API_KEY';
 
-// Groq serves every model over the same OpenAI-compatible endpoint, but they do
-// not all accept the same request. `reasoning_effort` is the one that varies:
+// Groq serves its text models over one OpenAI-compatible chat-completions
+// endpoint — its speech-to-text and TTS models live on other paths, and this
+// reader cannot use those. Text models share the endpoint but not the request: `reasoning_effort` is the one that varies:
 // gpt-oss takes low/medium/high, qwen3 takes none, and llama/gemma/mixtral
 // reject the parameter outright. Sending it to a model that doesn't support it
 // fails the request, so it is a per-model setting rather than something guessed
 // from the model's name.
 export const REASONING_MODES = [
-  { value: 'off',    label: 'off',  title: "Don't send reasoning_effort — llama, gemma, mixtral, kimi" },
-  { value: 'none',   label: 'none', title: 'reasoning_effort: none — qwen3' },
-  { value: 'low',    label: 'low',  title: 'reasoning_effort: low — gpt-oss' },
-  { value: 'medium', label: 'med',  title: 'reasoning_effort: medium — gpt-oss' },
-  { value: 'high',   label: 'high', title: 'reasoning_effort: high — gpt-oss' },
+  { value: 'off',    label: 'off',    hint: 'parameter omitted — llama, gemma, mixtral, kimi' },
+  { value: 'none',   label: 'none',   hint: 'qwen3' },
+  { value: 'low',    label: 'low',    hint: 'gpt-oss' },
+  { value: 'medium', label: 'medium', hint: 'gpt-oss' },
+  { value: 'high',   label: 'high',   hint: 'gpt-oss' },
 ];
 export const DEFAULT_REASONING = 'off';   // the only value every model accepts
 

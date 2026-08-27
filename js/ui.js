@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=27';
+} from './state.js?v=29';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=27';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=27';
-import { scrollTocToCurrent } from './translate.js?v=27';
-import { syncDebugPanel } from './debug.js?v=27';
+} from './theme.js?v=29';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=29';
+import { scrollTocToCurrent } from './translate.js?v=29';
+import { syncDebugPanel } from './debug.js?v=29';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -69,13 +69,23 @@ function bindDisclosure(root) {
   };
   disclosure.addEventListener('click', () => {
     const willOpen = !root.classList.contains('open');
-    // Accordion: only one panel open at a time.
+    // Accordion: one panel open at a time — but a nested panel must not
+    // collapse the panel it lives in, so ancestors of `root` are left alone.
     document.querySelectorAll('#settings-body .set-select.open').forEach(s => {
+      if (s === root || s.contains(root)) return;
       s.classList.remove('open');
       s.querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
     });
     root.classList.toggle('open', willOpen);
     disclosure.setAttribute('aria-expanded', String(willOpen));
+    // Collapsing a panel collapses anything nested inside it, so reopening it
+    // doesn't reveal a sub-panel the user left open a while ago.
+    if (!willOpen) {
+      root.querySelectorAll('.set-select.open').forEach(s => {
+        s.classList.remove('open');
+        s.querySelector('.set-disclosure').setAttribute('aria-expanded', 'false');
+      });
+    }
   });
   return close;
 }
@@ -90,7 +100,8 @@ function bindSelectRow(id, { options, get, set, remove, emptyLabel }) {
   const valueEl = root.querySelector('.set-value');
   const list = root.querySelector('.set-options');
   const optionsOf = () => (typeof options === 'function' ? options() : options);
-  const close = bindDisclosure(root);
+  // No disclosure row means the list is always shown (see .set-options-inline).
+  const close = root.querySelector('.set-disclosure') ? bindDisclosure(root) : () => {};
 
   const refresh = () => {
     const opts = optionsOf();
@@ -131,9 +142,16 @@ function bindSelectRow(id, { options, get, set, remove, emptyLabel }) {
 
       list.appendChild(row);
     });
+    if (!opts.length && emptyLabel) {
+      const empty = document.createElement('div');
+      empty.className = 'set-option-empty';
+      empty.textContent = emptyLabel;
+      list.appendChild(empty);
+    }
     if (valueEl) {
       const hit = opts.find(o => o.value === cur);
-      valueEl.textContent = hit ? hit.label : (opts.length ? '' : (emptyLabel || ''));
+      // `short` lets a long option label collapse to something that fits the row.
+      valueEl.textContent = hit ? (hit.short || hit.label) : (opts.length ? '' : (emptyLabel || ''));
     }
   };
 
@@ -243,9 +261,9 @@ function initModelSettings() {
     persistSettings();
   });
 
-  const refreshModelRow = bindSelectRow('sel-model', {
+  const refreshModelRow = bindSelectRow('model-card', {
     // Every model is removable, so the list can legitimately end up empty.
-    emptyLabel: 'none — add one below',
+    emptyLabel: 'No models — add one below.',
     options: () => allModels().map(m => ({
       value: m.id,
       label: m.model,
@@ -265,20 +283,14 @@ function initModelSettings() {
 
   // ---- Add-model form ----
   const closeAddForm = bindDisclosure($('add-model'));
-  const seg = $('nm-reasoning');
   let reasoning = DEFAULT_REASONING;
-  const syncReasoning = () => seg.querySelectorAll('button').forEach(b =>
-    b.classList.toggle('active', b.dataset.value === reasoning));
-  REASONING_MODES.forEach(m => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.value = m.value;
-    b.textContent = m.label;
-    b.title = m.title;
-    b.addEventListener('click', () => { reasoning = m.value; syncReasoning(); });
-    seg.appendChild(b);
+  const syncReasoning = bindSelectRow('nm-reasoning', {
+    options: REASONING_MODES.map(m => ({
+      value: m.value, label: `${m.label} — ${m.hint}`, short: m.label,
+    })),
+    get: () => reasoning,
+    set: v => { reasoning = v; },
   });
-  syncReasoning();
 
   const submit = () => {
     const id = modelInput.value.trim();

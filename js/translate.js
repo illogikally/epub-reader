@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=27';
+import { openBookFromDb } from './reader.js?v=29';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=27';
+} from './state.js?v=29';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=27';
+} from './touchselect.js?v=29';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
