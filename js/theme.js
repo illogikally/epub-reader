@@ -4,7 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=33';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=34';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
@@ -13,10 +13,12 @@ export function applyChromeTheme() {
   root.style.setProperty('--fg', settings.fg);
   root.style.setProperty('--chrome-fg', settings.fg);
   root.style.setProperty('--chrome-hover', settings.fg);
-  root.style.setProperty('--pad-top', settings.padTop + 'px');
-  root.style.setProperty('--pad-bottom', settings.padBottom + 'px');
-  root.style.setProperty('--pad-left', settings.padLeft + 'px');
-  root.style.setProperty('--pad-right', settings.padRight + 'px');
+  // Still four CSS variables — everything downstream reads them per edge — but
+  // one setting drives each axis.
+  root.style.setProperty('--pad-top', settings.padV + 'px');
+  root.style.setProperty('--pad-bottom', settings.padV + 'px');
+  root.style.setProperty('--pad-left', settings.padH + 'px');
+  root.style.setProperty('--pad-right', settings.padH + 'px');
   document.body.classList.toggle('dark-chrome', !!settings.dark);
   // Mark the swatch matching the current bg/fg pair, if any
   document.querySelectorAll('#color-options .theme-swatch').forEach(b => {

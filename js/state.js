@@ -40,10 +40,8 @@ const defaultSettings = {
   letterSpacing: 0,
   wordSpacing: 0,
   textAlign: 'default',   // 'default' | 'left' | 'justify'
-  padTop: 44,
-  padBottom: 44,
-  padLeft: 24,
-  padRight: 24,
+  padV: 44,           // top and bottom
+  padH: 24,           // left and right
   bg: '#faf6ef',
   fg: '#2a2520',
   dark: false,
@@ -103,6 +101,15 @@ const _loaded = (() => {
         ...SEED_MODELS.map(m => ({ ...m })),
         ...normalise(saved.customModels, guess),
       ];
+    }
+    // Margins used to be four independent values. Without carrying them over
+    // the whitelist above would simply drop the old keys and everyone's
+    // margins would silently snap back to the defaults.
+    if (saved.padV === undefined && typeof saved.padTop === 'number') {
+      merged.padV = saved.padTop;
+    }
+    if (saved.padH === undefined && typeof saved.padLeft === 'number') {
+      merged.padH = saved.padLeft;
     }
     // Models used to be picked by index into a fixed array. The list is now
     // user-editable, so the selection is an id — carry the old index over.
