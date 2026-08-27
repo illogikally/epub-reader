@@ -11,15 +11,15 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=21';
+import { openBookFromDb } from './reader.js?v=22';
 import {
   $, escapeHtml, settings, runtime,
   MODELS, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=21';
+} from './state.js?v=22';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=21';
+} from './touchselect.js?v=22';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -739,9 +739,9 @@ let tocLinks = [];        // rows in render order, each with a .spineIndex
 let currentTocLink = null;
 
 // Where each spine item starts, as a fraction of the book. Derived from the
-// zip's uncompressed byte sizes — the only measure of chapter length that is
-// free: book.locations.generate() would have to parse every section (see the
-// note in openBookFromDb).
+// zip's uncompressed byte sizes — the measure of chapter length that costs
+// nothing, used until book.locations has been generated (see primeLocations
+// in reader.js).
 function spineStartFractions(book) {
   try {
     const zip = book?.archive?.zip;
@@ -763,6 +763,69 @@ function spineStartFractions(book) {
     for (const size of sizes) { fractions.push(run / total); run += size; }
     return fractions;
   } catch { return null; }
+}
+
+// Memoised per book: the table above is derived from zip metadata and never
+// changes for a given book. Computed on first use rather than only in
+// buildToc, because buildToc runs after rendition.display() and the first
+// relocated event therefore beats it.
+let progressBook = null;
+let progressFractions = null;
+function fractionsFor(book) {
+  if (!book) return null;
+  if (book !== progressBook) {
+    progressBook = book;
+    progressFractions = spineStartFractions(book);
+  }
+  return progressFractions;
+}
+
+const clamp01 = n => Math.min(1, Math.max(0, n));
+
+// How far into the book `loc` is, as 0..1, or null if it can't be worked out.
+//
+// NOT loc.start.percentage on its own: epubjs derives that from book.locations,
+// and with no locations generated locationFromCfi returns -1, which
+// percentageFromLocation turns into a flat 0. So it is exact only once
+// locations exist; until then we interpolate between the byte-size fractions
+// above using the page offset within the current section. displayed.page /
+// .total come from the layout and are recomputed on every relayout, so the
+// estimate follows the reader's font and margin settings for free.
+export function readingProgress(loc) {
+  const start = loc?.start;
+  const index = start?.index;
+  if (typeof index !== 'number' || index < 0) return null;
+
+  const book = runtime.book;
+  if (book?.locations?.length?.() > 0 && typeof start.percentage === 'number') {
+    return clamp01(start.percentage);
+  }
+
+  const fractions = fractionsFor(book);
+  const spineLength = book?.spine?.spineItems?.length || 0;
+  let from, to;
+  if (fractions && fractions[index] != null) {
+    from = fractions[index];
+    to = index + 1 < fractions.length ? fractions[index + 1] : 1;
+  } else if (spineLength) {
+    from = index / spineLength;
+    to = (index + 1) / spineLength;
+  } else {
+    return null;
+  }
+
+  // (page - 1) / (pages - 1): the first page of a section reads as its start
+  // and the last reads as the next section's start, so the first page of the
+  // book is exactly 0% and the last is exactly 100%. Dividing by `pages`
+  // instead would leave the book topping out short of 100 — badly so when the
+  // final section is only a page or two long.
+  const page = start.displayed?.page;
+  const pages = start.displayed?.total;
+  const within = (typeof page === 'number' && typeof pages === 'number' && pages > 1)
+    ? clamp01((page - 1) / (pages - 1))
+    : 0;
+
+  return clamp01(from + (to - from) * within);
 }
 
 // Spine index for a TOC href, or -1. spine.get() handles fragments and the
@@ -791,7 +854,7 @@ export function buildToc(toc, meta = {}) {
   tocList.innerHTML = '';
   tocLinks = [];
   currentTocLink = null;
-  const fractions = spineStartFractions(book);
+  const fractions = fractionsFor(book);
 
   const render = (items, depth = 0) => {
     items.forEach(item => {

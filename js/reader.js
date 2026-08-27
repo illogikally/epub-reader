@@ -7,19 +7,19 @@
 //     double-click word selection without false chrome toggles).
 // ============================================================
 
-import { settings, runtime, $, dbGet } from './state.js?v=21';
-import { applyBookTheme, injectBookStyle } from './theme.js?v=21';
+import { settings, runtime, $, dbGet, dbPut } from './state.js?v=22';
+import { applyBookTheme, injectBookStyle } from './theme.js?v=22';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
-  buildToc, setTocPosition, markTocCurrent,
-} from './translate.js?v=21';
-import { renderLibrary } from './library.js?v=21';
+  buildToc, setTocPosition, markTocCurrent, readingProgress,
+} from './translate.js?v=22';
+import { renderLibrary } from './library.js?v=22';
 import {
   initTouchSelection, clearTouchSelection, onBookSwipe,
-} from './touchselect.js?v=21';
-import { dbg } from './debug.js?v=21';
+} from './touchselect.js?v=22';
+import { dbg } from './debug.js?v=22';
 
 const library = $('library');
 const reader = $('reader');
@@ -78,11 +78,10 @@ export async function openBookFromDb(id) {
 
     const nav = await runtime.book.loaded.navigation;
     buildToc(nav.toc || [], { title: record.title, cover: record.cover });
-    // Note: book.locations.generate() used to run here to power a "page N /
-    // total" indicator, but in epubjs 0.3.x it parses every spine section on
-    // the main thread (5–30s of bursty work for a novel) and starves iOS's
-    // selection-handle drag handling, freezing the UI mid-gesture. We use
-    // loc.start.percentage instead — free from epubjs on every relocate.
+    // Progress is already on screen from the byte-size estimate. This loads the
+    // cached locations, or generates them off the critical path, and swaps in
+    // the exact figure when it lands.
+    primeLocations(record);
   } catch (err) {
     console.error(err);
     alert('Could not open this EPUB:\n' + err.message);
@@ -113,11 +112,11 @@ export async function closeBook() {
   document.title = 'Xulgon'
 }
 
-// Spine-position percentage from epubjs. Available on every relocated event
-// without book.locations.generate() — that call is too expensive on iOS
-// (see openBookFromDb).
+// How far into the book we are. readingProgress() prefers epubjs's own exact
+// figure once book.locations exists and falls back to a byte-size estimate
+// until then — see the note on it in translate.js.
 function updatePageIndicator(loc) {
-  const pct = loc?.start?.percentage;
+  const pct = readingProgress(loc);
   if (typeof pct === 'number' && pct >= 0 && pct <= 1) {
     pageIndicator.textContent = `${Math.round(pct * 100)}%`;
     setTocPosition(pct);
@@ -126,6 +125,69 @@ function updatePageIndicator(loc) {
     setTocPosition(null);
   }
   markTocCurrent(loc?.start?.index);
+}
+
+// Re-run the progress readout against wherever we currently are. Called when
+// locations arrive, so the number sharpens in place without waiting for the
+// reader to turn a page.
+function refreshProgress() {
+  try {
+    const loc = runtime.rendition?.currentLocation();
+    if (loc?.start) updatePageIndicator(loc);
+  } catch {}
+}
+
+const whenIdle = (fn) => (typeof requestIdleCallback === 'function')
+  ? requestIdleCallback(fn, { timeout: 3000 })
+  : setTimeout(fn, 1200);
+
+// book.locations turns the progress readout from an estimate into epubjs's own
+// exact figure. Generating it parses every section's text, which is why it does
+// not block opening the book: the estimate is already on screen and correct
+// enough, and this swaps in the precise number a few seconds later.
+//
+// Locations depend on the book's text alone — not on layout — so font size,
+// margins and single/dual page never invalidate them. Generate once, cache on
+// the book record, load instantly from then on.
+async function primeLocations(record) {
+  const book = runtime.book;
+  if (!book?.locations) return;
+
+  if (record.locations) {
+    try {
+      book.locations.load(record.locations);
+      dbg('locations: loaded', book.locations.length(), 'from cache');
+      refreshProgress();
+      return;
+    } catch (err) {
+      dbg('locations: cache unusable —', err.message);
+    }
+  }
+
+  whenIdle(async () => {
+    // The reader may have gone back to the library, or opened another book,
+    // while we waited for an idle slot.
+    if (runtime.book !== book || runtime.currentBookKey !== record.id) return;
+    try {
+      dbg('locations: generating…');
+      // 1600 chars per location: ~1.2k entries for a novel instead of the ~12k
+      // the default 150 would produce, at precision far finer than the 1% shown.
+      await book.locations.generate(1600);
+      if (runtime.book !== book || runtime.currentBookKey !== record.id) return;
+      dbg('locations: generated', book.locations.length());
+      refreshProgress();
+
+      // Re-read rather than re-putting the record we were handed: its `data`
+      // buffer has already been through window.ePub().
+      const fresh = await dbGet(record.id);
+      if (!fresh) return;
+      fresh.locations = book.locations.save();
+      await dbPut(fresh);
+      dbg('locations: cached');
+    } catch (err) {
+      dbg('locations: failed —', err.message);   // estimate stays in place
+    }
+  });
 }
 
 export function createRendition() {

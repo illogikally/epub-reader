@@ -10,13 +10,13 @@
 
 import {
   $, settings, runtime, persistSettings, MODELS, attachPullToDismiss,
-} from './state.js?v=21';
+} from './state.js?v=22';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=21';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=21';
-import { scrollTocToCurrent } from './translate.js?v=21';
-import { syncDebugPanel } from './debug.js?v=21';
+} from './theme.js?v=22';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=22';
+import { scrollTocToCurrent } from './translate.js?v=22';
+import { syncDebugPanel } from './debug.js?v=22';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
