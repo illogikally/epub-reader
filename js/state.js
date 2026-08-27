@@ -3,29 +3,17 @@
 // and shared mutable runtime state.
 // ============================================================
 
-// Inference protocols we can speak. Must stay in step with VENDORS in
-// translate.js — the settings UI builds its type picker from this list.
-export const MODEL_FORMATS = ['openai', 'google'];
+// Every model is a Groq model, so the endpoint and the key it is filed under
+// are constants rather than per-model fields.
+export const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
+export const GROQ_KEY_REF = 'GROQ_API_KEY';
 
 // Shipped models. Users add their own alongside these; only custom ones can be
-// removed, so there is always something to fall back to.
+// removed, so there is always something to fall back to. A model is nothing but
+// the id Groq knows it by — that string is also its label in the UI.
 export const BUILTIN_MODELS = [
-  {
-    id: 'groq-gpt-oss-120b',
-    name: 'groq · openai/gpt-oss-120b',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'openai/gpt-oss-120b',
-    format: 'openai',
-    keyRef: 'GROQ_API_KEY',
-  },
-  {
-    id: 'groq-qwen3-8-27b',
-    name: 'groq · qwen3.8-27b',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'qwen/qwen3.8-27b',
-    format: 'openai',
-    keyRef: 'GROQ_API_KEY',
-  },
+  { id: 'groq-gpt-oss-120b', model: 'openai/gpt-oss-120b' },
+  { id: 'groq-qwen3-8-27b',  model: 'qwen/qwen3.8-27b' },
 ];
 export const DEFAULT_MODEL_ID = 'groq-qwen3-8-27b';
 export const MAX_TOKENS = 1024;
@@ -64,7 +52,13 @@ const _loaded = (() => {
       if (saved[k] !== undefined) merged[k] = saved[k];
     }
     merged.apiKeys = { ...defaultSettings.apiKeys, ...(saved.apiKeys || {}) };
-    if (!Array.isArray(merged.customModels)) merged.customModels = [];
+    // Custom models used to carry name/url/format/keyRef from when other
+    // vendors were configurable. Only the model id survives; anything that
+    // pointed elsewhere is kept rather than deleted behind the user's back —
+    // it will fail visibly against Groq and can be removed from the list.
+    merged.customModels = (Array.isArray(merged.customModels) ? merged.customModels : [])
+      .filter(m => m && typeof m.model === 'string' && m.model.trim())
+      .map(m => ({ id: m.id, model: m.model.trim(), custom: true }));
     // Models used to be picked by index into a fixed array. The list is now
     // user-editable, so the selection is an id — carry the old index over.
     if (saved.selectedModelId === undefined && typeof saved.selectedModelIdx === 'number') {
@@ -98,23 +92,14 @@ export function currentModel() {
       || null;
 }
 
-// API keys are filed under the endpoint's host, not the model, so every model
-// pointed at the same provider shares one key and adding a second Groq model
-// doesn't mean pasting the key again. Built-ins keep their historical
-// GROQ_API_KEY ref so existing saved keys keep working.
-export function keyRefForUrl(url) {
-  try {
-    const host = new URL(url).host;
-    return host || 'CUSTOM_API_KEY';
-  } catch { return 'CUSTOM_API_KEY'; }
-}
-
-export function addCustomModel({ name, url, model, format }) {
+// Returns the new entry, or null if that model id is already in the list.
+export function addCustomModel(modelId) {
+  const model = String(modelId || '').trim();
+  if (!model) return null;
+  if (allModels().some(m => m.model.toLowerCase() === model.toLowerCase())) return null;
   const entry = {
     id: 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
-    name, url, model,
-    format: MODEL_FORMATS.includes(format) ? format : MODEL_FORMATS[0],
-    keyRef: keyRefForUrl(url),
+    model,
     custom: true,
   };
   settings.customModels.push(entry);

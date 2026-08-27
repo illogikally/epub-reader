@@ -10,14 +10,14 @@
 
 import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
-  MODEL_FORMATS, allModels, currentModel, addCustomModel, removeCustomModel,
-} from './state.js?v=25';
+  GROQ_KEY_REF, allModels, currentModel, addCustomModel, removeCustomModel,
+} from './state.js?v=26';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=25';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=25';
-import { scrollTocToCurrent } from './translate.js?v=25';
-import { syncDebugPanel } from './debug.js?v=25';
+} from './theme.js?v=26';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=26';
+import { scrollTocToCurrent } from './translate.js?v=26';
+import { syncDebugPanel } from './debug.js?v=26';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -54,6 +54,8 @@ export function hideAllDrawers() {
 // time. Returns a refresh() that re-reads the options and the selection.
 // ============================================================
 const CHECK_SVG = '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>';
+const TRASH_SVG = '<svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/>'
+                + '<path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5"/><path d="M14 11v5"/></svg>';
 
 // Makes a .set-select row expand and collapse. Used both by the option lists
 // below and by rows that reveal something else entirely (the add-model form) —
@@ -77,7 +79,11 @@ function bindDisclosure(root) {
   return close;
 }
 
-function bindSelectRow(id, { options, get, set }) {
+// `remove(value)`, when given, puts a trash button on every option flagged
+// `removable`. The option row is a wrapper rather than one element because the
+// label and the trash are both real <button>s — nesting them would be invalid
+// markup and would cost keyboard activation.
+function bindSelectRow(id, { options, get, set, remove }) {
   const root = $(id);
   if (!root) return () => {};
   const valueEl = root.querySelector('.set-value');
@@ -90,6 +96,9 @@ function bindSelectRow(id, { options, get, set }) {
     const cur = String(get());
     list.innerHTML = '';
     opts.forEach(o => {
+      const row = document.createElement('div');
+      row.className = 'set-option-row';
+
       const el = document.createElement('button');
       el.type = 'button';
       el.className = 'set-option';
@@ -103,7 +112,23 @@ function bindSelectRow(id, { options, get, set }) {
         refresh();
         close();
       });
-      list.appendChild(el);
+      row.appendChild(el);
+
+      if (remove && o.removable) {
+        const del = document.createElement('button');
+        del.type = 'button';
+        del.className = 'set-option-del';
+        del.title = `Remove ${o.label}`;
+        del.setAttribute('aria-label', del.title);
+        del.innerHTML = TRASH_SVG;
+        del.addEventListener('click', (e) => {
+          e.stopPropagation();   // removing is not also selecting
+          if (remove(o.value) !== false) refresh();
+        });
+        row.appendChild(del);
+      }
+
+      list.appendChild(row);
     });
     if (valueEl) {
       const hit = opts.find(o => o.value === cur);
@@ -208,108 +233,60 @@ function bindColorPair(colorId, hexId, key) {
 // ============================================================
 function initModelSettings() {
   const keyInput = $('key-model');
-  const keyNote = $('key-note');
-  const removeCard = $('del-model');
+  const modelInput = $('nm-model');
+  const errEl = $('nm-error');
 
-  // Keys are filed per endpoint host, so the row shows whichever key the
-  // selected model will actually send.
-  const refreshKeyRow = () => {
-    const ref = currentModel()?.keyRef || '';
-    keyInput.value = settings.apiKeys[ref] || '';
-    keyInput.placeholder = ref ? 'key for ' + ref : 'paste key';
-    keyNote.textContent = ref
-      ? `Saved in this browser under "${ref}" and shared by every model on that host. `
-        + 'Requests stream straight from the page to the endpoint — no backend.'
-      : '';
-  };
+  keyInput.value = settings.apiKeys[GROQ_KEY_REF] || '';
   keyInput.addEventListener('change', () => {
-    const ref = currentModel()?.keyRef;
-    if (!ref) return;
-    settings.apiKeys[ref] = keyInput.value.trim();
+    settings.apiKeys[GROQ_KEY_REF] = keyInput.value.trim();
     persistSettings();
   });
 
   const refreshModelRow = bindSelectRow('sel-model', {
+    // Built-ins carry no trash button: something has to stay selectable.
     options: () => allModels().map(m => ({
       value: m.id,
-      label: m.custom ? `${m.name} · custom` : m.name,
+      label: m.model,
+      removable: !!m.custom,
     })),
     get: () => settings.selectedModelId,
     set: id => {
       settings.selectedModelId = id;
       persistSettings();
-      refreshKeyRow();
     },
-  });
-
-  const refreshRemoveRow = bindSelectRow('del-model', {
-    // Built-ins are not listed: something has to remain selectable.
-    options: () => settings.customModels.map(m => ({ value: m.id, label: m.name })),
-    get: () => '',
-    set: id => {
+    remove: id => {
       const model = settings.customModels.find(m => m.id === id);
-      if (!model || !confirm(`Remove "${model.name}"?`)) return;
-      removeCustomModel(id);
-      refreshAll();
+      if (!model || !confirm(`Remove "${model.model}"?`)) return false;
+      removeCustomModel(id);   // falls back to the default if it was selected
     },
   });
 
-  const refreshAll = () => {
-    refreshModelRow();
-    refreshRemoveRow();
-    refreshKeyRow();
-    removeCard.hidden = settings.customModels.length === 0;
-    if (removeCard.hidden) removeCard.classList.remove('open');
-  };
-
-  // ---- Add-model form ----
+  // ---- Add-model form: one field, the id Groq knows the model by ----
   const closeAddForm = bindDisclosure($('add-model'));
-  const seg = $('nm-format');
-  let format = MODEL_FORMATS[0];
-  const urlInput = $('nm-url');
-  // Each protocol wants a different shape of endpoint, so the hint follows it.
-  const URL_HINTS = {
-    openai: 'https://…/v1/chat/completions',
-    google: 'https://generativelanguage.googleapis.com/v1beta',
-  };
-  const syncFormat = () => {
-    seg.querySelectorAll('button').forEach(b =>
-      b.classList.toggle('active', b.dataset.format === format));
-    urlInput.placeholder = URL_HINTS[format] || 'https://…';
-  };
-  MODEL_FORMATS.forEach(f => {
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.dataset.format = f;
-    b.textContent = f;
-    b.addEventListener('click', () => { format = f; syncFormat(); });
-    seg.appendChild(b);
-  });
-  syncFormat();
-
-  const errEl = $('nm-error');
-  $('nm-add').addEventListener('click', () => {
-    const name = $('nm-name').value.trim();
-    const url = urlInput.value.trim();
-    const model = $('nm-model').value.trim();
-    const fail = msg => { errEl.textContent = msg; errEl.hidden = false; };
-
-    if (!name) return fail('Give the model a name.');
-    if (!model) return fail('Model ID is required — the name the provider knows it by.');
-    let host = '';
-    try { host = new URL(url).host; } catch {}
-    if (!host) return fail('Endpoint must be a full URL, starting with https://');
+  const submit = () => {
+    const id = modelInput.value.trim();
+    if (!id) {
+      errEl.textContent = 'Enter a model ID, the name Groq knows it by.';
+      errEl.hidden = false;
+      return;
+    }
+    const added = addCustomModel(id);
+    if (!added) {
+      errEl.textContent = `"${id}" is already in the list.`;
+      errEl.hidden = false;
+      return;
+    }
     errEl.hidden = true;
-
-    const added = addCustomModel({ name, url, model, format });
     settings.selectedModelId = added.id;   // adding it means you want to use it
     persistSettings();
-    ['nm-name', 'nm-url', 'nm-model'].forEach(id => { $(id).value = ''; });
+    modelInput.value = '';
     closeAddForm();
-    refreshAll();
+    refreshModelRow();
+  };
+  $('nm-add').addEventListener('click', submit);
+  modelInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); submit(); }
   });
-
-  refreshAll();
 }
 
 // ============================================================

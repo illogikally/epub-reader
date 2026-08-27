@@ -11,15 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=25';
+import { openBookFromDb } from './reader.js?v=26';
 import {
   $, escapeHtml, settings, runtime,
-  currentModel, MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=25';
+  currentModel, GROQ_URL, GROQ_KEY_REF,
+  MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
+} from './state.js?v=26';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=25';
+} from './touchselect.js?v=26';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -67,7 +68,6 @@ async function* streamSSE(url, headers, body) {
 
 async function* streamOpenAI(cfg, messages, system, apiKey) {
   const msgs = system ? [{ role: 'system', content: system }, ...messages] : messages;
-  const reasoningEffort = 'none'
   const body = {
     model: cfg.model,
     max_tokens: MAX_TOKENS,
@@ -80,46 +80,18 @@ async function* streamOpenAI(cfg, messages, system, apiKey) {
     body.reasoning_effort = cfg.model.startsWith('qwen') ? 'none' : 'low';
   }
   const headers = { Authorization: `Bearer ${apiKey}` };
-  for await (const evt of streamSSE(cfg.url, headers, body)) {
+  for await (const evt of streamSSE(GROQ_URL, headers, body)) {
     const text = evt?.choices?.[0]?.delta?.content;
     if (text) yield text;
   }
 }
 
-async function* streamGoogle(cfg, messages, system, apiKey) {
-  const url = `${cfg.url}/models/${cfg.model}:streamGenerateContent?alt=sse`;
-  const contents = messages.map(m => ({
-    role: m.role === 'assistant' ? 'model' : 'user',
-    parts: [{ text: m.content }],
-  }));
-  const body = {
-    contents,
-    generationConfig: {
-      maxOutputTokens: MAX_TOKENS,
-      thinkingConfig: { thinkingLevel: 'MINIMAL' },
-    },
-  };
-  if (system) body.systemInstruction = { parts: [{ text: system }] };
-  const headers = { 'x-goog-api-key': apiKey };
-  for await (const evt of streamSSE(url, headers, body)) {
-    const parts = evt?.candidates?.[0]?.content?.parts || [];
-    for (const p of parts) {
-      if (p.thought) continue;
-      if (p.text) yield p.text;
-    }
-  }
-}
-
-const VENDORS = { openai: streamOpenAI, google: streamGoogle };
-
 async function* llmStream(messages, system) {
   const cfg = currentModel();
   if (!cfg) throw new Error('no model selected');
-  const apiKey = (settings.apiKeys[cfg.keyRef] || '').trim();
-  if (!apiKey) throw new Error(`missing ${cfg.keyRef} — paste it in Settings`);
-  const fn = VENDORS[cfg.format];
-  if (!fn) throw new Error(`unknown vendor format: ${cfg.format}`);
-  yield* fn(cfg, messages, system, apiKey);
+  const apiKey = (settings.apiKeys[GROQ_KEY_REF] || '').trim();
+  if (!apiKey) throw new Error('missing Groq key — paste it in Settings');
+  yield* streamOpenAI(cfg, messages, system, apiKey);
 }
 
 // ============================================================

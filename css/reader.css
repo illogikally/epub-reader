@@ -702,19 +702,36 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-select.open > .set-disclosure .set-chevron { transform: rotate(90deg); }
 .set-options { display: none; }
 .set-select.open > .set-options { display: block; }
+/* Wrapper so the label and an optional trash button can sit side by side and
+   both stay real <button>s. The hairline lives here rather than on the label,
+   so it spans the trash button too. */
+.set-option-row { position: relative; display: flex; align-items: stretch; }
+.set-option-row::before {
+  content: ''; position: absolute; top: 0; left: 26px; right: 0;
+  height: 1px; background: var(--set-line);
+}
 .set-option {
-  position: relative;
+  flex: 1; min-width: 0;
   display: flex; align-items: center; gap: 10px;
-  width: 100%; min-height: 44px;
+  min-height: 44px;
   padding: 10px 16px 10px 26px;
   font-size: 15px; color: var(--fg); text-align: left;
   -webkit-tap-highlight-color: transparent;
 }
-.set-option::before {
-  content: ''; position: absolute; top: 0; left: 26px; right: 0;
-  height: 1px; background: var(--set-line);
-}
 .set-option:hover { background: var(--surface-soft); }
+.set-option-del {
+  flex: none; width: 46px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--set-muted);
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.12s ease;
+}
+.set-option-del:hover { color: #d7473c; }
+.set-option-del svg {
+  width: 16px; height: 16px;
+  fill: none; stroke: currentColor;
+  stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
 .set-option span { flex: 1; min-width: 0; }
 .set-option svg {
   flex: none; width: 15px; height: 15px;
@@ -747,23 +764,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 13px;
 }
 .set-field input::placeholder { color: var(--set-muted); }
-
-/* Two-or-three-way picker, for choices too small to deserve a disclosure. */
-.set-seg {
-  margin-left: auto;
-  display: flex; gap: 3px;
-  background: var(--surface-soft);
-  border-radius: 9px; padding: 3px;
-}
-.set-seg button {
-  padding: 5px 13px; border-radius: 7px;
-  font-size: 13px; color: var(--set-muted);
-  transition: background 0.12s ease, color 0.12s ease;
-}
-.set-seg button.active {
-  background: var(--card-bg); color: var(--fg);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
-}
 
 .set-btn {
   width: 100%; margin-top: 12px; padding: 11px;
