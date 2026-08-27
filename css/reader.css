@@ -73,6 +73,9 @@
   --pad-bottom: 44px;
   --pad-left: 24px;
   --pad-right: 24px;
+  /* Half the line-grid remainder, added to the top and bottom of #viewer so the
+     column is a whole number of lines tall. Set by alignToLineGrid(). */
+  --pad-extra: 0px;
   /* Slider track colors — Apple-style: filled portion uses fg, unfilled is faded */
   --slider-fill: rgba(0, 0, 0, 0.55);
   --slider-empty: rgba(0, 0, 0, 0.12);
@@ -282,8 +285,8 @@ button {
 #reader { position: fixed; inset: 0; }
 #viewer {
   position: absolute;
-  top: var(--pad-top);
-  bottom: var(--pad-bottom);
+  top: calc(var(--pad-top) + var(--pad-extra));
+  bottom: calc(var(--pad-bottom) + var(--pad-extra));
   left: var(--pad-left);
   right: var(--pad-right);
   background: var(--bg);
@@ -299,8 +302,8 @@ button {
 @media (pointer: coarse) {
   #touch-capture {
     position: absolute;
-    top: var(--pad-top);
-    bottom: var(--pad-bottom);
+    top: calc(var(--pad-top) + var(--pad-extra));
+    bottom: calc(var(--pad-bottom) + var(--pad-extra));
     left: var(--pad-left);
     right: var(--pad-right);
     z-index: 4;

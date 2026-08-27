@@ -4,7 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=37';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=38';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
@@ -19,6 +19,7 @@ export function applyChromeTheme() {
   root.style.setProperty('--pad-bottom', settings.padV + 'px');
   root.style.setProperty('--pad-left', settings.padH + 'px');
   root.style.setProperty('--pad-right', settings.padH + 'px');
+  alignToLineGrid();
   document.body.classList.toggle('dark-chrome', !!settings.dark);
   // Mark the swatch matching the current bg/fg pair, if any
   document.querySelectorAll('#color-options .theme-swatch').forEach(b => {
@@ -27,6 +28,28 @@ export function applyChromeTheme() {
     b.classList.toggle('active', matches);
   });
   syncColorInputs();
+}
+
+// Paginated text is laid out as a column exactly as tall as #viewer. Lines fill
+// it from the top in whole line-heights, so whatever is left over — the column
+// height modulo one line — is a strip at the foot of every page that can never
+// hold anything. That strip lands on top of the bottom margin, which is why the
+// gap under the text reads as bigger than the gap above it even though #viewer
+// itself is perfectly symmetric.
+//
+// Trimming the viewer to a whole number of lines and splitting the remainder
+// between top and bottom removes it. Half on each side is a fixed point: the
+// new height is exactly `usable`, so the remainder does not need recomputing.
+//
+// This only removes the systematic part. Where a page ends is still ragged —
+// a paragraph that cannot fit its next line breaks early — and no amount of
+// padding arithmetic fixes that.
+export function alignToLineGrid() {
+  const root = document.documentElement;
+  const lh = settings.fontSize * settings.lineHeight;
+  const avail = window.innerHeight - 2 * settings.padV;
+  const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
+  root.style.setProperty('--pad-extra', (extra / 2) + 'px');
 }
 
 export function applyBookTheme() {

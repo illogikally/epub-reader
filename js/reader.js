@@ -9,19 +9,19 @@
 
 import {
   settings, runtime, $, dbGet, dbPut, getProgress, setProgress,
-} from './state.js?v=37';
-import { applyBookTheme, injectBookStyle } from './theme.js?v=37';
+} from './state.js?v=38';
+import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=38';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
   buildToc, setTocPosition, markTocCurrent, readingProgress,
-} from './translate.js?v=37';
-import { renderLibrary } from './library.js?v=37';
+} from './translate.js?v=38';
+import { renderLibrary } from './library.js?v=38';
 import {
   initTouchSelection, clearTouchSelection, onBookSwipe,
-} from './touchselect.js?v=37';
-import { dbg } from './debug.js?v=37';
+} from './touchselect.js?v=38';
+import { dbg } from './debug.js?v=38';
 
 const library = $('library');
 const reader = $('reader');
@@ -348,6 +348,10 @@ export function initReaderEvents() {
   // Window resize → relayout (debounced)
   let resizeTimer;
   window.addEventListener('resize', () => {
+    // Before the early return: the line-grid remainder depends on the window
+    // height, and it has to be right by the time a book is opened even if the
+    // resize happened back on the library screen.
+    alignToLineGrid();
     if (!runtime.rendition) return;
     clearTimeout(resizeTimer);
     clearTouchSelection();
