@@ -95,10 +95,18 @@ export function escapeHtml(s) {
 // so any touch on the bottom-sheet area is observed. When the inner scrollEl
 // is at scrollTop 0 and the user drags down past `threshold`, the sheet slides
 // out and `onDismiss` runs. Below threshold, snap back. Mobile-only.
-export function attachPullToDismiss(sheet, getScrollEl, onDismiss, threshold = 100) {
+//
+// opts.grab is a selector for a title-bar-ish region that is always draggable:
+// a touch starting there dismisses regardless of how far the list is scrolled,
+// so a long TOC can still be closed without scrolling back to the top first.
+export function attachPullToDismiss(sheet, getScrollEl, onDismiss, opts = {}) {
+  const { threshold = 100, grab = null } = typeof opts === 'number' ? { threshold: opts } : opts;
   let startY = null;
   let dragging = false;
+  let onGrab = false;
   let dy = 0;
+  const startedOnGrab = (target) =>
+    !!grab && target instanceof Element && !!target.closest(grab);
   const isMobile = () =>
     window.matchMedia('(max-width: 599px), (pointer: coarse)').matches;
 
@@ -115,8 +123,9 @@ export function attachPullToDismiss(sheet, getScrollEl, onDismiss, threshold = 1
   sheet.addEventListener('touchstart', (e) => {
     if (!isMobile() || e.touches.length !== 1) { startY = null; return; }
     if (hasActiveSelection()) { startY = null; return; }
+    onGrab = startedOnGrab(e.target);
     const sc = getScrollEl();
-    if (sc && sc.scrollTop > 0) { startY = null; return; }
+    if (!onGrab && sc && sc.scrollTop > 0) { startY = null; return; }
     startY = e.touches[0].clientY;
     dragging = false;
     dy = 0;
@@ -132,7 +141,7 @@ export function attachPullToDismiss(sheet, getScrollEl, onDismiss, threshold = 1
       return;
     }
     const sc = getScrollEl();
-    if (!dragging && sc && sc.scrollTop > 0) { startY = null; return; }
+    if (!dragging && !onGrab && sc && sc.scrollTop > 0) { startY = null; return; }
     dragging = true;
     sheet.style.transition = 'none';
     sheet.style.transform = `translateY(${dy}px)`;
@@ -158,12 +167,12 @@ export function attachPullToDismiss(sheet, getScrollEl, onDismiss, threshold = 1
         setTimeout(() => { sheet.style.transition = ''; }, 200);
       }
     }
-    startY = null; dragging = false; dy = 0;
+    startY = null; dragging = false; onGrab = false; dy = 0;
   };
   sheet.addEventListener('touchend', finish, { passive: true });
   sheet.addEventListener('touchcancel', () => {
     if (dragging) { sheet.style.transition = ''; sheet.style.transform = ''; }
-    startY = null; dragging = false; dy = 0;
+    startY = null; dragging = false; onGrab = false; dy = 0;
   }, { passive: true });
 }
 
