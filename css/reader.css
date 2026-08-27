@@ -765,6 +765,25 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 }
 .set-field input::placeholder { color: var(--set-muted); }
 
+/* Compact picker for a choice too small to deserve a disclosure. Buttons share
+   the leftover width so five of them still fit on a narrow phone. */
+.set-seg {
+  flex: 1; min-width: 0;
+  display: flex; gap: 2px;
+  background: var(--surface-soft);
+  border-radius: 9px; padding: 3px;
+}
+.set-seg button {
+  flex: 1; min-width: 0;
+  padding: 5px 4px; border-radius: 7px;
+  font-size: 12px; color: var(--set-muted);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.set-seg button.active {
+  background: var(--card-bg); color: var(--fg);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
 .set-btn {
   width: 100%; margin-top: 12px; padding: 11px;
   border-radius: 10px;

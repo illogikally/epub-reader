@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=26';
+import { openBookFromDb } from './reader.js?v=27';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
-} from './state.js?v=26';
+} from './state.js?v=27';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=26';
+} from './touchselect.js?v=27';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -76,8 +76,10 @@ async function* streamOpenAI(cfg, messages, system, apiKey) {
     temperature: 0,
     top_p: 1,
   };
-  if (!cfg.model.startsWith('llama')) {
-    body.reasoning_effort = cfg.model.startsWith('qwen') ? 'none' : 'low';
+  // Per-model, not guessed from the name: a model that doesn't support
+  // reasoning_effort rejects the whole request if it is sent one.
+  if (cfg.reasoning && cfg.reasoning !== 'off') {
+    body.reasoning_effort = cfg.reasoning;
   }
   const headers = { Authorization: `Bearer ${apiKey}` };
   for await (const evt of streamSSE(GROQ_URL, headers, body)) {
@@ -88,7 +90,7 @@ async function* streamOpenAI(cfg, messages, system, apiKey) {
 
 async function* llmStream(messages, system) {
   const cfg = currentModel();
-  if (!cfg) throw new Error('no model selected');
+  if (!cfg) throw new Error('no model configured — add one in Settings');
   const apiKey = (settings.apiKeys[GROQ_KEY_REF] || '').trim();
   if (!apiKey) throw new Error('missing Groq key — paste it in Settings');
   yield* streamOpenAI(cfg, messages, system, apiKey);

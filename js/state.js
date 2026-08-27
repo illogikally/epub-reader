@@ -8,12 +8,26 @@
 export const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
 export const GROQ_KEY_REF = 'GROQ_API_KEY';
 
-// Shipped models. Users add their own alongside these; only custom ones can be
-// removed, so there is always something to fall back to. A model is nothing but
-// the id Groq knows it by — that string is also its label in the UI.
-export const BUILTIN_MODELS = [
-  { id: 'groq-gpt-oss-120b', model: 'openai/gpt-oss-120b' },
-  { id: 'groq-qwen3-8-27b',  model: 'qwen/qwen3.8-27b' },
+// Groq serves every model over the same OpenAI-compatible endpoint, but they do
+// not all accept the same request. `reasoning_effort` is the one that varies:
+// gpt-oss takes low/medium/high, qwen3 takes none, and llama/gemma/mixtral
+// reject the parameter outright. Sending it to a model that doesn't support it
+// fails the request, so it is a per-model setting rather than something guessed
+// from the model's name.
+export const REASONING_MODES = [
+  { value: 'off',    label: 'off',  title: "Don't send reasoning_effort — llama, gemma, mixtral, kimi" },
+  { value: 'none',   label: 'none', title: 'reasoning_effort: none — qwen3' },
+  { value: 'low',    label: 'low',  title: 'reasoning_effort: low — gpt-oss' },
+  { value: 'medium', label: 'med',  title: 'reasoning_effort: medium — gpt-oss' },
+  { value: 'high',   label: 'high', title: 'reasoning_effort: high — gpt-oss' },
+];
+export const DEFAULT_REASONING = 'off';   // the only value every model accepts
+
+// Seeded into settings.models on first run, and ordinary models from then on:
+// nothing here is fixed, every one of them can be removed.
+export const SEED_MODELS = [
+  { id: 'groq-gpt-oss-120b', model: 'openai/gpt-oss-120b', reasoning: 'low' },
+  { id: 'groq-qwen3-8-27b',  model: 'qwen/qwen3.8-27b',    reasoning: 'none' },
 ];
 export const DEFAULT_MODEL_ID = 'groq-qwen3-8-27b';
 export const MAX_TOKENS = 1024;
@@ -36,7 +50,7 @@ const defaultSettings = {
   dark: false,
   layout: 'single',
   selectedModelId: DEFAULT_MODEL_ID,
-  customModels: [],   // [{ id, name, url, model, format, keyRef, custom: true }]
+  models: [],   // [{ id, model, reasoning }] — seeded on first run, then all user data
   apiKeys: { GROQ_API_KEY: '' },
   debug: false,       // on-screen debug log — see js/debug.js
 };
@@ -52,17 +66,40 @@ const _loaded = (() => {
       if (saved[k] !== undefined) merged[k] = saved[k];
     }
     merged.apiKeys = { ...defaultSettings.apiKeys, ...(saved.apiKeys || {}) };
-    // Custom models used to carry name/url/format/keyRef from when other
-    // vendors were configurable. Only the model id survives; anything that
-    // pointed elsewhere is kept rather than deleted behind the user's back —
-    // it will fail visibly against Groq and can be removed from the list.
-    merged.customModels = (Array.isArray(merged.customModels) ? merged.customModels : [])
+    // Models are one flat, fully editable list now. Earlier versions kept two
+    // fixed built-ins plus a `customModels` array; fold that into `models`,
+    // seeding the former built-ins so an upgrade doesn't arrive empty.
+    const normalise = (list, fallbackReasoning) => (Array.isArray(list) ? list : [])
       .filter(m => m && typeof m.model === 'string' && m.model.trim())
-      .map(m => ({ id: m.id, model: m.model.trim(), custom: true }));
+      .map(m => ({
+        id: m.id || 'model-' + Math.random().toString(36).slice(2, 9),
+        model: m.model.trim(),
+        reasoning: REASONING_MODES.some(r => r.value === m.reasoning)
+          ? m.reasoning
+          : fallbackReasoning(m.model.trim()),
+      }));
+    if (Array.isArray(saved.models)) {
+      merged.models = normalise(saved.models, () => DEFAULT_REASONING);
+    } else {
+      // Carried-over customs never had a reasoning setting. Recognise the two
+      // families the old name-prefix heuristic got right and fall back to 'off'
+      // for the rest — that heuristic sent 'low' to everything it didn't
+      // recognise, which is precisely the request those models reject.
+      const guess = (id) => {
+        const s = id.toLowerCase();
+        if (s.startsWith('qwen') || s.includes('/qwen')) return 'none';
+        if (s.includes('gpt-oss')) return 'low';
+        return DEFAULT_REASONING;
+      };
+      merged.models = [
+        ...SEED_MODELS.map(m => ({ ...m })),
+        ...normalise(saved.customModels, guess),
+      ];
+    }
     // Models used to be picked by index into a fixed array. The list is now
     // user-editable, so the selection is an id — carry the old index over.
     if (saved.selectedModelId === undefined && typeof saved.selectedModelIdx === 'number') {
-      merged.selectedModelId = BUILTIN_MODELS[saved.selectedModelIdx]?.id || DEFAULT_MODEL_ID;
+      merged.selectedModelId = SEED_MODELS[saved.selectedModelIdx]?.id || DEFAULT_MODEL_ID;
     }
     return merged;
   } catch {
@@ -81,38 +118,40 @@ export function persistSettings() {
 // Model registry — built-ins plus whatever the user has added
 // ============================================================
 export function allModels() {
-  return [...BUILTIN_MODELS, ...settings.customModels];
+  return settings.models;
 }
 
+// Null when the list is empty — every model can be removed, so that is a state
+// the reader has to cope with rather than an impossible one.
 export function currentModel() {
-  const list = allModels();
-  return list.find(m => m.id === settings.selectedModelId)
-      || list.find(m => m.id === DEFAULT_MODEL_ID)
-      || list[0]
-      || null;
+  const list = settings.models;
+  return list.find(m => m.id === settings.selectedModelId) || list[0] || null;
 }
 
 // Returns the new entry, or null if that model id is already in the list.
-export function addCustomModel(modelId) {
+export function addModel(modelId, reasoning) {
   const model = String(modelId || '').trim();
   if (!model) return null;
-  if (allModels().some(m => m.model.toLowerCase() === model.toLowerCase())) return null;
+  if (settings.models.some(m => m.model.toLowerCase() === model.toLowerCase())) return null;
   const entry = {
-    id: 'custom-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
+    id: 'model-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 7),
     model,
-    custom: true,
+    reasoning: REASONING_MODES.some(r => r.value === reasoning) ? reasoning : DEFAULT_REASONING,
   };
-  settings.customModels.push(entry);
+  settings.models.push(entry);
   persistSettings();
   return entry;
 }
 
-export function removeCustomModel(id) {
-  const idx = settings.customModels.findIndex(m => m.id === id);
+export function removeModel(id) {
+  const idx = settings.models.findIndex(m => m.id === id);
   if (idx < 0) return false;
-  settings.customModels.splice(idx, 1);
+  settings.models.splice(idx, 1);
   // Don't leave the selection pointing at something that no longer exists.
-  if (settings.selectedModelId === id) settings.selectedModelId = DEFAULT_MODEL_ID;
+  // With an empty list there is nothing to point at, which currentModel allows.
+  if (settings.selectedModelId === id) {
+    settings.selectedModelId = settings.models[0]?.id || null;
+  }
   persistSettings();
   return true;
 }

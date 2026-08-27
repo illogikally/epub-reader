@@ -10,14 +10,15 @@
 
 import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
-  GROQ_KEY_REF, allModels, currentModel, addCustomModel, removeCustomModel,
-} from './state.js?v=26';
+  GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
+  allModels, addModel, removeModel,
+} from './state.js?v=27';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=26';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=26';
-import { scrollTocToCurrent } from './translate.js?v=26';
-import { syncDebugPanel } from './debug.js?v=26';
+} from './theme.js?v=27';
+import { closeBook, createRendition, hideChrome } from './reader.js?v=27';
+import { scrollTocToCurrent } from './translate.js?v=27';
+import { syncDebugPanel } from './debug.js?v=27';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -83,7 +84,7 @@ function bindDisclosure(root) {
 // `removable`. The option row is a wrapper rather than one element because the
 // label and the trash are both real <button>s — nesting them would be invalid
 // markup and would cost keyboard activation.
-function bindSelectRow(id, { options, get, set, remove }) {
+function bindSelectRow(id, { options, get, set, remove, emptyLabel }) {
   const root = $(id);
   if (!root) return () => {};
   const valueEl = root.querySelector('.set-value');
@@ -132,7 +133,7 @@ function bindSelectRow(id, { options, get, set, remove }) {
     });
     if (valueEl) {
       const hit = opts.find(o => o.value === cur);
-      valueEl.textContent = hit ? hit.label : '';
+      valueEl.textContent = hit ? hit.label : (opts.length ? '' : (emptyLabel || ''));
     }
   };
 
@@ -243,11 +244,12 @@ function initModelSettings() {
   });
 
   const refreshModelRow = bindSelectRow('sel-model', {
-    // Built-ins carry no trash button: something has to stay selectable.
+    // Every model is removable, so the list can legitimately end up empty.
+    emptyLabel: 'none — add one below',
     options: () => allModels().map(m => ({
       value: m.id,
       label: m.model,
-      removable: !!m.custom,
+      removable: true,
     })),
     get: () => settings.selectedModelId,
     set: id => {
@@ -255,14 +257,29 @@ function initModelSettings() {
       persistSettings();
     },
     remove: id => {
-      const model = settings.customModels.find(m => m.id === id);
+      const model = allModels().find(m => m.id === id);
       if (!model || !confirm(`Remove "${model.model}"?`)) return false;
-      removeCustomModel(id);   // falls back to the default if it was selected
+      removeModel(id);   // bindSelectRow re-renders once this returns
     },
   });
 
-  // ---- Add-model form: one field, the id Groq knows the model by ----
+  // ---- Add-model form ----
   const closeAddForm = bindDisclosure($('add-model'));
+  const seg = $('nm-reasoning');
+  let reasoning = DEFAULT_REASONING;
+  const syncReasoning = () => seg.querySelectorAll('button').forEach(b =>
+    b.classList.toggle('active', b.dataset.value === reasoning));
+  REASONING_MODES.forEach(m => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.value = m.value;
+    b.textContent = m.label;
+    b.title = m.title;
+    b.addEventListener('click', () => { reasoning = m.value; syncReasoning(); });
+    seg.appendChild(b);
+  });
+  syncReasoning();
+
   const submit = () => {
     const id = modelInput.value.trim();
     if (!id) {
@@ -270,7 +287,7 @@ function initModelSettings() {
       errEl.hidden = false;
       return;
     }
-    const added = addCustomModel(id);
+    const added = addModel(id, reasoning);
     if (!added) {
       errEl.textContent = `"${id}" is already in the list.`;
       errEl.hidden = false;
@@ -280,6 +297,8 @@ function initModelSettings() {
     settings.selectedModelId = added.id;   // adding it means you want to use it
     persistSettings();
     modelInput.value = '';
+    reasoning = DEFAULT_REASONING;
+    syncReasoning();
     closeAddForm();
     refreshModelRow();
   };
