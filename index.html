@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=34">
+<link rel="stylesheet" href="css/reader.css?v=35">
 </head>
 <body>
 
@@ -20,12 +20,16 @@
 <div id="library">
   <div class="library-header">
     <h1>Library</h1>
-    <button id="btn-add-book" class="header-btn" type="button">Add</button>
+    <button id="btn-add-book" class="header-btn" type="button">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14"/><path d="M5 12h14"/></svg>Add
+    </button>
     <!-- Always opens the Sync section of Settings. It used to sync instead once
          Dropbox was connected, which made one button do two different things
          depending on state you cannot see from here. Syncing happens on its own
          anyway — on load, and after a book is added, deleted or closed. -->
-    <button id="btn-sync" class="header-btn" type="button">Sync</button>
+    <button id="btn-sync" class="header-btn" type="button">
+      <svg viewBox="0 0 24 24"><path d="M12 13v8"/><path d="m8 17 4 4 4-4"/><path d="M4.5 15.5a4.5 4.5 0 0 1 2-8.4 6 6 0 0 1 11.2 1.6 4 4 0 0 1 1.1 7.5"/></svg>Sync
+    </button>
   </div>
   <div class="library-grid" id="library-grid"></div>
   <input type="file" id="file-input" accept=".epub" hidden multiple>
@@ -205,7 +209,7 @@
             <svg viewBox="0 0 24 24"><rect x="7" y="3" width="10" height="18" rx="1.5"/></svg>
           </button>
           <button class="set-segment" type="button" data-value="dual" title="Two pages" aria-label="Two pages">
-            <svg viewBox="0 0 24 24"><rect x="2.5" y="3" width="9" height="18" rx="1.5"/><rect x="12.5" y="3" width="9" height="18" rx="1.5"/></svg>
+            <svg viewBox="0 0 24 24"><rect x="2" y="3" width="8.5" height="18" rx="1.5"/><rect x="13.5" y="3" width="8.5" height="18" rx="1.5"/></svg>
           </button>
         </div>
       </div>
@@ -313,7 +317,7 @@
          them, and every setting on this page. Connecting is a paste-the-code
          flow rather than a redirect, so it works in the installed PWA — see
          the header comment in js/dropbox.js. -->
-    <h2 class="set-section">Sync</h2>
+    <h2 class="set-section" id="sync-section">Sync</h2>
     <div class="set-group">
       <div class="set-row">
         <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M4.5 15.5a4.5 4.5 0 0 1 2-8.4 6 6 0 0 1 11.2 1.6 4 4 0 0 1 1.1 7.5"/><path d="M12 12v9"/><path d="m8 17 4 4 4-4"/></svg></span>
@@ -408,6 +412,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=34"></script>
+<script type="module" src="js/main.js?v=35"></script>
 </body>
 </html>

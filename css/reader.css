@@ -217,15 +217,21 @@ button {
 }
 .library-header h1 { margin: 0; font-weight: 700; font-size: 30px; letter-spacing: -0.02em; }
 .header-btn {
-  padding: 6px 15px;
-  border-radius: 999px;
+  padding: 6px 12px;
+  border-radius: 8px;
   background: var(--surface-soft);
   color: var(--chrome-fg);
   font-size: 14px; font-weight: 500;
   flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 6px;
   transition: background 0.12s ease, color 0.12s ease, opacity 0.12s ease;
 }
 .header-btn:hover { background: var(--surface-soft-hover); }
+.header-btn svg {
+  width: 15px; height: 15px;
+  fill: none; stroke: currentColor;
+  stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round;
+}
 
 /* Sync runs in the background — on load and after a book changes — so the
    button still has to report a pass nobody asked for. With no icon left to
@@ -952,8 +958,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-chip input[type="color"]::-webkit-color-swatch { border: none; }
 
 /* ---- Segmented buttons (alignment, one page or two) ----
-   Same vocabulary as the theme swatches below: a bordered tile that takes the
-   accent colour when it is the chosen one. Icon-only, so the hit area is
+   Filled tiles rather than outlined ones: the selected segment takes the accent
+   as a solid fill, which is the same "accent means chosen" language the theme
+   swatches and the option checkmarks use. Icon-only, so the hit area is
    generous and the meaning is in the drawing plus a title tooltip. */
 .set-segments { --set-inset: 16px; padding: 9px 16px 14px; }
 .set-segment-row {
@@ -962,19 +969,20 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .set-segment {
   min-height: 46px;
   border-radius: 10px;
-  border: 2px solid var(--set-line);
+  background: var(--surface-soft);
   color: var(--fg);
   display: flex; align-items: center; justify-content: center;
   -webkit-tap-highlight-color: transparent;
-  transition: border-color 0.15s ease, background 0.12s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
-.set-segment:hover { background: var(--surface-soft); }
+.set-segment:hover { background: var(--surface-soft-hover); }
 .set-segment svg {
   width: 22px; height: 22px;
   fill: none; stroke: currentColor;
   stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round;
 }
-.set-segment.active { border-color: var(--accent); color: var(--accent); }
+.set-segment.active,
+.set-segment.active:hover { background: var(--accent); color: var(--bg); }
 
 /* ---- Theme swatches ---- */
 .set-swatches { --set-inset: 16px; padding: 14px 16px; }
