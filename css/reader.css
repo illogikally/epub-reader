@@ -486,13 +486,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 /* book title hidden — kept for back-compat */
 #book-title { display: none; }
 
-#page-indicator {
-  position: fixed; bottom: 8px; left: 50%; transform: translateX(-50%);
-  font-size: 11px; color: var(--chrome-fg); opacity: 0.4;
-  pointer-events: none; z-index: 5; user-select: none;
-  font-variant-numeric: tabular-nums;
-}
-
 /* ============================================================
    Drawers / modals
    ============================================================ */
@@ -1217,9 +1210,6 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   .set-slider-row .set-value { font-size: 16px; }
   /* Single/dual page is a desktop-only choice — phones are always single. */
   .desktop-only { display: none; }
-
-  /* Page number hidden on phones */
-  #page-indicator { display: none; }
 
   /* Popup hugs the bottom of the screen, max 80vh.
      No !important here: these used to carry it in order to beat the inline

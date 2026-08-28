@@ -9,24 +9,23 @@
 
 import {
   settings, runtime, $, dbGet, dbPut, getProgress, setProgress,
-} from './state.js?v=39';
-import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=39';
+} from './state.js?v=40';
+import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=40';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
   buildToc, setTocPosition, markTocCurrent, readingProgress,
-} from './translate.js?v=39';
-import { renderLibrary } from './library.js?v=39';
+} from './translate.js?v=40';
+import { renderLibrary } from './library.js?v=40';
 import {
   initTouchSelection, clearTouchSelection, onBookSwipe,
-} from './touchselect.js?v=39';
-import { dbg } from './debug.js?v=39';
+} from './touchselect.js?v=40';
+import { dbg } from './debug.js?v=40';
 
 const library = $('library');
 const reader = $('reader');
 const viewer = $('viewer');
-const pageIndicator = $('page-indicator');
 const loading = $('loading');
 
 // ============================================================
@@ -99,7 +98,6 @@ export async function closeBook() {
   if (runtime.rendition) { try { runtime.rendition.destroy(); } catch {} runtime.rendition = null; }
   if (runtime.book) { try { runtime.book.destroy(); } catch {} runtime.book = null; }
   viewer.innerHTML = '';
-  pageIndicator.textContent = '';
   // Going back to the library is an explicit choice — clear the
   // auto-resume marker so a refresh from here lands on the library.
   localStorage.removeItem('reader-last-book');
@@ -119,15 +117,14 @@ export async function closeBook() {
 // How far into the book we are. readingProgress() prefers epubjs's own exact
 // figure once book.locations exists and falls back to a byte-size estimate
 // until then — see the note on it in translate.js.
-function updatePageIndicator(loc) {
+//
+// The figure is shown on the Contents row of the floating chrome (which also
+// fills as a progress bar) and in the TOC drawer header; setTocPosition drives
+// both. There used to be a third readout floating at the bottom of the screen —
+// it was removed, and this is all that is left of it.
+function updateProgress(loc) {
   const pct = readingProgress(loc);
-  if (typeof pct === 'number' && pct >= 0 && pct <= 1) {
-    pageIndicator.textContent = `${Math.round(pct * 100)}%`;
-    setTocPosition(pct);
-  } else {
-    pageIndicator.textContent = '';
-    setTocPosition(null);
-  }
+  setTocPosition(typeof pct === 'number' && pct >= 0 && pct <= 1 ? pct : null);
   markTocCurrent(loc?.start?.index);
 }
 
@@ -137,7 +134,7 @@ function updatePageIndicator(loc) {
 function refreshProgress() {
   try {
     const loc = runtime.rendition?.currentLocation();
-    if (loc?.start) updatePageIndicator(loc);
+    if (loc?.start) updateProgress(loc);
   } catch {}
 }
 
@@ -207,7 +204,7 @@ export function createRendition() {
     if (loc?.start?.cfi && runtime.currentBookKey) {
       setProgress(runtime.currentBookKey, loc.start.cfi);
     }
-    updatePageIndicator(loc);
+    updateProgress(loc);
     clearTouchSelection();
   });
   // Per-document wiring.
