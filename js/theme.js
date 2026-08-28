@@ -72,7 +72,13 @@ export function applyChromeTheme() {
 export function alignToLineGrid() {
   const root = document.documentElement;
   const lh = settings.fontSize * settings.lineHeight;
-  const avail = window.innerHeight - 2 * settings.padV - EPUBJS_BODY_PAD;
+  // window.innerHeight is the layout viewport on iOS Safari — it stays put
+  // while the address/tab bar animates in and out, so it can be taller than
+  // what #reader (position:fixed, sized to the visual viewport) actually
+  // gets. visualViewport.height tracks the real, current visible height;
+  // falling back to innerHeight only where visualViewport isn't available.
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const avail = vh - 2 * settings.padV - EPUBJS_BODY_PAD;
   const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
   root.style.setProperty('--pad-extra', Math.floor(extra / 2) + 'px');
 }

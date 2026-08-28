@@ -344,7 +344,7 @@ export function initReaderEvents() {
 
   // Window resize → relayout (debounced)
   let resizeTimer;
-  window.addEventListener('resize', () => {
+  const relayout = () => {
     // Before the early return: the line-grid remainder depends on the window
     // height, and it has to be right by the time a book is opened even if the
     // resize happened back on the library screen.
@@ -355,5 +355,12 @@ export function initReaderEvents() {
     resizeTimer = setTimeout(() => {
       try { runtime.rendition.resize(); } catch {}
     }, 150);
-  });
+  };
+  window.addEventListener('resize', relayout);
+  // iOS Safari does not reliably fire `resize` on `window` when its address/tab
+  // bar shows or hides — only visualViewport does. Without this, #viewer grows
+  // once the chrome collapses but epub.js's iframe keeps its stale height, and
+  // the difference shows up as dead space at the foot of the page, below the
+  // last line of text and above the chrome dot.
+  window.visualViewport?.addEventListener('resize', relayout);
 }
