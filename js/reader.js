@@ -74,8 +74,8 @@ export async function openBookFromDb(id) {
     const saved = getProgress(runtime.currentBookKey);
     await runtime.rendition.display(saved?.cfi || undefined);
     localStorage.setItem('reader-last-book', id);
-    requestAnimationFrame(() => { try { runtime.rendition.resize(); } catch {} });
-    setTimeout(() => { try { runtime.rendition && runtime.rendition.resize(); } catch {} }, 80);
+    requestAnimationFrame(relayoutViewer);
+    setTimeout(relayoutViewer, 80);
 
     const nav = await runtime.book.loaded.navigation;
     buildToc(nav.toc || [], { title: record.title, cover: record.cover });
@@ -189,6 +189,27 @@ async function primeLocations(record) {
       dbg('locations: failed —', err.message);   // estimate stays in place
     }
   });
+}
+
+// rendition.resize() alone changes the Stage/iframe box but not what's
+// actually laid out inside it: epub.js's Contents.columns() bakes the box
+// height into an inline `height` px on the book's <body>, written once when a
+// section is displayed, and resize() never rewrites it — the column just
+// keeps whatever height it had. So after any change to #viewer's own box
+// (a margin/font/line-height slider, or the window/visualViewport actually
+// resizing) the book's content can be shorter than the new box, and the
+// difference shows up as dead space at the foot of the page. Re-displaying
+// the current location forces Contents.columns() to run again against the
+// current size, which is the only thing that has been found to reliably
+// clear it.
+export function relayoutViewer() {
+  const r = runtime.rendition;
+  if (!r) return;
+  try {
+    const cfi = r.currentLocation()?.start?.cfi;
+    r.resize();
+    if (cfi) r.display(cfi);
+  } catch {}
 }
 
 export function createRendition() {
@@ -352,9 +373,7 @@ export function initReaderEvents() {
     if (!runtime.rendition) return;
     clearTimeout(resizeTimer);
     clearTouchSelection();
-    resizeTimer = setTimeout(() => {
-      try { runtime.rendition.resize(); } catch {}
-    }, 150);
+    resizeTimer = setTimeout(relayoutViewer, 150);
   };
   window.addEventListener('resize', relayout);
   // iOS Safari does not reliably fire `resize` on `window` when its address/tab

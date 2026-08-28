@@ -16,7 +16,7 @@ import {
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
 } from './theme.js?v=41';
-import { closeBook, createRendition, hideChrome } from './reader.js?v=41';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=41';
 import { scrollTocToCurrent } from './translate.js?v=41';
 import { syncDebugPanel } from './debug.js?v=41';
 
@@ -28,11 +28,13 @@ const viewer = $('viewer');
 
 // Any setting that changes #viewer's box has to be pushed into epub.js by hand.
 // epub.js watches only `window` resize (Stage.onResize) plus a ResizeObserver on
-// the iframe's own documentElement — never the #viewer container — and
-// IframeView re-expands from a stale lockedHeight, so the iframe keeps whatever
-// height it was rendered at. #viewer and the iframe then disagree, and because
-// the view is anchored to the top, the slack shows up as dead space at the foot
-// of the page.
+// the iframe's own documentElement — never the #viewer container — and even
+// then rendition.resize() alone doesn't re-run the pagination that bakes a
+// column height into the book's <body>, so the iframe keeps whatever height
+// it was rendered at. #viewer and the iframe then disagree, and because the
+// view is anchored to the top, the slack shows up as dead space at the foot
+// of the page. relayoutViewer() (js/reader.js) is the fix — see the comment
+// on it for why a plain resize() isn't enough.
 //
 // That covers the margin sliders (which move --pad-top/--pad-bottom) and the
 // font-size and line-spacing sliders (which move --pad-extra via
@@ -40,9 +42,7 @@ const viewer = $('viewer');
 let renditionResizeTimer;
 function scheduleRenditionResize() {
   clearTimeout(renditionResizeTimer);
-  renditionResizeTimer = setTimeout(() => {
-    if (runtime.rendition) { try { runtime.rendition.resize(); } catch {} }
-  }, 100);
+  renditionResizeTimer = setTimeout(relayoutViewer, 100);
 }
 
 // ============================================================
