@@ -27,11 +27,12 @@ const colorOptions = $('color-options');
 const viewer = $('viewer');
 
 // Any setting that changes #viewer's box has to be pushed into epub.js by hand.
-// It watches only `window` resize (Stage.onResize) and a ResizeObserver on the
-// iframe's own documentElement — never the #viewer container — and IframeView
-// re-expands from a stale lockedHeight, so the iframe keeps whatever height it
-// was rendered at. #viewer and the iframe then disagree, and because the view is
-// anchored to the top, the slack shows up as dead space at the foot of the page.
+// epub.js watches only `window` resize (Stage.onResize) plus a ResizeObserver on
+// the iframe's own documentElement — never the #viewer container — and
+// IframeView re-expands from a stale lockedHeight, so the iframe keeps whatever
+// height it was rendered at. #viewer and the iframe then disagree, and because
+// the view is anchored to the top, the slack shows up as dead space at the foot
+// of the page.
 //
 // That covers the margin sliders (which move --pad-top/--pad-bottom) and the
 // font-size and line-spacing sliders (which move --pad-extra via
