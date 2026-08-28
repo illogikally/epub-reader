@@ -1249,12 +1249,12 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
     #popup.mobile,
     #popup-wrapper:has(#popup.mobile) { transition: none; }
   }
-  #popup.mobile .pop-bar { padding: 4px 6px;}
+  #popup.mobile .pop-bar { padding: 8px 10px; gap: 4px}
   #popup.mobile .pop-actions a.action {
     padding: 6px 11px;
     font-size: 13px;
   }
-  #popup.mobile #popup-out { font-size: 16px; padding: 14px; }
+  #popup.mobile #popup-out { font-size: 17px; padding: 14px; }
   #popup.mobile #popup-form { padding: 10px 12px; }
   #popup.mobile #popup-form input { font-size: 16px; } /* prevents iOS zoom */
 
