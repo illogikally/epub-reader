@@ -2,14 +2,14 @@
 // Bootstrap. Wires modules together in the correct order.
 // ============================================================
 
-import { applyChromeTheme } from './theme.js?v=38';
-import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=38';
-import { openBookFromDb, initReaderEvents } from './reader.js?v=38';
-import { initTranslateEvents } from './translate.js?v=38';
-import { initUI } from './ui.js?v=38';
-import { initSyncUI, initDropboxSettings, requestSync } from './sync.js?v=38';
-import { dbGet } from './state.js?v=38';
-import { syncDebugPanel } from './debug.js?v=38';
+import { applyChromeTheme } from './theme.js?v=39';
+import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=39';
+import { openBookFromDb, initReaderEvents } from './reader.js?v=39';
+import { initTranslateEvents } from './translate.js?v=39';
+import { initUI } from './ui.js?v=39';
+import { initSyncUI, initDropboxSettings, requestSync } from './sync.js?v=39';
+import { dbGet } from './state.js?v=39';
+import { syncDebugPanel } from './debug.js?v=39';
 
 // 0. Debug panel first, so anything that fails during the wiring below is
 //    visible on a phone instead of silent. No-op unless debug is enabled.
