@@ -26,6 +26,24 @@ const settingsModal = $('settings-modal');
 const colorOptions = $('color-options');
 const viewer = $('viewer');
 
+// Any setting that changes #viewer's box has to be pushed into epub.js by hand.
+// It watches only `window` resize (Stage.onResize) and a ResizeObserver on the
+// iframe's own documentElement — never the #viewer container — and IframeView
+// re-expands from a stale lockedHeight, so the iframe keeps whatever height it
+// was rendered at. #viewer and the iframe then disagree, and because the view is
+// anchored to the top, the slack shows up as dead space at the foot of the page.
+//
+// That covers the margin sliders (which move --pad-top/--pad-bottom) and the
+// font-size and line-spacing sliders (which move --pad-extra via
+// alignToLineGrid). Debounced: these fire on every `input` event of a drag.
+let renditionResizeTimer;
+function scheduleRenditionResize() {
+  clearTimeout(renditionResizeTimer);
+  renditionResizeTimer = setTimeout(() => {
+    if (runtime.rendition) { try { runtime.rendition.resize(); } catch {} }
+  }, 100);
+}
+
 // ============================================================
 // Drawers / sheet show + hide
 // ============================================================
@@ -184,7 +202,10 @@ const FONTS = [
 // ============================================================
 // Slider bindings — every helper calls updateSliderFill on init + on input
 // ============================================================
-function bindSlider(id, key, suffix) {
+// `regrid` marks the sliders that move the line grid — only those change
+// #viewer's height and so need the rendition pushed back into sync. Letter and
+// word spacing reflow the text inside an unchanged box and do not.
+function bindSlider(id, key, suffix, regrid) {
   const input = $(id);
   const valueEl = $(id + '-value');
   const sync = () => {
@@ -199,6 +220,7 @@ function bindSlider(id, key, suffix) {
     valueEl.textContent = settings[key] + suffix;
     updateSliderFill(input);
     applyAll();
+    if (regrid) scheduleRenditionResize();
   });
 }
 
@@ -217,6 +239,7 @@ function bindLineHeight() {
     valueEl.textContent = settings.lineHeight.toFixed(2);
     updateSliderFill(input);
     applyAll();
+    scheduleRenditionResize();
   });
 }
 
@@ -230,17 +253,13 @@ function bindPaddingSlider(id, key) {
   };
   sync();
   register(sync);
-  let padResizeTimer;
   input.addEventListener('input', () => {
     settings[key] = parseInt(input.value);
     valueEl.textContent = settings[key] + 'px';
     updateSliderFill(input);
     applyChromeTheme();
     persistSettings();
-    clearTimeout(padResizeTimer);
-    padResizeTimer = setTimeout(() => {
-      if (runtime.rendition) { try { runtime.rendition.resize(); } catch {} }
-    }, 100);
+    scheduleRenditionResize();
   });
 }
 
@@ -442,7 +461,7 @@ export function initUI() {
   });
 
   // ---- Text: sliders ----
-  bindSlider('font-size', 'fontSize', 'px');
+  bindSlider('font-size', 'fontSize', 'px', true);
   bindLineHeight();
   bindSlider('letter-spacing', 'letterSpacing', 'px');
   bindSlider('word-spacing', 'wordSpacing', 'px');
