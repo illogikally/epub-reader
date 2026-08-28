@@ -20,8 +20,8 @@
 // Desktop is untouched — everything here no-ops on a fine pointer.
 // ============================================================
 
-import { $, isCoarsePointer, runtime } from './state.js?v=40';
-import { dbg, dbgStatus } from './debug.js?v=40';
+import { $, isCoarsePointer, runtime } from './state.js?v=41';
+import { dbg, dbgStatus } from './debug.js?v=41';
 
 const LONG_PRESS_MS  = 400;
 // Drift allowed while waiting out the long press. Generous on purpose: a finger

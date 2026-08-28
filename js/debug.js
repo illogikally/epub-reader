@@ -14,7 +14,7 @@
 // immediately without a reload.
 // ============================================================
 
-import { settings } from './state.js?v=40';
+import { settings } from './state.js?v=41';
 
 const URL_FLAG = (() => {
   try {
