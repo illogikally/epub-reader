@@ -4,7 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=38';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=39';
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
@@ -44,6 +44,13 @@ export function applyChromeTheme() {
 // This only removes the systematic part. Where a page ends is still ragged —
 // a paragraph that cannot fit its next line breaks early — and no amount of
 // padding arithmetic fixes that.
+//
+// It also assumes the page really renders at fontSize x lineHeight. bookForceCss
+// forces line-height on block text so that holds for books that set their own,
+// but a book that also scales paragraph font-size (`p { font-size: 0.9em }`)
+// renders a different line box, and the strip comes back. Feeding a measured
+// line height in here was tried and does not help: epub.js keeps its iframe at
+// the old height, so the column never picks the trimmed size up.
 export function alignToLineGrid() {
   const root = document.documentElement;
   const lh = settings.fontSize * settings.lineHeight;
@@ -76,14 +83,24 @@ export function applyBookTheme() {
 // Paragraph-level text only — deliberately excludes body/div/headings so headers
 // keep their own alignment (text-align inherits, so targeting containers would drag
 // headings along with it).
-const ALIGN_SEL = 'p,li,dd,dt,blockquote';
+const BLOCK_SEL = 'p,li,dd,dt,blockquote';
 // code / monospace blocks keep their own font — they aren't part of the reading font.
 const MONO_SEL = 'code,pre,kbd,samp,tt';
 
 function bookForceCss() {
   const parts = [];
   if (settings.textAlign && settings.textAlign !== 'default')
-    parts.push(`${ALIGN_SEL}{text-align:${settings.textAlign} !important}`);
+    parts.push(`${BLOCK_SEL}{text-align:${settings.textAlign} !important}`);
+
+  // Line spacing has to be forced at element level, not just inherited from
+  // body via themes.override: a book's own `p { line-height: 1.15 }` is a
+  // direct declaration and beats any inherited value, !important or not. So
+  // without this the slider silently does nothing on such books — and the
+  // line-grid snap in alignToLineGrid() is computed against a line height the
+  // page never actually uses, which puts the dead strip back at the foot of
+  // the page. Paragraph-level only, so headings keep their own tighter
+  // leading, exactly as with text-align above.
+  parts.push(`${BLOCK_SEL}{line-height:${settings.lineHeight} !important}`);
 
   // Force the reader font on everything, then hand code/monospace back their font.
   const decls = [`font-family:${settings.fontFamily} !important`];
