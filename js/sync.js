@@ -479,10 +479,18 @@ export function initDropboxSettings() {
 
   $('sync-open').addEventListener('click', async () => {
     errEl.hidden = true;
+    // Opened synchronously, still inside the click handler's user gesture —
+    // beginAuth navigates this tab once the OAuth URL is ready. Doing the
+    // window.open() after beginAuth's own await is what iOS Safari silently
+    // blocked before.
+    const tab = window.open('', '_blank');
     try {
-      await dbx.beginAuth();
+      await dbx.beginAuth(tab);
       codeInput.focus();
-    } catch (err) { fail(err.message); }
+    } catch (err) {
+      if (tab) tab.close();
+      fail(err.message);
+    }
   });
 
   const finish = async () => {

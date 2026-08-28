@@ -91,7 +91,14 @@ async function makeChallenge(verifier) {
 // caller whose popup was blocked can offer it as a link instead. The verifier
 // lives in sessionStorage rather than a module variable: on iOS the tab switch
 // can evict the page, and coming back to a lost verifier means starting over.
-export async function beginAuth() {
+//
+// `tab`, if given, is a window already opened synchronously by the caller's
+// click handler (e.g. `window.open('', '_blank')`) that we merely navigate.
+// It has to work that way: everything below awaits crypto.subtle.digest
+// first, and on iOS Safari a window.open() issued after any await no longer
+// counts as user-gesture-triggered — it gets silently blocked, which is why
+// this button used to do nothing on iOS.
+export async function beginAuth(tab) {
   if (!DROPBOX_APP_KEY) throw new Error('No Dropbox app key is set in js/dropbox.js.');
   const verifier = base64url(crypto.getRandomValues(new Uint8Array(32)));
   sessionStorage.setItem(VERIFIER_KEY, verifier);
@@ -104,7 +111,8 @@ export async function beginAuth() {
     token_access_type: 'offline',   // we want a refresh token, not just four hours
     scope: SCOPES,
   });
-  window.open(url, '_blank', 'noopener');
+  if (tab && !tab.closed) tab.location.href = url;
+  else window.open(url, '_blank', 'noopener');
   return url;
 }
 
