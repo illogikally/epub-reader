@@ -16,3 +16,7 @@ Workflow per modification:
 If a single user request requires several logically distinct edits, commit each one separately as you go rather than bundling them at the end.
 
 Do not push to a remote unless the user explicitly asks.
+
+## Push straight to master
+
+When the user does ask for a push, and no other branch has been specified for the task, push straight to `master` — skip making a feature branch and skip opening a PR. Commit directly on `master` (or fast-forward it) and push there. Only use a separate branch when the user explicitly asks for one, or when a specific task setup designates one (e.g. a harness-assigned branch for a given session).
