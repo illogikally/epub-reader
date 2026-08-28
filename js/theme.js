@@ -6,6 +6,14 @@
 
 import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=40';
 
+// epub.js hard-codes `padding-top: 20px; padding-bottom: 20px` on the book's
+// <body> in Contents.columns() (0.3.93, dist/epub.js:6664). It is inline but not
+// !important, so it could be overridden — it is left alone deliberately: it is
+// the only vertical breathing room between the text and the edge that survives
+// padV going to 0, and it happens to match the horizontal gap/2 epub.js applies.
+// alignToLineGrid() just has to know it is there.
+const EPUBJS_BODY_PAD = 40;
+
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
   const root = document.documentElement;
@@ -30,19 +38,29 @@ export function applyChromeTheme() {
   syncColorInputs();
 }
 
-// Paginated text is laid out as a column exactly as tall as #viewer. Lines fill
-// it from the top in whole line-heights, so whatever is left over — the column
-// height modulo one line — is a strip at the foot of every page that can never
-// hold anything. That strip lands on top of the bottom margin, which is why the
-// gap under the text reads as bigger than the gap above it even though #viewer
-// itself is perfectly symmetric.
+// Paginated text is laid out as a column that fills from the top in whole
+// line-heights, so whatever is left over — the column height modulo one line —
+// is a strip at the foot of every page that can never hold anything. That strip
+// lands on top of the bottom margin, which is why the gap under the text reads
+// as bigger than the gap above it even though #viewer itself is perfectly
+// symmetric. Trimming the column to a whole number of lines and splitting the
+// remainder between top and bottom removes it.
 //
-// Trimming the viewer to a whole number of lines and splitting the remainder
-// between top and bottom removes it. Half on each side is a fixed point: the
-// new height is exactly `usable`, so the remainder does not need recomputing.
+// The column is NOT #viewer. epub.js's Contents.columns() writes, inline on the
+// book's <body>, `height: <#viewer height>px` plus `padding: 20px <gap/2>px` and
+// `box-sizing: border-box` — so the box that actually holds lines is 40px
+// shorter than #viewer. Snapping #viewer instead of that box is what the first
+// version of this function got wrong: with H % lh == 0 the real leftover became
+// lh - (40 mod lh), i.e. 14px at 18px/1.5 — the very strip this exists to kill,
+// reintroduced, and oscillating with the sliders (0px at lh 20, 14px at lh 27,
+// 5px at lh 45) so it read like pagination noise rather than a bug.
 //
-// This only removes the systematic part. Where a page ends is still ragged —
-// a paragraph that cannot fit its next line breaks early — and no amount of
+// The half is floored because `extra` is usually odd: a fractional --pad-extra
+// makes #viewer fractionally tall, and epub.js reads that height back through
+// container.clientHeight, which rounds — putting up to 1px of the error back.
+//
+// This only removes the systematic part. Where a page ends is still ragged — a
+// paragraph that cannot fit its next line breaks early — and no amount of
 // padding arithmetic fixes that.
 //
 // It also assumes the page really renders at fontSize x lineHeight. bookForceCss
@@ -54,9 +72,9 @@ export function applyChromeTheme() {
 export function alignToLineGrid() {
   const root = document.documentElement;
   const lh = settings.fontSize * settings.lineHeight;
-  const avail = window.innerHeight - 2 * settings.padV;
+  const avail = window.innerHeight - 2 * settings.padV - EPUBJS_BODY_PAD;
   const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
-  root.style.setProperty('--pad-extra', (extra / 2) + 'px');
+  root.style.setProperty('--pad-extra', Math.floor(extra / 2) + 'px');
 }
 
 export function applyBookTheme() {
