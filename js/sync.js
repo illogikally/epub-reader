@@ -27,7 +27,7 @@
 
 import {
   $, settings, runtime, persistSettingsQuiet,
-  exportSettings, importSettings,
+  exportSettings, importSettings, applyFontClass,
   dbGet, dbDelete, dbAllIds, makeBookId,
   getProgress, setProgress, clearProgress,
   allTombstones, clearTombstone,
@@ -336,6 +336,11 @@ async function reconcile(isRetry) {
   if (remoteAt > localAt) {
     const wasLayout = settings.layout;
     if (importSettings(manifest.settings.values)) {
+      // settings.font just arrived as a whole (desktop+phone) blob — refresh
+      // this device's flat font fields from ITS OWN class before applyAll()
+      // re-themes, so it applies (and displays) its own class's font rather
+      // than whatever the flat fields were left at previously.
+      applyFontClass();
       applyAll();
       refreshSettingsUI();
       // Single/dual page is baked into the rendition at construction time, so

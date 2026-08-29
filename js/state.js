@@ -33,12 +33,27 @@ export const MAX_TOKENS = 1024;
 // Sentences of surrounding text sent with a lookup. Fixed — no longer a setting.
 export const CONTEXT_SENTENCES = 1;
 
-const defaultSettings = {
+// Font settings differ by device class (desktop vs. phone, see isPhoneUI
+// below) — a phone-sized font on phones, a desktop-sized one on desktops —
+// while still syncing normally within each class. settings.fontFamily/
+// fontSize/lineHeight/letterSpacing/wordSpacing (below) stay the flat,
+// "currently active" fields every read site uses; this is the persisted/
+// synced source of truth they're derived from. See applyFontClass().
+const DEFAULT_FONT = {
   fontFamily: "'Seravek', ui-sans-serif, system-ui, sans-serif",
   fontSize: 18,
   lineHeight: 1.5,
   letterSpacing: 0,
   wordSpacing: 0,
+};
+const FONT_KEYS = Object.keys(DEFAULT_FONT);
+
+const defaultSettings = {
+  // Flat fontFamily/fontSize/lineHeight/letterSpacing/wordSpacing keys are
+  // deliberately NOT here — they're runtime-only mirrors of font[cls] below,
+  // set by applyFontClass(), so they never enter SYNCED_SETTING_KEYS
+  // directly (only the per-class `font` object does).
+  font: { desktop: { ...DEFAULT_FONT }, phone: { ...DEFAULT_FONT } },
   textAlign: 'default',   // 'default' | 'left' | 'justify'
   padV: 44,           // top and bottom
   padH: 24,           // left and right
@@ -111,6 +126,15 @@ const _loaded = (() => {
     if (saved.padH === undefined && typeof saved.padLeft === 'number') {
       merged.padH = saved.padLeft;
     }
+    // Font used to be one flat value shared by every device. Seed both
+    // classes from it so an existing user's tuned font survives the
+    // upgrade instead of silently resetting to the hard defaults — they
+    // only diverge from here once changed on a given class.
+    if (saved.font === undefined && typeof saved.fontSize === 'number') {
+      const carried = {};
+      for (const k of FONT_KEYS) carried[k] = saved[k] ?? DEFAULT_FONT[k];
+      merged.font = { desktop: { ...carried }, phone: { ...carried } };
+    }
     // Models used to be picked by index into a fixed array. The list is now
     // user-editable, so the selection is an id — carry the old index over.
     if (saved.selectedModelId === undefined && typeof saved.selectedModelIdx === 'number') {
@@ -125,11 +149,28 @@ const _loaded = (() => {
 // Single shared object — modules mutate properties; the reference never changes.
 export const settings = _loaded;
 
+// Copies this device's class bucket (settings.font.desktop or .phone) onto
+// the flat fontFamily/fontSize/lineHeight/letterSpacing/wordSpacing fields
+// every read site (theme.js, ui.js) actually uses. Call at boot, and again
+// after a sync pull lands a new settings.font, so this device applies and
+// displays its own class's font rather than whichever the incoming blob's
+// flat values happened to be (there are none — only settings.font travels).
+export function applyFontClass() {
+  Object.assign(settings, settings.font[isPhoneUI() ? 'phone' : 'desktop']);
+}
+applyFontClass();
+
 function writeSettings() {
   localStorage.setItem('reader-settings', JSON.stringify(settings));
 }
 
 export function persistSettings() {
+  // Mirror the flat fields back into this device's class bucket on every
+  // save — every font-setting write already ends up here (via applyAll() or
+  // directly), so this is the one place that has to catch it, not each UI
+  // binder individually.
+  const cls = isPhoneUI() ? 'phone' : 'desktop';
+  for (const k of FONT_KEYS) settings.font[cls][k] = settings[k];
   settings.updatedAt = Date.now();
   writeSettings();
 }
@@ -293,6 +334,14 @@ export const $ = id => document.getElementById(id);
 // mobile translate bubble. Feature detection only — no UA sniffing.
 export const isCoarsePointer = window.matchMedia('(pointer: coarse)').matches;
 
+// The codebase's actual notion of "phone" for UI/settings purposes — narrower
+// than isCoarsePointer, which would also call a touchscreen laptop a phone.
+// Already used (independently, before this) to decide whether the page-layout
+// picker shows; also drives which per-class font settings are active.
+export function isPhoneUI() {
+  return window.matchMedia('(max-width: 599px), (pointer: coarse)').matches;
+}
+
 export function escapeHtml(s) {
   return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
@@ -313,8 +362,7 @@ export function attachPullToDismiss(sheet, getScrollEl, onDismiss, opts = {}) {
   let dy = 0;
   const startedOnGrab = (target) =>
     !!grab && target instanceof Element && !!target.closest(grab);
-  const isMobile = () =>
-    window.matchMedia('(max-width: 599px), (pointer: coarse)').matches;
+  const isMobile = isPhoneUI;
 
   // If text is currently selected (e.g. inside the popup), the user is most
   // likely trying to extend that selection — not dismiss the sheet. Bail so

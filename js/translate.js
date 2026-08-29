@@ -15,7 +15,7 @@ import { openBookFromDb } from './reader.js?v=41';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
-  MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer,
+  MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer, isPhoneUI,
 } from './state.js?v=41';
 import {
   onSelectionSettled, onBookTap,
@@ -137,7 +137,7 @@ function renderMarkdown(text) {
 }
 
 function isMobileViewport() {
-  return window.matchMedia('(max-width: 599px), (pointer: coarse)').matches;
+  return isPhoneUI();
 }
 
 export function showPopupAt(rect) {
