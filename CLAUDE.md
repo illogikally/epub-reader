@@ -17,6 +17,17 @@ If a single user request requires several logically distinct edits, commit each 
 
 Do not push to a remote unless the user explicitly asks.
 
+## Always bump the app version with every code change
+
+This app has no build step and no service worker — cache-busting is a hand-maintained `?v=N` query string appended to `css/reader.css` and every `js/*.js` import (see the comment at `index.html` near the closing `<script>` tags). iOS's WKWebView (Safari, and any other iOS browser — they're all WKWebView under the hood) caches these very aggressively, so if `?v=N` isn't bumped, a phone can keep silently running old JS/CSS after a push, which is exactly what happened for several rounds before this rule was added: fixes were pushed, `?v=41` was never bumped, and the phone kept serving the pre-fix files with no error and no visible sign anything was stale.
+
+So, on **every** code change to this repo (not just this one file — any `.js` or `.css` edit):
+
+1. Increment `APP_VERSION` in `js/debug.js` by 1.
+2. Update every `?v=N` occurrence in `index.html` and all `js/*.js` files to that same new number (`grep -rn '?v=' index.html js/*.js` to check nothing was missed).
+
+Do this as part of the same commit as the change itself — it's cheap (a constant bump plus a global find/replace) and it's the one thing that would have caught the stale-cache bug immediately: `APP_VERSION` is shown at the bottom of the Settings sheet ("Version N"), so "does your Settings say the number I expect?" is now a one-glance check instead of a guess.
+
 ## Push straight to master
 
 When the user does ask for a push, and no other branch has been specified for the task, push straight to `master` — skip making a feature branch and skip opening a PR. Commit directly on `master` (or fast-forward it) and push there. Only use a separate branch when the user explicitly asks for one, or when a specific task setup designates one (e.g. a harness-assigned branch for a given session).

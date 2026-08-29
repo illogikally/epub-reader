@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=41';
+} from './state.js?v=42';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=41';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=41';
-import { scrollTocToCurrent } from './translate.js?v=41';
-import { syncDebugPanel } from './debug.js?v=41';
+} from './theme.js?v=42';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=42';
+import { scrollTocToCurrent } from './translate.js?v=42';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=42';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -411,6 +411,10 @@ function bindSwitch(id, get, set) {
 // Init — call once at boot
 // ============================================================
 export function initUI() {
+  // Lets "does your Settings say vN?" answer whether a fresh build actually
+  // reached this device, instead of a screenshot round-trip to find out.
+  $('app-version').textContent = `Version ${APP_VERSION}`;
+
   // ---- Drawers / sheet ----
   overlay.addEventListener('click', hideAllDrawers);
   document.querySelectorAll('.drawer-close').forEach(btn => {

@@ -14,7 +14,7 @@
 // immediately without a reload.
 // ============================================================
 
-import { settings } from './state.js?v=41';
+import { settings } from './state.js?v=42';
 
 const URL_FLAG = (() => {
   try {
@@ -23,9 +23,12 @@ const URL_FLAG = (() => {
   } catch { return false; }
 })();
 
-// Bump on every change that gets pushed. Rounds were lost to testing stale
-// builds; this makes "is the phone running what I just wrote" readable on screen.
-const BUILD = 30;
+// Bumped on every change that gets pushed, together with every ?v=N cache-
+// buster in index.html and the js/*.js imports (see CLAUDE.md) — rounds were
+// lost to testing stale cached builds; this is also shown in Settings
+// (js/ui.js), so "is the phone running what I just wrote" is one glance away
+// instead of a guess.
+export const APP_VERSION = 42;
 
 // 24, not 12: repeated 'attached to chapter' lines nearly buried the one line
 // that mattered last round.
@@ -70,7 +73,7 @@ function render() {
     panel.id = 'debug-panel';
     document.body.appendChild(panel);
   }
-  const header = `build ${BUILD} · coarse=${status.coarse} · layer=${status.layer}`
+  const header = `build ${APP_VERSION} · coarse=${status.coarse} · layer=${status.layer}`
                + ` · iframes=${status.iframes} · sel=${status.sel}`
                + ` · safeArea=${status.safeArea}`;
   panel.textContent = header + '\n' + '-'.repeat(34) + '\n' + lines
@@ -85,7 +88,7 @@ export function syncDebugPanel() {
   // visible at a glance instead of being inferred from the log.
   document.body.classList.toggle('debug-on', isDebug());
   if (!isDebug()) hidePanel();
-  else dbg('debug log on (build ' + BUILD + ')');
+  else dbg('debug log on (build ' + APP_VERSION + ')');
 }
 
 // Surface thrown errors on the phone. Without this a failure anywhere in the

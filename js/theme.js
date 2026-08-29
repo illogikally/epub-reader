@@ -4,8 +4,8 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=41';
-import { dbgStatus } from './debug.js?v=41';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=42';
+import { dbgStatus } from './debug.js?v=42';
 
 // epub.js hard-codes `padding-top: 20px; padding-bottom: 20px` on the book's
 // <body> in Contents.columns() (0.3.93, dist/epub.js:6664). It is inline but not
