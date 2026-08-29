@@ -77,10 +77,15 @@
      slider, never less than the safe area, so padV/padH=0 still clears the
      notch/home indicator without doubling up once the slider already exceeds
      it. Layout reads these, not --pad-top/bottom/left/right directly. */
-  --eff-pad-top: max(var(--pad-top), env(safe-area-inset-top, 0px));
-  --eff-pad-bottom: max(var(--pad-bottom), env(safe-area-inset-bottom, 0px));
-  --eff-pad-left: max(var(--pad-left), env(safe-area-inset-left, 0px));
-  --eff-pad-right: max(var(--pad-right), env(safe-area-inset-right, 0px));
+  /* env() is capped before entering max(): a real notch/Dynamic-Island/status
+     bar is well under 60px and a home indicator well under 40px, but some
+     browsers/modes (seen: an iOS Home Screen install) report env() far
+     larger than the actual on-screen bar, which otherwise blows this padding
+     out to hundreds of pixels. */
+  --eff-pad-top: max(var(--pad-top), min(env(safe-area-inset-top, 0px), 60px));
+  --eff-pad-bottom: max(var(--pad-bottom), min(env(safe-area-inset-bottom, 0px), 40px));
+  --eff-pad-left: max(var(--pad-left), min(env(safe-area-inset-left, 0px), 60px));
+  --eff-pad-right: max(var(--pad-right), min(env(safe-area-inset-right, 0px), 60px));
   /* Half the line-grid remainder, added to the top and bottom of #viewer so the
      column is a whole number of lines tall. Set by alignToLineGrid(). */
   --pad-extra: 0px;

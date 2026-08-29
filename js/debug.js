@@ -35,7 +35,7 @@ let panel = null;
 
 // Always-current key facts, rendered as a fixed header above the rolling log so
 // nothing important depends on scrolling to the right line.
-const status = { coarse: '?', layer: '?', iframes: '?', sel: 'none' };
+const status = { coarse: '?', layer: '?', iframes: '?', sel: 'none', safeArea: '?/?' };
 export function dbgStatus(key, value) {
   status[key] = value;
   if (isDebug()) render();
@@ -71,7 +71,8 @@ function render() {
     document.body.appendChild(panel);
   }
   const header = `build ${BUILD} · coarse=${status.coarse} · layer=${status.layer}`
-               + ` · iframes=${status.iframes} · sel=${status.sel}`;
+               + ` · iframes=${status.iframes} · sel=${status.sel}`
+               + ` · safeArea=${status.safeArea}`;
   panel.textContent = header + '\n' + '-'.repeat(34) + '\n' + lines
     .map(l => l.count > 1 ? l.text + '  x' + l.count : l.text)
     .join('\n');

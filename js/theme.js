@@ -5,6 +5,7 @@
 // ============================================================
 
 import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=41';
+import { dbgStatus } from './debug.js?v=41';
 
 // epub.js hard-codes `padding-top: 20px; padding-bottom: 20px` on the book's
 // <body> in Contents.columns() (0.3.93, dist/epub.js:6664). It is inline but not
@@ -88,11 +89,15 @@ export function alignToLineGrid() {
   // gets. visualViewport.height tracks the real, current visible height;
   // falling back to innerHeight only where visualViewport isn't available.
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  // Mirrors --eff-pad-top/--eff-pad-bottom's max(slider, safe area) in CSS —
-  // top and bottom insets differ on a notched phone (status bar/notch vs.
-  // home indicator), so this can no longer assume they're both settings.padV.
-  const effTop = Math.max(settings.padV, safeAreaInsetPx('top'));
-  const effBottom = Math.max(settings.padV, safeAreaInsetPx('bottom'));
+  // Mirrors --eff-pad-top/--eff-pad-bottom's max(slider, capped safe area) in
+  // CSS — top and bottom insets differ on a notched phone (status bar/notch
+  // vs. home indicator), so this can no longer assume they're both
+  // settings.padV. The cap guards the same over-reporting case the CSS caps.
+  const rawTop = safeAreaInsetPx('top');
+  const rawBottom = safeAreaInsetPx('bottom');
+  dbgStatus('safeArea', `${rawTop}/${rawBottom}`);
+  const effTop = Math.max(settings.padV, Math.min(rawTop, 60));
+  const effBottom = Math.max(settings.padV, Math.min(rawBottom, 40));
   const avail = vh - effTop - effBottom - EPUBJS_BODY_PAD;
   const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
   root.style.setProperty('--pad-extra', Math.floor(extra / 2) + 'px');
