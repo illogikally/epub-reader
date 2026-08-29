@@ -73,6 +73,14 @@
   --pad-bottom: 44px;
   --pad-left: 24px;
   --pad-right: 24px;
+  /* Actual padding applied to the reading column: never less than the user's
+     slider, never less than the safe area, so padV/padH=0 still clears the
+     notch/home indicator without doubling up once the slider already exceeds
+     it. Layout reads these, not --pad-top/bottom/left/right directly. */
+  --eff-pad-top: max(var(--pad-top), env(safe-area-inset-top, 0px));
+  --eff-pad-bottom: max(var(--pad-bottom), env(safe-area-inset-bottom, 0px));
+  --eff-pad-left: max(var(--pad-left), env(safe-area-inset-left, 0px));
+  --eff-pad-right: max(var(--pad-right), env(safe-area-inset-right, 0px));
   /* Half the line-grid remainder, added to the top and bottom of #viewer so the
      column is a whole number of lines tall. Set by alignToLineGrid(). */
   --pad-extra: 0px;
@@ -142,6 +150,15 @@ html, body {
      settings panel, #popup-out scrolling and pull-to-dismiss all need.
      Touch-only in effect, so it needs no media query. */
   touch-action: manipulation;
+}
+
+/* Not used for scrolling — html/body never scroll (overflow: hidden above).
+   Exists purely so alignToLineGrid() (js/theme.js) can read the resolved
+   safe-area inset as a real px number via getComputedStyle: env() inside a
+   custom property isn't evaluated by getComputedStyle, but it is here. */
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+  scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 /* Touch only — mirrors the isCoarsePointer check in the JS. Desktop keeps
@@ -285,10 +302,10 @@ button {
 #reader { position: fixed; inset: 0; }
 #viewer {
   position: absolute;
-  top: calc(var(--pad-top) + var(--pad-extra));
-  bottom: calc(var(--pad-bottom) + var(--pad-extra));
-  left: var(--pad-left);
-  right: var(--pad-right);
+  top: calc(var(--eff-pad-top) + var(--pad-extra));
+  bottom: calc(var(--eff-pad-bottom) + var(--pad-extra));
+  left: var(--eff-pad-left);
+  right: var(--eff-pad-right);
   background: var(--bg);
 }
 #viewer iframe { border: none !important; }
@@ -302,10 +319,10 @@ button {
 @media (pointer: coarse) {
   #touch-capture {
     position: absolute;
-    top: calc(var(--pad-top) + var(--pad-extra));
-    bottom: calc(var(--pad-bottom) + var(--pad-extra));
-    left: var(--pad-left);
-    right: var(--pad-right);
+    top: calc(var(--eff-pad-top) + var(--pad-extra));
+    bottom: calc(var(--eff-pad-bottom) + var(--pad-extra));
+    left: var(--eff-pad-left);
+    right: var(--eff-pad-right);
     z-index: 4;
     /* We own every gesture over the book. Without this WebKit is free to read a
        drag as a pan, claim it mid-selection and stop delivering touchmove (or
@@ -324,8 +341,8 @@ button {
 /* invisible click zones for page flipping */
 #zone-left, #zone-right {
   position: absolute;
-  top: var(--pad-top);
-  bottom: var(--pad-bottom);
+  top: var(--eff-pad-top);
+  bottom: var(--eff-pad-bottom);
   width: clamp(10px, 8vw, 20px);
   z-index: 5;
   cursor: pointer;
@@ -392,7 +409,7 @@ body.chrome-visible #chrome-wrap {
 
 /* Persistent dot — always visible, tapping it shows/hides chrome-controls. */
 #chrome-dot {
-  position: fixed; right: 19px; bottom: 19px; z-index: 12;
+  position: fixed; right: 19px; bottom: calc(19px + env(safe-area-inset-bottom, 0px)); z-index: 12;
   width: 18px; height: 18px; border-radius: 50%; padding: 0; border: none;
   background: var(--chrome-fg);
   opacity: 0.22;

@@ -69,6 +69,16 @@ export function applyChromeTheme() {
 // renders a different line box, and the strip comes back. Feeding a measured
 // line height in here was tried and does not help: epub.js keeps its iframe at
 // the old height, so the column never picks the trimmed size up.
+// Real safe-area inset, in px. getComputedStyle doesn't evaluate env()/max()
+// inside a custom property, so this reads it off a real property instead —
+// scroll-padding-top/bottom on <html>, which is otherwise inert (html/body
+// never scroll) and exists in css/reader.css purely as this channel.
+function safeAreaInsetPx(edge) {
+  const cs = getComputedStyle(document.documentElement);
+  const v = edge === 'top' ? cs.scrollPaddingTop : cs.scrollPaddingBottom;
+  return parseFloat(v) || 0;
+}
+
 export function alignToLineGrid() {
   const root = document.documentElement;
   const lh = settings.fontSize * settings.lineHeight;
@@ -78,7 +88,12 @@ export function alignToLineGrid() {
   // gets. visualViewport.height tracks the real, current visible height;
   // falling back to innerHeight only where visualViewport isn't available.
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  const avail = vh - 2 * settings.padV - EPUBJS_BODY_PAD;
+  // Mirrors --eff-pad-top/--eff-pad-bottom's max(slider, safe area) in CSS —
+  // top and bottom insets differ on a notched phone (status bar/notch vs.
+  // home indicator), so this can no longer assume they're both settings.padV.
+  const effTop = Math.max(settings.padV, safeAreaInsetPx('top'));
+  const effBottom = Math.max(settings.padV, safeAreaInsetPx('bottom'));
+  const avail = vh - effTop - effBottom - EPUBJS_BODY_PAD;
   const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
   root.style.setProperty('--pad-extra', Math.floor(extra / 2) + 'px');
 }

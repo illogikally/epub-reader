@@ -410,10 +410,10 @@ function ensureCaptureLayer() {
   // Inline geometry so a stale reader.css can't disable it either.
   Object.assign(layer.style, {
     position: 'absolute',
-    top: 'var(--pad-top)',
-    bottom: 'var(--pad-bottom)',
-    left: 'var(--pad-left)',
-    right: 'var(--pad-right)',
+    top: 'var(--eff-pad-top)',
+    bottom: 'var(--eff-pad-bottom)',
+    left: 'var(--eff-pad-left)',
+    right: 'var(--eff-pad-right)',
     zIndex: '4',
     background: 'transparent',
     pointerEvents: 'auto',
