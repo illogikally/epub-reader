@@ -74,18 +74,23 @@
   --pad-left: 24px;
   --pad-right: 24px;
   /* Actual padding applied to the reading column: never less than the user's
-     slider, never less than the safe area, so padV/padH=0 still clears the
-     notch/home indicator without doubling up once the slider already exceeds
-     it. Layout reads these, not --pad-top/bottom/left/right directly. */
-  /* env() is capped before entering max(): a real notch/Dynamic-Island/status
-     bar is well under 60px and a home indicator well under 40px, but some
-     browsers/modes (seen: an iOS Home Screen install) report env() far
-     larger than the actual on-screen bar, which otherwise blows this padding
-     out to hundreds of pixels. */
-  --eff-pad-top: max(var(--pad-top), min(env(safe-area-inset-top, 0px), 60px));
-  --eff-pad-bottom: max(var(--pad-bottom), min(env(safe-area-inset-bottom, 0px), 40px));
-  --eff-pad-left: max(var(--pad-left), min(env(safe-area-inset-left, 0px), 60px));
-  --eff-pad-right: max(var(--pad-right), min(env(safe-area-inset-right, 0px), 60px));
+     slider, never less than the (capped) safe area, so padV/padH=0 still
+     clears the notch/home indicator without doubling up once the slider
+     already exceeds it. Layout reads these, not --pad-top/bottom/left/right
+     directly.
+     Deliberately NOT computed here with CSS max()/min()/env() nesting —
+     that was tried and had no visible effect on a real device, most likely
+     because it asks the CSS engine to resolve env() nested inside min()
+     nested inside max() inside a custom property, far deeper than this
+     codebase's two other (working) env() uses, which are a single level
+     inside calc() (see #chrome-controls, #settings-body below). JS
+     (applyChromeTheme() in theme.js) computes the same max(slider, capped
+     inset) math itself and overwrites these as plain px values instead —
+     these declarations are only the static fallback before that first runs. */
+  --eff-pad-top: var(--pad-top);
+  --eff-pad-bottom: var(--pad-bottom);
+  --eff-pad-left: var(--pad-left);
+  --eff-pad-right: var(--pad-right);
   /* Half the line-grid remainder, added to the top and bottom of #viewer so the
      column is a whole number of lines tall. Set by alignToLineGrid(). */
   --pad-extra: 0px;
@@ -158,12 +163,15 @@ html, body {
 }
 
 /* Not used for scrolling — html/body never scroll (overflow: hidden above).
-   Exists purely so alignToLineGrid() (js/theme.js) can read the resolved
-   safe-area inset as a real px number via getComputedStyle: env() inside a
-   custom property isn't evaluated by getComputedStyle, but it is here. */
+   Exists purely so js/theme.js can read the resolved safe-area inset as a
+   real px number via getComputedStyle: env() inside a custom property isn't
+   evaluated by getComputedStyle, but it is here (single-level env() inside a
+   plain property — the only form of env() this codebase relies on). */
 html {
   scroll-padding-top: env(safe-area-inset-top, 0px);
   scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
+  scroll-padding-left: env(safe-area-inset-left, 0px);
+  scroll-padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Touch only — mirrors the isCoarsePointer check in the JS. Desktop keeps

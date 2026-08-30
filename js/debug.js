@@ -14,7 +14,7 @@
 // immediately without a reload.
 // ============================================================
 
-import { settings } from './state.js?v=42';
+import { settings } from './state.js?v=43';
 
 const URL_FLAG = (() => {
   try {
@@ -28,7 +28,7 @@ const URL_FLAG = (() => {
 // lost to testing stale cached builds; this is also shown in Settings
 // (js/ui.js), so "is the phone running what I just wrote" is one glance away
 // instead of a guess.
-export const APP_VERSION = 42;
+export const APP_VERSION = 43;
 
 // 24, not 12: repeated 'attached to chapter' lines nearly buried the one line
 // that mattered last round.
