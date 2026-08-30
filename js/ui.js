@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=43';
+} from './state.js?v=44';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=43';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=43';
-import { scrollTocToCurrent } from './translate.js?v=43';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=43';
+} from './theme.js?v=44';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=44';
+import { scrollTocToCurrent } from './translate.js?v=44';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=44';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -54,10 +54,26 @@ export function showDrawer(drawer) {
   drawer.classList.add('visible');
   overlay.classList.add('visible');
 }
+// Everything needed to see WHY the reading column is padded the way it is,
+// without asking anyone to flip on ?debug=1 first — this is a plain visible
+// line so the very next Settings screenshot already has the numbers, rather
+// than costing another round-trip to ask for them. Recomputed every time the
+// sheet opens so it's never stale relative to whatever's actually on screen.
+function refreshDiag() {
+  const el = $('app-diag');
+  if (!el) return;
+  const cs = getComputedStyle(document.documentElement);
+  const g = name => cs.getPropertyValue(name).trim() || '?';
+  el.textContent = `padV=${settings.padV} padH=${settings.padH} `
+    + `eff=${g('--eff-pad-top')}/${g('--eff-pad-bottom')}/${g('--eff-pad-left')}/${g('--eff-pad-right')} `
+    + `extra=${g('--pad-extra')} font=${settings.fontSize}px/${settings.lineHeight}`;
+}
+
 export function showSettingsModal() {
   document.querySelectorAll('.drawer').forEach(d => d.classList.remove('visible'));
   settingsModal.classList.add('visible');
   overlay.classList.add('visible');
+  refreshDiag();
 }
 export function hideAllDrawers() {
   document.querySelectorAll('.drawer').forEach(d => d.classList.remove('visible'));
