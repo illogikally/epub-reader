@@ -4,8 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=44';
-import { dbgStatus } from './debug.js?v=44';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=45';
 
 // epub.js hard-codes `padding-top: 20px; padding-bottom: 20px` on the book's
 // <body> in Contents.columns() (0.3.93, dist/epub.js:6664). It is inline but not
@@ -14,31 +13,6 @@ import { dbgStatus } from './debug.js?v=44';
 // padV going to 0, and it happens to match the horizontal gap/2 epub.js applies.
 // alignToLineGrid() just has to know it is there.
 const EPUBJS_BODY_PAD = 40;
-
-// Real safe-area inset, in px. getComputedStyle doesn't evaluate env()/max()
-// inside a custom property, so this reads it off real properties instead —
-// scroll-padding-top/bottom/left/right on <html>, which is otherwise inert
-// (html/body never scroll) and exists in css/reader.css purely as this
-// channel (single-level env() inside a plain property, same proven-safe
-// form as this codebase's other two env() uses).
-function safeAreaInsetPx(edge) {
-  const cs = getComputedStyle(document.documentElement);
-  const prop = 'scrollPadding' + edge[0].toUpperCase() + edge.slice(1);
-  return parseFloat(cs[prop]) || 0;
-}
-
-// max(slider, capped safe area) — never less than the user's margin, never
-// less than the real inset (so 0 still clears the notch/home indicator),
-// but the inset's own contribution is capped since some browsers/modes have
-// been seen reporting it far larger than the actual on-screen bar. Kept in
-// JS rather than as CSS max()/min()/env() nesting: that was tried first and
-// had no visible effect on a real device — most likely WebKit failing to
-// resolve env() nested that deep inside min()/max()/a custom property, well
-// past the single level (env() straight inside calc()) this codebase's two
-// other uses rely on and are known to work.
-function effPad(edge, sliderPx, cap) {
-  return Math.max(sliderPx, Math.min(safeAreaInsetPx(edge), cap));
-}
 
 export function applyChromeTheme() {
   settings.dark = relLuminance(settings.bg) < 0.5;
@@ -53,12 +27,6 @@ export function applyChromeTheme() {
   root.style.setProperty('--pad-bottom', settings.padV + 'px');
   root.style.setProperty('--pad-left', settings.padH + 'px');
   root.style.setProperty('--pad-right', settings.padH + 'px');
-  // The padding layout actually uses — see effPad() above for why this is
-  // computed here in JS and pushed in as plain px, not left to CSS.
-  root.style.setProperty('--eff-pad-top', effPad('top', settings.padV, 60) + 'px');
-  root.style.setProperty('--eff-pad-bottom', effPad('bottom', settings.padV, 40) + 'px');
-  root.style.setProperty('--eff-pad-left', effPad('left', settings.padH, 60) + 'px');
-  root.style.setProperty('--eff-pad-right', effPad('right', settings.padH, 60) + 'px');
   alignToLineGrid();
   document.body.classList.toggle('dark-chrome', !!settings.dark);
   // Mark the swatch matching the current bg/fg pair, if any
@@ -110,13 +78,7 @@ export function alignToLineGrid() {
   // gets. visualViewport.height tracks the real, current visible height;
   // falling back to innerHeight only where visualViewport isn't available.
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  // Same effPad() the layout itself uses (applyChromeTheme(), above) — top
-  // and bottom insets differ on a notched phone (status bar/notch vs. home
-  // indicator), so this can no longer assume they're both settings.padV.
-  dbgStatus('safeArea', `${safeAreaInsetPx('top')}/${safeAreaInsetPx('bottom')}`);
-  const effTop = effPad('top', settings.padV, 60);
-  const effBottom = effPad('bottom', settings.padV, 40);
-  const avail = vh - effTop - effBottom - EPUBJS_BODY_PAD;
+  const avail = vh - 2 * settings.padV - EPUBJS_BODY_PAD;
   const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
   root.style.setProperty('--pad-extra', Math.floor(extra / 2) + 'px');
 }

@@ -20,8 +20,8 @@
 // Desktop is untouched — everything here no-ops on a fine pointer.
 // ============================================================
 
-import { $, isCoarsePointer, runtime } from './state.js?v=44';
-import { dbg, dbgStatus } from './debug.js?v=44';
+import { $, isCoarsePointer, runtime } from './state.js?v=45';
+import { dbg, dbgStatus } from './debug.js?v=45';
 
 const LONG_PRESS_MS  = 400;
 // Drift allowed while waiting out the long press. Generous on purpose: a finger
@@ -410,10 +410,10 @@ function ensureCaptureLayer() {
   // Inline geometry so a stale reader.css can't disable it either.
   Object.assign(layer.style, {
     position: 'absolute',
-    top: 'var(--eff-pad-top)',
-    bottom: 'var(--eff-pad-bottom)',
-    left: 'var(--eff-pad-left)',
-    right: 'var(--eff-pad-right)',
+    top: 'var(--pad-top)',
+    bottom: 'var(--pad-bottom)',
+    left: 'var(--pad-left)',
+    right: 'var(--pad-right)',
     zIndex: '4',
     background: 'transparent',
     pointerEvents: 'auto',

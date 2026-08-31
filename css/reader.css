@@ -73,24 +73,6 @@
   --pad-bottom: 44px;
   --pad-left: 24px;
   --pad-right: 24px;
-  /* Actual padding applied to the reading column: never less than the user's
-     slider, never less than the (capped) safe area, so padV/padH=0 still
-     clears the notch/home indicator without doubling up once the slider
-     already exceeds it. Layout reads these, not --pad-top/bottom/left/right
-     directly.
-     Deliberately NOT computed here with CSS max()/min()/env() nesting —
-     that was tried and had no visible effect on a real device, most likely
-     because it asks the CSS engine to resolve env() nested inside min()
-     nested inside max() inside a custom property, far deeper than this
-     codebase's two other (working) env() uses, which are a single level
-     inside calc() (see #chrome-controls, #settings-body below). JS
-     (applyChromeTheme() in theme.js) computes the same max(slider, capped
-     inset) math itself and overwrites these as plain px values instead —
-     these declarations are only the static fallback before that first runs. */
-  --eff-pad-top: var(--pad-top);
-  --eff-pad-bottom: var(--pad-bottom);
-  --eff-pad-left: var(--pad-left);
-  --eff-pad-right: var(--pad-right);
   /* Half the line-grid remainder, added to the top and bottom of #viewer so the
      column is a whole number of lines tall. Set by alignToLineGrid(). */
   --pad-extra: 0px;
@@ -160,18 +142,6 @@ html, body {
      settings panel, #popup-out scrolling and pull-to-dismiss all need.
      Touch-only in effect, so it needs no media query. */
   touch-action: manipulation;
-}
-
-/* Not used for scrolling — html/body never scroll (overflow: hidden above).
-   Exists purely so js/theme.js can read the resolved safe-area inset as a
-   real px number via getComputedStyle: env() inside a custom property isn't
-   evaluated by getComputedStyle, but it is here (single-level env() inside a
-   plain property — the only form of env() this codebase relies on). */
-html {
-  scroll-padding-top: env(safe-area-inset-top, 0px);
-  scroll-padding-bottom: env(safe-area-inset-bottom, 0px);
-  scroll-padding-left: env(safe-area-inset-left, 0px);
-  scroll-padding-right: env(safe-area-inset-right, 0px);
 }
 
 /* Touch only — mirrors the isCoarsePointer check in the JS. Desktop keeps
@@ -315,10 +285,10 @@ button {
 #reader { position: fixed; inset: 0; }
 #viewer {
   position: absolute;
-  top: calc(var(--eff-pad-top) + var(--pad-extra));
-  bottom: calc(var(--eff-pad-bottom) + var(--pad-extra));
-  left: var(--eff-pad-left);
-  right: var(--eff-pad-right);
+  top: calc(var(--pad-top) + var(--pad-extra));
+  bottom: calc(var(--pad-bottom) + var(--pad-extra));
+  left: var(--pad-left);
+  right: var(--pad-right);
   background: var(--bg);
 }
 #viewer iframe { border: none !important; }
@@ -332,10 +302,10 @@ button {
 @media (pointer: coarse) {
   #touch-capture {
     position: absolute;
-    top: calc(var(--eff-pad-top) + var(--pad-extra));
-    bottom: calc(var(--eff-pad-bottom) + var(--pad-extra));
-    left: var(--eff-pad-left);
-    right: var(--eff-pad-right);
+    top: calc(var(--pad-top) + var(--pad-extra));
+    bottom: calc(var(--pad-bottom) + var(--pad-extra));
+    left: var(--pad-left);
+    right: var(--pad-right);
     z-index: 4;
     /* We own every gesture over the book. Without this WebKit is free to read a
        drag as a pan, claim it mid-selection and stop delivering touchmove (or
@@ -354,8 +324,8 @@ button {
 /* invisible click zones for page flipping */
 #zone-left, #zone-right {
   position: absolute;
-  top: var(--eff-pad-top);
-  bottom: var(--eff-pad-bottom);
+  top: var(--pad-top);
+  bottom: var(--pad-bottom);
   width: clamp(10px, 8vw, 20px);
   z-index: 5;
   cursor: pointer;

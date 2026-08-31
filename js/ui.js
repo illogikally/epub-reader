@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=44';
+} from './state.js?v=45';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=44';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=44';
-import { scrollTocToCurrent } from './translate.js?v=44';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=44';
+} from './theme.js?v=45';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=45';
+import { scrollTocToCurrent } from './translate.js?v=45';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=45';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -65,7 +65,6 @@ function refreshDiag() {
   const cs = getComputedStyle(document.documentElement);
   const g = name => cs.getPropertyValue(name).trim() || '?';
   el.textContent = `padV=${settings.padV} padH=${settings.padH} `
-    + `eff=${g('--eff-pad-top')}/${g('--eff-pad-bottom')}/${g('--eff-pad-left')}/${g('--eff-pad-right')} `
     + `extra=${g('--pad-extra')} font=${settings.fontSize}px/${settings.lineHeight}`;
 }
 

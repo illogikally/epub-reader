@@ -14,7 +14,7 @@
 // immediately without a reload.
 // ============================================================
 
-import { settings } from './state.js?v=44';
+import { settings } from './state.js?v=45';
 
 const URL_FLAG = (() => {
   try {
@@ -28,7 +28,7 @@ const URL_FLAG = (() => {
 // lost to testing stale cached builds; this is also shown in Settings
 // (js/ui.js), so "is the phone running what I just wrote" is one glance away
 // instead of a guess.
-export const APP_VERSION = 44;
+export const APP_VERSION = 45;
 
 // 24, not 12: repeated 'attached to chapter' lines nearly buried the one line
 // that mattered last round.
@@ -38,7 +38,7 @@ let panel = null;
 
 // Always-current key facts, rendered as a fixed header above the rolling log so
 // nothing important depends on scrolling to the right line.
-const status = { coarse: '?', layer: '?', iframes: '?', sel: 'none', safeArea: '?/?' };
+const status = { coarse: '?', layer: '?', iframes: '?', sel: 'none' };
 export function dbgStatus(key, value) {
   status[key] = value;
   if (isDebug()) render();
@@ -74,8 +74,7 @@ function render() {
     document.body.appendChild(panel);
   }
   const header = `build ${APP_VERSION} · coarse=${status.coarse} · layer=${status.layer}`
-               + ` · iframes=${status.iframes} · sel=${status.sel}`
-               + ` · safeArea=${status.safeArea}`;
+               + ` · iframes=${status.iframes} · sel=${status.sel}`;
   panel.textContent = header + '\n' + '-'.repeat(34) + '\n' + lines
     .map(l => l.count > 1 ? l.text + '  x' + l.count : l.text)
     .join('\n');
