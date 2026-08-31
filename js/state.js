@@ -55,7 +55,8 @@ const defaultSettings = {
   // directly (only the per-class `font` object does).
   font: { desktop: { ...DEFAULT_FONT }, phone: { ...DEFAULT_FONT } },
   textAlign: 'default',   // 'default' | 'left' | 'justify'
-  padV: 44,           // top and bottom
+  padTop: 44,
+  padBottom: 44,
   padH: 24,           // left and right
   bg: '#faf6ef',
   fg: '#2a2520',
@@ -117,12 +118,16 @@ const _loaded = (() => {
         ...normalise(saved.customModels, guess),
       ];
     }
-    // Margins used to be four independent values. Without carrying them over
-    // the whitelist above would simply drop the old keys and everyone's
-    // margins would silently snap back to the defaults.
-    if (saved.padV === undefined && typeof saved.padTop === 'number') {
-      merged.padV = saved.padTop;
+    // Vertical margin used to be one shared value (padV). Seed both new
+    // top/bottom keys from it so an existing user's setting survives the
+    // upgrade instead of resetting to the default — they only diverge once
+    // one is changed independently.
+    if (saved.padTop === undefined && typeof saved.padV === 'number') {
+      merged.padTop = saved.padV;
+      merged.padBottom = saved.padV;
     }
+    // Horizontal margin has its own, older migration: it used to be a
+    // separate padLeft before collapsing into the still-current padH.
     if (saved.padH === undefined && typeof saved.padLeft === 'number') {
       merged.padH = saved.padLeft;
     }

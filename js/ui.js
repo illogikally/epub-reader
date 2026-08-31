@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=45';
+} from './state.js?v=46';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=45';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=45';
-import { scrollTocToCurrent } from './translate.js?v=45';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=45';
+} from './theme.js?v=46';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=46';
+import { scrollTocToCurrent } from './translate.js?v=46';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=46';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -64,7 +64,7 @@ function refreshDiag() {
   if (!el) return;
   const cs = getComputedStyle(document.documentElement);
   const g = name => cs.getPropertyValue(name).trim() || '?';
-  el.textContent = `padV=${settings.padV} padH=${settings.padH} `
+  el.textContent = `padTop=${settings.padTop} padBottom=${settings.padBottom} padH=${settings.padH} `
     + `extra=${g('--pad-extra')} font=${settings.fontSize}px/${settings.lineHeight}`;
 }
 
@@ -504,7 +504,8 @@ export function initUI() {
   });
 
   // ---- Layout: margins ----
-  bindPaddingSlider('pad-v', 'padV');
+  bindPaddingSlider('pad-top', 'padTop');
+  bindPaddingSlider('pad-bottom', 'padBottom');
   bindPaddingSlider('pad-h', 'padH');
 
   // ---- Theme ----

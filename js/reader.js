@@ -1,27 +1,30 @@
 // ============================================================
 // Book opening / rendition / page navigation / chrome controls.
 //
-// Chrome toggle:
-//   * Mobile: #chrome-dot (always-visible dot in bottom-right) toggles chrome.
-//   * Desktop: tap inside iframe toggles chrome (deferred 230ms to allow
-//     double-click word selection without false chrome toggles).
+// Chrome toggle: tapping/clicking the middle of the book (not the edges,
+// which flip pages) shows or hides the floating chrome controls — no
+// persistent on-screen button. Touch uses onBookTap() (touchselect.js),
+// which already only fires for a tap that lands away from the edges.
+// Desktop has no such gesture natively, so attachInputHandlers() below adds
+// a click listener deferred 250ms and cancelled by a following dblclick, so
+// it never fires mid-double-click word selection.
 // ============================================================
 
 import {
-  settings, runtime, $, dbGet, dbPut, getProgress, setProgress,
-} from './state.js?v=45';
-import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=45';
+  settings, runtime, $, dbGet, dbPut, getProgress, setProgress, isCoarsePointer,
+} from './state.js?v=46';
+import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=46';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
   buildToc, setTocPosition, markTocCurrent, readingProgress,
-} from './translate.js?v=45';
-import { renderLibrary } from './library.js?v=45';
+} from './translate.js?v=46';
+import { renderLibrary } from './library.js?v=46';
 import {
-  initTouchSelection, clearTouchSelection, onBookSwipe,
-} from './touchselect.js?v=45';
-import { dbg } from './debug.js?v=45';
+  initTouchSelection, clearTouchSelection, onBookSwipe, onBookTap,
+} from './touchselect.js?v=46';
+import { dbg } from './debug.js?v=46';
 
 const library = $('library');
 const reader = $('reader');
@@ -40,6 +43,14 @@ export function hideChrome() {
 export function toggleChrome() {
   if (document.body.classList.contains('chrome-visible')) hideChrome();
   else showChrome();
+}
+// A center tap/click's actual effect: dismiss a live lookup popup first (it
+// sits over the same area a chrome toggle would), otherwise toggle chrome.
+// Shared by the touch (onBookTap) and desktop (click, below) paths so the
+// two can't drift.
+function toggleChromeOrDismissPopup() {
+  if (isPopupVisible()) hidePopup();
+  else toggleChrome();
 }
 
 // ============================================================
@@ -274,12 +285,13 @@ export function flipPage(direction) {
 }
 
 // ============================================================
-// Per-iframe input handlers (the new center-tap fix lives here)
+// Per-iframe input handlers
 // ============================================================
 
-// Module-level timestamp: set by whichever tap handler fires first
-// (top-level or in-iframe) so the other one skips the same tap.
-let lastToggleTapTime = 0;
+// Shared across every chapter document a book renders — a click in chapter
+// A followed fast enough by a dblclick's second click landing in freshly
+// rendered chapter B (a page turn mid double-click) should still cancel.
+let chromeClickTimer = null;
 
 function attachInputHandlers(doc) {
   // Wheel — desktop only path; flips a page per scroll burst.
@@ -292,6 +304,20 @@ function attachInputHandlers(doc) {
 
   doc.addEventListener('keydown', handleKey);
 
+  // Desktop center-tap-to-toggle-chrome. Touch never reaches here —
+  // #touch-capture overlays the iframe and owns every touch gesture — but
+  // the guard makes that on purpose rather than incidental. Deferred so a
+  // double-click (word selection) doesn't also toggle chrome; the pending
+  // toggle is cancelled if a dblclick follows.
+  if (!isCoarsePointer) {
+    doc.addEventListener('click', e => {
+      if (e.target.closest('a')) return;         // let link taps navigate
+      if (doc.getSelection().toString()) return;  // a selection, not a toggle
+      clearTimeout(chromeClickTimer);
+      chromeClickTimer = setTimeout(toggleChromeOrDismissPopup, 250);
+    });
+    doc.addEventListener('dblclick', () => clearTimeout(chromeClickTimer));
+  }
 }
 
 function handleKey(e) {
@@ -333,6 +359,12 @@ export function initReaderEvents() {
   // none), so it reports the flick and flipPage does its usual debounce.
   onBookSwipe(dir => flipPage(dir));
 
+  // Touch center-tap-to-toggle-chrome. onBookTap() (touchselect.js) already
+  // only fires for a tap that lands away from the edges — #zone-left/right
+  // are separate elements outside #touch-capture's inset box, so an edge tap
+  // never reaches it.
+  onBookTap(toggleChromeOrDismissPopup);
+
   viewer.addEventListener('wheel', e => {
     e.preventDefault();
     flipPage(e.deltaY);
@@ -347,14 +379,6 @@ export function initReaderEvents() {
       e.preventDefault();
       flipPage(e.deltaY);
     }, { passive: false });
-  });
-
-  // Chrome-dot — persistent small button in bottom-right, always visible.
-  // Tapping it toggles the floating chrome controls (reliable: lives in the
-  // top document, not inside the epub.js iframe).
-  $('chrome-dot').addEventListener('click', () => {
-    if (isPopupVisible()) { hidePopup(); return; }
-    toggleChrome();
   });
 
   // Wrapper catches taps on the dimmed background; clicks on the buttons inside

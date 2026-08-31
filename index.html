@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=45">
+<link rel="stylesheet" href="css/reader.css?v=46">
 </head>
 <body>
 
@@ -40,9 +40,6 @@
   <div id="viewer"></div>
   <div id="zone-left" title="Previous page"></div>
   <div id="zone-right" title="Next page"></div>
-
-  <!-- Small persistent dot in the bottom-right — tapping it shows/hides #chrome-controls. -->
-  <button id="chrome-dot" title="Show controls" aria-label="Show controls"></button>
 
   <!-- Full-screen dimmed wrapper containing the floating buttons. Tapping the
        wrapper background dismisses the cluster; tapping a button runs its handler. -->
@@ -217,15 +214,22 @@
     </div>
 
     <div class="set-group">
-      <!-- One control per axis. Top and bottom, or left and right, were never
-           set to different values in practice — four sliders only made the
-           card longer. -->
+      <!-- Vertical splits into top/bottom; horizontal stays one control —
+           left and right were never asked to differ, top and bottom were. -->
       <div class="set-slider">
-        <div class="set-sublabel">Margin vertical</div>
+        <div class="set-sublabel">Margin top</div>
         <div class="set-slider-row">
-          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M4 7h16" stroke-width="3"/><path d="M4 17h16" stroke-width="3"/></svg></span>
-          <input type="range" id="pad-v" min="0" max="200" step="2" value="44" aria-label="Vertical margin">
-          <span class="set-value" id="pad-v-value">44px</span>
+          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M4 7h16" stroke-width="3"/></svg></span>
+          <input type="range" id="pad-top" min="0" max="200" step="2" value="44" aria-label="Top margin">
+          <span class="set-value" id="pad-top-value">44px</span>
+        </div>
+      </div>
+      <div class="set-slider">
+        <div class="set-sublabel">Margin bottom</div>
+        <div class="set-slider-row">
+          <span class="set-icon"><svg viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17" rx="3"/><path d="M4 17h16" stroke-width="3"/></svg></span>
+          <input type="range" id="pad-bottom" min="0" max="200" step="2" value="44" aria-label="Bottom margin">
+          <span class="set-value" id="pad-bottom-value">44px</span>
         </div>
       </div>
       <div class="set-slider">
@@ -416,6 +420,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=45"></script>
+<script type="module" src="js/main.js?v=46"></script>
 </body>
 </html>

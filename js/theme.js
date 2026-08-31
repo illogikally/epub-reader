@@ -4,13 +4,14 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=45';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=46';
 
 // epub.js hard-codes `padding-top: 20px; padding-bottom: 20px` on the book's
 // <body> in Contents.columns() (0.3.93, dist/epub.js:6664). It is inline but not
 // !important, so it could be overridden — it is left alone deliberately: it is
 // the only vertical breathing room between the text and the edge that survives
-// padV going to 0, and it happens to match the horizontal gap/2 epub.js applies.
+// padTop/padBottom going to 0, and it happens to match the horizontal gap/2
+// epub.js applies.
 // alignToLineGrid() just has to know it is there.
 const EPUBJS_BODY_PAD = 40;
 
@@ -21,10 +22,9 @@ export function applyChromeTheme() {
   root.style.setProperty('--fg', settings.fg);
   root.style.setProperty('--chrome-fg', settings.fg);
   root.style.setProperty('--chrome-hover', settings.fg);
-  // Still four CSS variables — everything downstream reads them per edge — but
-  // one setting drives each axis.
-  root.style.setProperty('--pad-top', settings.padV + 'px');
-  root.style.setProperty('--pad-bottom', settings.padV + 'px');
+  // Top/bottom are independent settings; left/right still share one.
+  root.style.setProperty('--pad-top', settings.padTop + 'px');
+  root.style.setProperty('--pad-bottom', settings.padBottom + 'px');
   root.style.setProperty('--pad-left', settings.padH + 'px');
   root.style.setProperty('--pad-right', settings.padH + 'px');
   alignToLineGrid();
@@ -78,7 +78,7 @@ export function alignToLineGrid() {
   // gets. visualViewport.height tracks the real, current visible height;
   // falling back to innerHeight only where visualViewport isn't available.
   const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  const avail = vh - 2 * settings.padV - EPUBJS_BODY_PAD;
+  const avail = vh - settings.padTop - settings.padBottom - EPUBJS_BODY_PAD;
   const extra = (lh > 0 && avail > lh) ? (avail % lh) : 0;
   root.style.setProperty('--pad-extra', Math.floor(extra / 2) + 'px');
 }
