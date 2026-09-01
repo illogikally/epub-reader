@@ -290,6 +290,11 @@ button {
   left: var(--pad-left);
   right: var(--pad-right);
   background: var(--bg);
+  /* Without this, epub.js's rendered column can end up a hair taller than
+     this box (up to 1px of rounding error — see alignToLineGrid()'s comment
+     in js/theme.js) and the overflow hangs out below as a visible sliver,
+     varying page to page. Clip it instead of letting it show. */
+  overflow: hidden;
 }
 #viewer iframe { border: none !important; }
 
