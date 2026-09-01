@@ -4,7 +4,7 @@
 // helper used by every range input.
 // ============================================================
 
-import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=47';
+import { settings, runtime, relLuminance, persistSettings, isCoarsePointer, $ } from './state.js?v=48';
 
 // epub.js hard-codes `padding-top: 20px; padding-bottom: 20px` on the book's
 // <body> in Contents.columns() (0.3.93, dist/epub.js:6664). It is inline but not
@@ -27,6 +27,11 @@ export function applyChromeTheme() {
   root.style.setProperty('--pad-bottom', settings.padBottom + 'px');
   root.style.setProperty('--pad-left', settings.padH + 'px');
   root.style.setProperty('--pad-right', settings.padH + 'px');
+  // Lookup popup's own font — parent-document CSS, no epub.js pagination
+  // involved, so nothing here needs a relayout.
+  root.style.setProperty('--popup-font-family', settings.popupFontFamily);
+  root.style.setProperty('--popup-font-size', settings.popupFontSize + 'px');
+  root.style.setProperty('--popup-letter-spacing', settings.popupLetterSpacing + 'px');
   alignToLineGrid();
   document.body.classList.toggle('dark-chrome', !!settings.dark);
   // Mark the swatch matching the current bg/fg pair, if any

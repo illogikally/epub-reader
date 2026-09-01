@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=47';
+} from './state.js?v=48';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=47';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=47';
-import { scrollTocToCurrent } from './translate.js?v=47';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=47';
+} from './theme.js?v=48';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=48';
+import { scrollTocToCurrent } from './translate.js?v=48';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=48';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -485,6 +485,15 @@ export function initUI() {
   bindLineHeight();
   bindSlider('letter-spacing', 'letterSpacing', 'px');
   bindSlider('word-spacing', 'wordSpacing', 'px');
+
+  // ---- Lookup popup: its own font, independent of the book's ----
+  bindSelectRow('sel-popup-font', {
+    options: FONTS,
+    get: () => settings.popupFontFamily,
+    set: v => { settings.popupFontFamily = v; applyAll(); },
+  });
+  bindSlider('popup-font-size', 'popupFontSize', 'px');
+  bindSlider('popup-letter-spacing', 'popupLetterSpacing', 'px');
 
   // ---- Layout: page mode (hidden on phones — they are always single page) ----
   bindSegmented('seg-layout', {

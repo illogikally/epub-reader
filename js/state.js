@@ -54,6 +54,15 @@ const defaultSettings = {
   // set by applyFontClass(), so they never enter SYNCED_SETTING_KEYS
   // directly (only the per-class `font` object does).
   font: { desktop: { ...DEFAULT_FONT }, phone: { ...DEFAULT_FONT } },
+  // The lookup popup's own font — independent of the book/chrome font above,
+  // and (unlike font.desktop/phone) a single value: nothing asked for a
+  // per-device split here. Matches "Mono" in ui.js's FONTS list, not the
+  // CSS's old bare `Consolas` (no fallback stack, so on iOS/Mac — neither
+  // ships Consolas — that was already silently falling back to some UA
+  // default rather than actually rendering as Consolas).
+  popupFontFamily: "ui-monospace, 'SF Mono', Menlo, monospace",
+  popupFontSize: 16,
+  popupLetterSpacing: -1,
   textAlign: 'default',   // 'default' | 'left' | 'justify'
   padTop: 44,
   padBottom: 44,
