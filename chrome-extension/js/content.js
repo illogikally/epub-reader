@@ -523,30 +523,51 @@ function doLookup(phrase, range, sentenceCount) {
   popupForm.hidden = true;
 
   const is_a_word = phrase.trim().split(' ').length == 1
-  const prompt = is_a_word
-    ? `Nhiệm vụ: Tra từ **${phrase}** xuất hiện trong đoạn văn sau và trả về đúng theo định dạng quy định.
+  const kind = is_a_word ? 'từ' : 'cụm';
+  const ctxBlock = local ? `
 
-Đoạn văn ngữ cảnh:
+Câu chứa ${kind}:
 """
 ${local}
-"""
+"""` : '';
+  const ctxRule = local
+    ? (is_a_word
+        ? `- Câu ngữ cảnh CHỈ dùng để chọn đúng nét nghĩa và đúng từ loại của từ khi từ có nhiều nghĩa — không phải để dịch.
+`
+        : `- Câu ngữ cảnh CHỈ dùng để chọn đúng nét nghĩa của cụm — không phải để dịch.
+`)
+    : '';
+  const prompt = is_a_word
+    ? `Nhiệm vụ: Tra nghĩa của riêng từ **${phrase}**${local ? ' trong câu dưới đây' : ''}.${ctxBlock}
 
-Định dạng đầu ra BẮT BUỘC (chỉ trả về đúng dòng này, không thêm bất kỳ nội dung nào khác):
-**${phrase}** /IPA/:  Nghĩa
+Định dạng đầu ra BẮT BUỘC (chỉ đúng 1 dòng, không thêm bất kỳ nội dung nào khác):
+**${phrase}** /IPA/: Nghĩa
 
 Quy tắc:
-- Chỉ dịch từ "${phrase}", KHÔNG dịch cả đoạn văn
-- /IPA/: phiên âm IPA chuẩn của từ "${phrase}"
-- Nghĩa: nghĩa của TỪ "${phrase}" ngữ cảnh
-- KHÔNG viết thêm giải thích, tiêu đề, hay bất kỳ văn bản nào ngoài đúng 1 dòng định dạng trên
+- Chỉ trả nghĩa của riêng từ "${phrase}". KHÔNG dịch câu, KHÔNG diễn giải câu, KHÔNG đưa chữ nào khác của câu vào phần Nghĩa.
+${ctxRule}- Nếu từ nằm trong một thành ngữ hay cụm cố định, VẪN chỉ trả nghĩa của riêng từ đó, KHÔNG trả nghĩa của cả thành ngữ.
+- Nghĩa: ngắn gọn như một mục từ điển (1-4 từ tiếng Việt); tối đa 2 nghĩa gần nhau, ngăn cách bằng dấu phẩy.
+- /IPA/: phiên âm IPA của từ "${phrase}" đúng với từ loại đã chọn.
+- KHÔNG thêm giải thích, tiêu đề, ví dụ, hay bất kỳ văn bản nào ngoài đúng 1 dòng trên.
 
 Ví dụ output hợp lệ:
-**example** /ɪɡˈzɑːmpl/: ví dụ`
-    : `Trong câu sau: "${local}"
-Chỉ dịch đúng đoạn này (không dịch cả câu): "${phrase}"
+Câu "The bank was closed." — từ "bank" → **bank** /bæŋk/: ngân hàng
+Câu "We sat on the river bank." — từ "bank" → **bank** /bæŋk/: bờ, bờ sông
+Câu "Break a leg tonight!" — từ "leg" → **leg** /leɡ/: chân`
+    : `Nhiệm vụ: Tra nghĩa của riêng cụm **${phrase}**${local ? ' trong câu dưới đây' : ''}.${ctxBlock}
 
-Ví dụ — nếu đoạn cần dịch là "break a leg", output đúng là:
-chúc may mắn`
+Định dạng đầu ra BẮT BUỘC (chỉ đúng 1 dòng, không thêm bất kỳ nội dung nào khác):
+**${phrase}**: Nghĩa
+
+Quy tắc:
+- Chỉ trả nghĩa của riêng cụm "${phrase}". KHÔNG dịch cả câu, KHÔNG đưa phần nào của câu nằm ngoài cụm vào phần Nghĩa.
+${ctxRule}- Nếu cụm là thành ngữ hay cụm cố định, trả nghĩa thành ngữ của nó; nếu không, trả nghĩa sát nhất của cụm.
+- Nghĩa: ngắn gọn như một mục từ điển, KHÔNG phải một câu hoàn chỉnh.
+- KHÔNG thêm phiên âm, giải thích, tiêu đề, ví dụ, hay bất kỳ văn bản nào ngoài đúng 1 dòng trên.
+
+Ví dụ output hợp lệ:
+Câu "Break a leg tonight!" — cụm "break a leg" → **break a leg**: chúc may mắn
+Câu "She gave up smoking last year." — cụm "gave up" → **gave up**: từ bỏ, cai`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }
