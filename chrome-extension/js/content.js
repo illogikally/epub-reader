@@ -378,13 +378,17 @@ async function sendToLLM(text, metaLabel, followup, silent, heading) {
           settings.selectedModelId = next.id;
           chrome.storage.local.set({ selectedModelId: settings.selectedModelId });
 
-          if (pending) pending.remove();
-          pending = popupWrite(`Rate limit. Trying ${next.model}...`, 'sys');
-          
+          // Swap models silently — no "Rate limit. Trying X..." line. Which
+          // model ends up answering isn't something you can act on mid-lookup,
+          // and the notice pushed the actual answer down the transcript.
           if (replyDiv) {
             replyDiv.remove();
             replyDiv = null;
           }
+          // ensureReply() removes `pending` the moment the first chunk lands,
+          // so a model that started answering and then 429'd leaves nothing
+          // on screen. Put the plain spinner back for the retry.
+          if (!pending) pending = popupWrite('...', 'sys');
           reply = '';
           continue;
         }
