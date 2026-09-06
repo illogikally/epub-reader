@@ -10,6 +10,8 @@ const nmError = document.getElementById('nm-error');
 const nmAdd = document.getElementById('nm-add');
 const contextRange = document.getElementById('context-range');
 const contextVal = document.getElementById('context-val');
+const wordRange = document.getElementById('word-spacing-range');
+const wordVal = document.getElementById('word-spacing-val');
 const keyGroq = document.getElementById('key-groq');
 const keyGemini = document.getElementById('key-gemini');
 
@@ -117,13 +119,16 @@ nmModel.addEventListener('keydown', e => {
 });
 
 // Load settings
-chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'apiKeys'], (res) => {
+chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'apiKeys'], (res) => {
   ({ models, selectedModelId } = readModelStore(res));
   renderModels();
   if (res.contextSentences !== undefined) {
     contextRange.value = res.contextSentences;
     contextVal.textContent = res.contextSentences;
   }
+  const ws = res.popupWordSpacing === undefined ? 0 : res.popupWordSpacing;
+  wordRange.value = ws;
+  wordVal.textContent = ws + 'px';
   if (res.apiKeys) {
     keyGroq.value = res.apiKeys.GROQ_API_KEY || '';
     keyGemini.value = res.apiKeys.GEMINI_API_KEY || '';
@@ -133,6 +138,11 @@ chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'apiKeys'], (
 contextRange.addEventListener('input', () => {
   contextVal.textContent = contextRange.value;
   chrome.storage.local.set({ contextSentences: parseInt(contextRange.value) });
+});
+
+wordRange.addEventListener('input', () => {
+  wordVal.textContent = wordRange.value + 'px';
+  chrome.storage.local.set({ popupWordSpacing: parseFloat(wordRange.value) });
 });
 
 const saveKeys = () => {
