@@ -418,29 +418,40 @@ function renderActionsBar(phrase, context) {
   });
 
   if (phrase.trim().split(' ').length > 1) return;
-  const synonymPrompt = `
-Give me a list of synonyms for <${phrase}>.
-Return your response using EXACTLY this structure — no deviations, no extra text before or after:
+
+  // Synonyms are only worth listing if you can tell them apart, so every entry
+  // is forced onto the same three axes (register / intensity / connotation),
+  // has to name the ONE thing that shifts against the headword, and has to
+  // earn its place with a sentence the headword would be wrong in.
+  const synCtx = context && context !== phrase
+    ? `\n\nCâu chứa từ:\n"""\n${context}\n"""`
+    : '';
+  const synonymPrompt = `Nhiệm vụ: liệt kê 5 từ đồng nghĩa của <${phrase}>, đúng nét nghĩa mà nó mang ở đây.${synCtx}
+
+Định dạng đầu ra BẮT BUỘC — không thêm gì trước hay sau khối này:
 
 **SYNONYM**:
-- [word] — [nuance]. *[example sentence]*
-- [word] — [nuance]. *[example sentence]*
+• **${phrase}** — [văn phong] · [cường độ n/5] · [sắc thái] · gốc: [nét nghĩa trung tính của chính nó]
+  *[câu tiếng Anh dùng ${phrase} một cách điển hình]*
+• **[từ]** — [văn phong] · [cường độ n/5] · [sắc thái] · khác: [đổi gì so với ${phrase}]
+  *[câu tiếng Anh chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
+**TRỤC**: [cả 5 từ xếp trên trục khác biệt chính, ngăn bằng dấu <]
 
-RULES (must follow):
-- Each synonym occupies exactly one line, starting with •
-- Format per line: • synonym — nuance of how it differs. *example in english in italics*
-- Include 5 synonyms, ordered from closest in meaning to most loosely related
-- The list MUST include "${phrase}" itself as the first bullet, with its nuance describing its own neutral/baseline usage
-- The nuance must be in VIETNAMESE and must name the KIND of difference where relevant: sắc thái (connotation: tích cực/tiêu cực/trung tính), mức độ trang trọng (register: trang trọng/đời thường/lóng), cường độ (stronger/weaker), or ngữ cảnh dùng (typical context)
-- If a word is commonly mistaken as interchangeable but differs in an important way, note it in the nuance (e.g. "dễ nhầm:")
-- The example must be in ENGLISH and must showcase that word's DISTINCTIVE usage (not a generic sentence that would fit any synonym)
-- The synonym must be in ENGLISH
-- The example must be wrapped in single asterisks: *like this*
-- Do NOT add bullet styles other than •
-- Do NOT add blank lines between bullets
-- Do NOT include any intro or closing remarks
-- Output ONLY the block above, nothing else
-`;
+Quy tắc:
+- Khối trên là bắt buộc và đầy đủ: yêu cầu "ngắn gọn" ở chỗ khác không được phép cắt bớt gạch đầu dòng hay bỏ trống ô nào.
+- Đúng 5 gạch đầu dòng, mỗi gạch bắt đầu bằng •, và "${phrase}" là gạch ĐẦU TIÊN, làm mốc so sánh cho 4 từ còn lại.
+- 4 từ còn lại xếp từ gần nghĩa nhất đến xa nhất.
+- [văn phong]: trang trọng / trung tính / đời thường / lóng / chuyên ngành.
+- [cường độ n/5]: 1 nhẹ nhất, 5 mạnh nhất, chấm trên cùng một thang với "${phrase}".
+- [sắc thái]: tích cực / trung tính / tiêu cực.
+- "khác:" nêu ĐÚNG MỘT điểm khác cụ thể, và mỗi từ phải khác ở một điểm KHÁC NHAU — không lặp cùng một kiểu khác biệt cho hai từ.
+- CẤM mô tả chung chung kiểu "trang trọng hơn", "mạnh hơn", "ít dùng hơn" nếu không nói rõ: hơn ở chỗ nào, dùng trong tình huống nào, hay đi với từ nào.
+- Nếu một từ hay bị tưởng là thay thế được cho "${phrase}", mở phần "khác:" bằng "dễ nhầm:".
+- Ví dụ của 4 từ còn lại phải là câu mà CHỈ từ đó hợp: thay bằng "${phrase}" thì sai nghĩa hoặc nghe gượng, và phải nói rõ hỏng ở đâu sau dấu gạch.
+- Từ đồng nghĩa và câu ví dụ bằng TIẾNG ANH; mọi phần mô tả bằng TIẾNG VIỆT.
+- Câu ví dụ in nghiêng bằng đúng một cặp dấu sao: *như thế này*.
+- Dòng **TRỤC** cuối cùng xếp cả 5 từ trên trục khác biệt chính (thường là cường độ), ví dụ: annoyed < angry < furious.
+- KHÔNG dùng bảng, KHÔNG chèn dòng trống giữa các gạch đầu dòng, KHÔNG mở bài hay kết luận.`;
 
   const items = [
     ['syn', synonymPrompt, 'Synonyms'],

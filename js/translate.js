@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=50';
+import { openBookFromDb } from './reader.js?v=51';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=50';
+} from './state.js?v=51';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=50';
+} from './touchselect.js?v=51';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -491,13 +491,43 @@ function renderActionsBar(phrase, context) {
     });
   });
 
+  // Synonyms are only worth listing if you can tell them apart, so every entry
+  // is forced onto the same three axes (register / intensity / connotation),
+  // has to name the ONE thing that shifts against the headword, and has to
+  // earn its place with a sentence the headword would be wrong in.
+  const synCtx = context && context !== phrase
+    ? `\n\nCâu chứa từ:\n"""\n${context}\n"""`
+    : '';
+  const synonymPrompt = `Nhiệm vụ: liệt kê 5 từ đồng nghĩa của <${phrase}>, đúng nét nghĩa mà nó mang ở đây.${synCtx}
+
+Định dạng đầu ra BẮT BUỘC — không thêm gì trước hay sau khối này:
+
+**SYNONYM**:
+• **${phrase}** — [văn phong] · [cường độ n/5] · [sắc thái] · gốc: [nét nghĩa trung tính của chính nó]
+  *[câu tiếng Anh dùng ${phrase} một cách điển hình]*
+• **[từ]** — [văn phong] · [cường độ n/5] · [sắc thái] · khác: [đổi gì so với ${phrase}]
+  *[câu tiếng Anh chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
+**TRỤC**: [cả 5 từ xếp trên trục khác biệt chính, ngăn bằng dấu <]
+
+Quy tắc:
+- Khối trên là bắt buộc và đầy đủ: yêu cầu "ngắn gọn" ở chỗ khác không được phép cắt bớt gạch đầu dòng hay bỏ trống ô nào.
+- Đúng 5 gạch đầu dòng, mỗi gạch bắt đầu bằng •, và "${phrase}" là gạch ĐẦU TIÊN, làm mốc so sánh cho 4 từ còn lại.
+- 4 từ còn lại xếp từ gần nghĩa nhất đến xa nhất.
+- [văn phong]: trang trọng / trung tính / đời thường / lóng / chuyên ngành.
+- [cường độ n/5]: 1 nhẹ nhất, 5 mạnh nhất, chấm trên cùng một thang với "${phrase}".
+- [sắc thái]: tích cực / trung tính / tiêu cực.
+- "khác:" nêu ĐÚNG MỘT điểm khác cụ thể, và mỗi từ phải khác ở một điểm KHÁC NHAU — không lặp cùng một kiểu khác biệt cho hai từ.
+- CẤM mô tả chung chung kiểu "trang trọng hơn", "mạnh hơn", "ít dùng hơn" nếu không nói rõ: hơn ở chỗ nào, dùng trong tình huống nào, hay đi với từ nào.
+- Nếu một từ hay bị tưởng là thay thế được cho "${phrase}", mở phần "khác:" bằng "dễ nhầm:".
+- Ví dụ của 4 từ còn lại phải là câu mà CHỈ từ đó hợp: thay bằng "${phrase}" thì sai nghĩa hoặc nghe gượng, và phải nói rõ hỏng ở đâu sau dấu gạch.
+- Từ đồng nghĩa và câu ví dụ bằng TIẾNG ANH; mọi phần mô tả bằng TIẾNG VIỆT.
+- Câu ví dụ in nghiêng bằng đúng một cặp dấu sao: *như thế này*.
+- Dòng **TRỤC** cuối cùng xếp cả 5 từ trên trục khác biệt chính (thường là cường độ), ví dụ: annoyed < angry < furious.
+- KHÔNG dùng bảng, KHÔNG chèn dòng trống giữa các gạch đầu dòng, KHÔNG mở bài hay kết luận.`;
+
   // Short-label follow-up queries — single words only.
   const items = phrase.trim().split(' ').length > 1 ? [] : [
-    ['syn', `Liệt kê một số từ đồng nghĩa với nghĩa của <${phrase}> trong <${ctxNote}>.
-    So sánh ngắn gọn sự khác biệt giữa <${phrase}> và các từ đồng nghĩa theo mẫu sau, ${formatInstructions}:
-    **SYNONYM**:
-    [synonyms, one each line starting with •, nuance and example, the example should be itatlic].
-    `, 'Synonyms'],
+    ['syn', synonymPrompt, 'Synonyms'],
     ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
 **EXAMPLE**:
