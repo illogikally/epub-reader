@@ -12,12 +12,17 @@
 // folder setting could only ever name a subfolder of it — one more thing to
 // get wrong for no gain.
 //
+// What travels: the EPUBs themselves, and the API key. Nothing else. Reading
+// positions and every appearance setting are per-device on purpose — see
+// SYNCED_SETTING_KEYS in state.js for why the settings blob was narrowed to
+// the one credential.
+//
 // The manifest is what makes the sync more than a file copy. A folder listing
 // can say what exists; only the manifest can say what used to exist and was
-// deliberately deleted, or where in a book you had got to, or which device
-// changed a setting last. Deletions in particular need it: without a tombstone
-// a deleted book is indistinguishable from a book this device has not
-// downloaded yet, and it would come straight back on the next pass.
+// deliberately deleted, or which device changed the key last. Deletions in
+// particular need it: without a tombstone a deleted book is indistinguishable
+// from a book this device has not downloaded yet, and it would come straight
+// back on the next pass.
 //
 // Book ids are makeBookId(name, size), the same id a local import produces, so
 // an EPUB dropped into the folder by hand lands on the same id everywhere.
@@ -26,18 +31,16 @@
 // ============================================================
 
 import {
-  $, settings, runtime, persistSettingsQuiet,
-  exportSettings, importSettings, applyFontClass,
+  $, settings, persistSettingsQuiet,
+  exportSettings, importSettings,
   dbGet, dbDelete, dbAllIds, makeBookId,
-  getProgress, setProgress, clearProgress,
+  clearProgress,
   allTombstones, clearTombstone,
-} from './state.js?v=53';
-import * as dbx from './dropbox.js?v=53';
-import { addBookFromBuffer, renderLibrary } from './library.js?v=53';
-import { applyAll } from './theme.js?v=53';
-import { createRendition } from './reader.js?v=53';
-import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=53';
-import { dbg } from './debug.js?v=53';
+} from './state.js?v=54';
+import * as dbx from './dropbox.js?v=54';
+import { addBookFromBuffer, renderLibrary } from './library.js?v=54';
+import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=54';
+import { dbg } from './debug.js?v=54';
 
 const MANIFEST_NAME = '.reader-sync.json';
 // Past this, Dropbox wants a chunked upload session. An EPUB that big is a
@@ -317,52 +320,38 @@ async function reconcile(isRetry) {
     touched = true;
   }
 
-  // ---- reading position: newest wins, both ways ----
-  for (const id of localIds) {
-    const mine = getProgress(id);
-    const theirs = manifest.progress[id];
-    if (mine && (!theirs || mine.at > (theirs.at || 0))) {
-      manifest.progress[id] = { cfi: mine.cfi, at: mine.at };
-      touched = true;
-    } else if (theirs?.cfi && (!mine || (theirs.at || 0) > mine.at)) {
-      setProgress(id, theirs.cfi, theirs.at);
-      touched = true;
-    }
-  }
+  // Reading positions are deliberately not merged — where you are in a book is
+  // per-device. manifest.progress is still carried through read/write and kept
+  // consistent by the delete/rename bookkeeping above, so whatever an earlier
+  // version put there survives and nothing here has to guess at it.
 
-  // ---- settings: one timestamp for the whole blob, newest wins ----
+  // ---- settings: one timestamp, newest wins. Only apiKeys travels — see
+  //      SYNCED_SETTING_KEYS in state.js ----
   const remoteAt = manifest.settings?.at || 0;
   const localAt = settings.updatedAt || 0;
   if (remoteAt > localAt) {
-    const wasLayout = settings.layout;
     if (importSettings(manifest.settings.values)) {
-      // settings.font just arrived as a whole (desktop+phone) blob — refresh
-      // this device's flat font fields from ITS OWN class before applyAll()
-      // re-themes, so it applies (and displays) its own class's font rather
-      // than whatever the flat fields were left at previously.
-      applyFontClass();
-      applyAll();
+      // An arriving key changes nothing visual, so none of the re-theme /
+      // re-paginate work the old whole-blob import needed applies. The sheet
+      // may be open on the key field, though, so it still gets refreshed.
       refreshSettingsUI();
-      // Single/dual page is baked into the rendition at construction time, so
-      // an arriving change needs the same rebuild the settings row does.
-      if (settings.layout !== wasLayout && runtime.book && runtime.rendition) {
-        const cfi = runtime.rendition.currentLocation()?.start?.cfi;
-        try { runtime.rendition.destroy(); } catch {}
-        $('viewer').innerHTML = '';
-        createRendition();
-        runtime.rendition.display(cfi || undefined);
-      }
-      // Last, because applyAll persists — and therefore stamps — on its way
-      // through. Keep the timestamp we copied: stamping our own would make this
-      // device look newer than the one it just copied from, and on the next
-      // pass it would push the same values straight back.
+      // Keep the timestamp we copied: stamping our own would make this device
+      // look newer than the one it just copied from, and on the next pass it
+      // would push the same values straight back.
       settings.updatedAt = remoteAt;
       persistSettingsQuiet();
-      notes.push('settings updated');
+      notes.push('key updated');
     }
   } else if (localAt > remoteAt) {
-    manifest.settings = { at: localAt, values: exportSettings() };
-    touched = true;
+    // settings.updatedAt is stamped by every settings write, and almost none
+    // of them touch the key any more — a font tweak would otherwise make this
+    // device "newer" and rewrite the manifest with identical values on the
+    // next pass. Compare the payload, not the clock.
+    const values = exportSettings();
+    if (JSON.stringify(values) !== JSON.stringify(manifest.settings?.values || {})) {
+      manifest.settings = { at: localAt, values };
+      touched = true;
+    }
   }
 
   // ---- write back ----
@@ -460,9 +449,9 @@ export function initDropboxSettings() {
         + 'files.content, files.metadata and account_info.read permissions.';
     } else if (!connected) {
       stateEl.textContent = 'Not connected';
-      noteEl.textContent = 'Books, reading position and every setting — including your '
-        + 'translation key — are kept there. Anyone with access to that folder can read '
-        + 'the key. ' + where;
+      noteEl.textContent = 'Your books and your translation key are kept there — '
+        + 'nothing else. Reading position and every appearance setting stay on this '
+        + 'device. Anyone with access to that folder can read the key. ' + where;
     } else {
       stateEl.textContent = s.state === 'syncing' ? 'Syncing…' : (dbx.connectedAccount() || 'Connected');
       const last = settings.dropbox.lastSync;

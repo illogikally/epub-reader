@@ -201,10 +201,15 @@ export function persistSettingsQuiet() {
 // ============================================================
 // Settings sync payload
 // ============================================================
-// Everything except the three device-local keys: where this device points at
-// Dropbox, its debug toggle, and the timestamp itself.
-export const SYNCED_SETTING_KEYS = Object.keys(defaultSettings)
-  .filter(k => k !== 'dropbox' && k !== 'debug' && k !== 'updatedAt');
+// Just the credential. It used to be every key except dropbox/debug/updatedAt,
+// which meant nudging a margin on the phone rewrote the desktop's whole
+// appearance on the next pass — one blob, one timestamp, last writer wins. The
+// API key is the only setting worth carrying between devices (typing one on a
+// phone is miserable); everything else is a per-device preference, and the two
+// devices are deliberately not the same shape.
+//
+// Adding a key here makes it travel, so add one only if you mean that.
+export const SYNCED_SETTING_KEYS = ['apiKeys'];
 
 // Deep copies, so the caller can serialise them without aliasing live state.
 export function exportSettings() {
