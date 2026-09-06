@@ -53,17 +53,149 @@
       margin-top: 4px;
       line-height: 1.4;
     }
+    /* ---- Model list: one row per model, click to select, x to remove ---- */
+    .model-list {
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 6px;
+      background: #fff;
+      overflow: hidden;
+    }
+    .model-row {
+      display: flex;
+      align-items: center;
+      border-top: 1px solid rgba(0,0,0,0.06);
+    }
+    .model-row:first-child { border-top: 0; }
+    .model-pick {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      padding: 8px;
+      border: 0;
+      background: none;
+      font: inherit;
+      font-size: 13px;
+      color: inherit;
+      text-align: left;
+      cursor: pointer;
+    }
+    .model-pick:hover { background: rgba(0,0,0,0.03); }
+    /* A fixed-width tick gutter, so the names line up whether or not the
+       row is the selected one. */
+    .model-pick::before {
+      content: "\2713";
+      width: 12px;
+      flex: none;
+      visibility: hidden;
+    }
+    .model-pick.selected::before { visibility: visible; }
+    .model-pick.selected { font-weight: 600; }
+    .model-pick .name {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .model-pick .tag {
+      flex: none;
+      font-size: 10px;
+      color: #5a544c;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+    .model-del {
+      width: 28px;
+      flex: none;
+      padding: 8px 0;
+      border: 0;
+      background: none;
+      color: #5a544c;
+      font: inherit;
+      font-size: 15px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .model-del:hover { color: #b3261e; }
+    .model-empty {
+      padding: 8px;
+      font-size: 12px;
+      color: #5a544c;
+    }
+    /* ---- Add-model form ---- */
+    details.add-model { margin-top: 8px; }
+    details.add-model > summary {
+      font-size: 12px;
+      color: #5a544c;
+      cursor: pointer;
+      list-style: none;
+      padding: 2px 0;
+    }
+    details.add-model > summary::-webkit-details-marker { display: none; }
+    details.add-model > summary::before { content: "+ "; }
+    .add-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .add-form .full { grid-column: 1 / -1; }
+    .add-form label {
+      display: block;
+      font-size: 11px;
+      color: #5a544c;
+      margin-bottom: 4px;
+    }
+    .add-btn {
+      grid-column: 1 / -1;
+      padding: 8px;
+      border: 1px solid rgba(0,0,0,0.1);
+      border-radius: 6px;
+      background: #2a2520;
+      color: #faf6ef;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    .form-error {
+      grid-column: 1 / -1;
+      margin: 0;
+      font-size: 11px;
+      color: #b3261e;
+    }
   </style>
 </head>
 <body>
   <h2>Translator Settings</h2>
   
+  <!-- One flat, fully editable model list: pick one with its row, drop one
+       with the x, add your own below by the id its provider knows it by.
+       Reasoning picks the reasoning_effort a Groq model accepts — "off"
+       omits the parameter, which is what llama/gemma/mixtral need. -->
   <div class="setting">
     <label class="setting-label">Model</label>
-    <select id="model-select">
-      <option value="0">groq · openai/gpt-oss-120b</option>
-      <option value="1">groq · qwen3-27b</option>
-    </select>
+    <div class="model-list" id="model-list"></div>
+    <details class="add-model" id="add-model">
+      <summary>Add model</summary>
+      <div class="add-form">
+        <div class="full">
+          <label for="nm-model">Model ID</label>
+          <input id="nm-model" placeholder="provider/model" spellcheck="false">
+        </div>
+        <div>
+          <label for="nm-provider">Provider</label>
+          <select id="nm-provider"></select>
+        </div>
+        <div>
+          <label for="nm-reasoning">Reasoning</label>
+          <select id="nm-reasoning"></select>
+        </div>
+        <p class="form-error" id="nm-error" hidden></p>
+        <button type="button" class="add-btn" id="nm-add">Add model</button>
+      </div>
+    </details>
   </div>
 
   <div class="setting">
@@ -85,6 +217,7 @@
     <input type="password" id="key-gemini" placeholder="Paste your Gemini API key">
   </div>
 
+  <script src="js/models.js"></script>
   <script src="js/popup.js"></script>
 </body>
 </html>

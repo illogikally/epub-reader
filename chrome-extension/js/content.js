@@ -2,28 +2,14 @@
 // LLM Translator Content Script
 // ============================================================
 
+// The model list lives in js/models.js and is edited from the popup —
+// SEED_MODELS on first run, whatever the user has added from then on.
 let settings = {
-  selectedModelIdx: 0,
+  models: [],
+  selectedModelId: null,
   contextSentences: 1,
   apiKeys: { GEMINI_API_KEY: '', GROQ_API_KEY: '' },
 };
-
-const MODELS = [
-  {
-    name: 'groq · openai/gpt-oss-120b',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'openai/gpt-oss-120b',
-    format: 'openai',
-    keyRef: 'GROQ_API_KEY',
-  },
-  {
-    name: 'groq · qwen3.8-27b',
-    url: 'https://api.groq.com/openai/v1/chat/completions',
-    model: 'qwen/qwen3.8-27b',
-    format: 'openai',
-    keyRef: 'GROQ_API_KEY',
-  },
-];
 
 const MAX_TOKENS = 1024;
 
@@ -123,18 +109,20 @@ async function* streamOpenAI(cfg, messages, system, apiKey) {
     temperature: 0,
     top_p: 1,
   };
-  if (!cfg.model.startsWith('llama')) {
-    body.reasoning_effort = cfg.model.startsWith('qwen') ? 'none' : 'low';
+  // Per-model, not guessed from the name: a model that doesn't support
+  // reasoning_effort rejects the whole request if it is sent one.
+  if (cfg.reasoning && cfg.reasoning !== 'off') {
+    body.reasoning_effort = cfg.reasoning;
   }
   const headers = { Authorization: `Bearer ${apiKey}` };
-  for await (const evt of streamSSE(cfg.url, headers, body)) {
+  for await (const evt of streamSSE(providerOf(cfg).url, headers, body)) {
     const text = evt?.choices?.[0]?.delta?.content;
     if (text) yield text;
   }
 }
 
 async function* streamGoogle(cfg, messages, system, apiKey) {
-  const url = `${cfg.url}/v1/models/${cfg.model}:streamGenerateContent?alt=sse`;
+  const url = `${providerOf(cfg).url}/v1/models/${cfg.model}:streamGenerateContent?alt=sse`;
   const contents = messages.map(m => ({
     role: m.role === 'assistant' ? 'model' : 'user',
     parts: [{ text: m.content }],
@@ -160,12 +148,13 @@ async function* streamGoogle(cfg, messages, system, apiKey) {
 const VENDORS = { openai: streamOpenAI, google: streamGoogle };
 
 async function* llmStream(messages, system) {
-  const cfg = MODELS[settings.selectedModelIdx];
-  if (!cfg) throw new Error('no model selected');
-  const apiKey = (settings.apiKeys[cfg.keyRef] || '').trim();
-  if (!apiKey) throw new Error(`missing ${cfg.keyRef} — paste it in Extension Settings`);
-  const fn = VENDORS[cfg.format];
-  if (!fn) throw new Error(`unknown vendor format: ${cfg.format}`);
+  const cfg = currentModel(settings.models, settings.selectedModelId);
+  if (!cfg) throw new Error('no model configured — add one in Extension Settings');
+  const provider = providerOf(cfg);
+  const apiKey = (settings.apiKeys[provider.keyRef] || '').trim();
+  if (!apiKey) throw new Error(`missing ${provider.keyRef} — paste it in Extension Settings`);
+  const fn = VENDORS[provider.format];
+  if (!fn) throw new Error(`unknown vendor format: ${provider.format}`);
   yield* fn(cfg, messages, system, apiKey);
 }
 
@@ -341,8 +330,10 @@ async function sendToLLM(text, metaLabel, followup, silent) {
   }
 
   try {
+    // On a 429, fall through to the next model in the list and keep it
+    // selected — the list is user-editable, so its length is not a constant.
     let attempts = 0;
-    while (attempts < MODELS.length) {
+    while (attempts === 0 || attempts < settings.models.length) {
       try {
         if (followup) renderActionsBar(followup.phrase, followup.context);
         for await (const chunk of llmStream(popupHistory, `Đừng dùng bảng để format. Hãy trả lời ngắn gọn, súc tích`)) {
@@ -363,13 +354,16 @@ async function sendToLLM(text, metaLabel, followup, silent) {
         break; // Success
       } catch (err) {
         const isRateLimit = err.message.includes('429') || err.message.toLowerCase().includes('rate limit');
-        if (isRateLimit && attempts < MODELS.length - 1) {
+        if (isRateLimit && attempts < settings.models.length - 1) {
           attempts++;
-          settings.selectedModelIdx = (settings.selectedModelIdx + 1) % MODELS.length;
-          chrome.storage.local.set({ selectedModelIdx: settings.selectedModelIdx });
-          
+          const cur = currentModel(settings.models, settings.selectedModelId);
+          const idx = settings.models.indexOf(cur);
+          const next = settings.models[(idx + 1) % settings.models.length];
+          settings.selectedModelId = next.id;
+          chrome.storage.local.set({ selectedModelId: settings.selectedModelId });
+
           if (pending) pending.remove();
-          pending = popupWrite(`Rate limit. Trying ${MODELS[settings.selectedModelIdx].name}...`, 'sys');
+          pending = popupWrite(`Rate limit. Trying ${next.model}...`, 'sys');
           
           if (replyDiv) {
             replyDiv.remove();
@@ -600,14 +594,17 @@ function fireLookupForSelection(sel, doc) {
 }
 
 // Initializing
-chrome.storage.local.get(['selectedModelIdx', 'contextSentences', 'apiKeys'], (res) => {
-  if (res.selectedModelIdx !== undefined) settings.selectedModelIdx = res.selectedModelIdx;
+chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'apiKeys'], (res) => {
+  const store = readModelStore(res);
+  settings.models = store.models;
+  settings.selectedModelId = store.selectedModelId;
   if (res.contextSentences !== undefined) settings.contextSentences = res.contextSentences;
   if (res.apiKeys !== undefined) settings.apiKeys = res.apiKeys;
 });
 
 chrome.storage.onChanged.addListener((changes) => {
-  if (changes.selectedModelIdx) settings.selectedModelIdx = changes.selectedModelIdx.newValue;
+  if (changes.models) settings.models = normaliseModels(changes.models.newValue);
+  if (changes.selectedModelId) settings.selectedModelId = changes.selectedModelId.newValue;
   if (changes.contextSentences) settings.contextSentences = changes.contextSentences.newValue;
   if (changes.apiKeys) settings.apiKeys = changes.apiKeys.newValue;
 });
