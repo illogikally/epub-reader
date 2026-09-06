@@ -12,7 +12,7 @@
 <link rel="apple-touch-icon" href="https://i.ibb.co/SXcNHVLM/Xulgon-Core.png">
 <link rel="manifest" href="data:application/manifest+json;charset=utf-8,%7B%22name%22%3A%22Reader%22%2C%22short_name%22%3A%22Reader%22%2C%22start_url%22%3A%22.%22%2C%22display%22%3A%22standalone%22%2C%22background_color%22%3A%22%23faf6ef%22%2C%22theme_color%22%3A%22%23faf6ef%22%2C%22orientation%22%3A%22any%22%2C%22icons%22%3A%5B%7B%22src%22%3A%22https%3A%2F%2Fi.ibb.co%2FSXcNHVLM%2FXulgon-Core.png%22%2C%22sizes%22%3A%22any%22%2C%22type%22%3A%22image%2Fpng%22%7D%5D%7D">
 <title>Reader</title>
-<link rel="stylesheet" href="css/reader.css?v=51">
+<link rel="stylesheet" href="css/reader.css?v=52">
 </head>
 <body>
 
@@ -223,6 +223,14 @@
           <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M3 5v14"/><path d="M21 5v14"/><path d="M7 12h10"/><path d="m10 9-3 3 3 3"/><path d="m14 9 3 3-3 3"/></svg></span>
           <input type="range" id="popup-letter-spacing" min="-4" max="6" step="0.1" value="-1" aria-label="Popup character spacing">
           <span class="set-value" id="popup-letter-spacing-value">-1px</span>
+        </div>
+      </div>
+      <div class="set-slider">
+        <div class="set-sublabel">Word spacing</div>
+        <div class="set-slider-row">
+          <span class="set-icon"><svg viewBox="0 0 24 24"><path d="M3 8v8"/><path d="M8 8v8"/><path d="M16 8v8"/><path d="M21 8v8"/><path d="M9.5 12h5"/><path d="m12 9.5-2.5 2.5L12 14.5"/><path d="m12 9.5 2.5 2.5L12 14.5"/></svg></span>
+          <input type="range" id="popup-word-spacing" min="-2" max="20" step="0.5" value="0" aria-label="Popup word spacing">
+          <span class="set-value" id="popup-word-spacing-value">0px</span>
         </div>
       </div>
     </div>
@@ -452,6 +460,6 @@
 </script>
 
 <!-- App entry point (ES module) -->
-<script type="module" src="js/main.js?v=51"></script>
+<script type="module" src="js/main.js?v=52"></script>
 </body>
 </html>

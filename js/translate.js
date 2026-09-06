@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=51';
+import { openBookFromDb } from './reader.js?v=52';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=51';
+} from './state.js?v=52';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=51';
+} from './touchselect.js?v=52';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -316,13 +316,19 @@ export function attachOutsideClickToFrame(doc) {
 // ============================================================
 // LLM call + UI flow
 // ============================================================
-async function sendToLLM(text, metaLabel, followup, silent) {
+// `heading` is the section label the popup draws above the answer (SYNONYM,
+// ANTONYM, …). It used to be the model's job — every action prompt ended with
+// a mandatory `**SYNONYM**:` line — which meant the label was missing or
+// mangled whenever the model ignored the format. The popup owns it now, so the
+// prompts ask for the body alone.
+async function sendToLLM(text, metaLabel, followup, silent, heading) {
   if (popupBusy) return;
   popupBusy = true;
   if (!silent) {
     if (metaLabel) popupWrite('[' + metaLabel + ']\n', 'meta');
     popupWrite('> ' + text + '\n', 'u');
   }
+  if (heading) popupWrite(heading, 'title');
   popupHistory.push({ role: 'user', content: text });
   popupInput.disabled = true;
 
@@ -476,6 +482,10 @@ function renderActionsBar(phrase, context) {
 
   const formatInstructions = 'Văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
 
+  // The popup prints the section label itself (see sendToLLM's `heading`), so
+  // a model that also prints one would double it up.
+  const noHeading = 'KHÔNG in tiêu đề hay nhãn phần (kiểu **SYNONYM**:) — chỉ trả về nội dung.';
+
   // deep — re-run the lookup as a literary/historical analysis
   [1].forEach(n => {
     addAction('deep', 'deep', `Re-run with ${n} sentences of context`, async () => {
@@ -487,7 +497,7 @@ function renderActionsBar(phrase, context) {
       TÁC PHẨM: ${bookMetadata.title}
       TỪ/CỤM TỪ: ${phrase}
       NGỮ CẢNH: ${context}`
-      sendToLLM(prompt, null, null, true);
+      sendToLLM(prompt, null, null, true, 'DEEP');
     });
   });
 
@@ -502,7 +512,6 @@ function renderActionsBar(phrase, context) {
 
 Định dạng đầu ra BẮT BUỘC — không thêm gì trước hay sau khối này:
 
-**SYNONYM**:
 • **${phrase}** — [văn phong] · [cường độ n/5] · [sắc thái] · gốc: [nét nghĩa trung tính của chính nó]
   *[câu tiếng Anh dùng ${phrase} một cách điển hình]*
 • **[từ]** — [văn phong] · [cường độ n/5] · [sắc thái] · khác: [đổi gì so với ${phrase}]
@@ -523,21 +532,23 @@ Quy tắc:
 - Từ đồng nghĩa và câu ví dụ bằng TIẾNG ANH; mọi phần mô tả bằng TIẾNG VIỆT.
 - Câu ví dụ in nghiêng bằng đúng một cặp dấu sao: *như thế này*.
 - Dòng **TRỤC** cuối cùng xếp cả 5 từ trên trục khác biệt chính (thường là cường độ), ví dụ: annoyed < angry < furious.
-- KHÔNG dùng bảng, KHÔNG chèn dòng trống giữa các gạch đầu dòng, KHÔNG mở bài hay kết luận.`;
+- KHÔNG dùng bảng, KHÔNG chèn dòng trống giữa các gạch đầu dòng, KHÔNG mở bài hay kết luận.
+- ${noHeading}`;
 
   // Short-label follow-up queries — single words only.
+  // [button label, prompt, tooltip, heading drawn above the answer]
   const items = phrase.trim().split(' ').length > 1 ? [] : [
-    ['syn', synonymPrompt, 'Synonyms'],
-    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: **ANTONYM**: [antonyms separated by comma]. Be concise.`, 'Antonyms'],
+    ['syn', synonymPrompt, 'Synonyms', 'SYNONYM'],
+    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: [antonyms separated by comma]. Be concise. ${noHeading}`, 'Antonyms', 'ANTONYM'],
     ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
-**EXAMPLE**:
-[3 examples one each line starting with •, the keyword should be bold]`, 'Examples'],
-    ['use', `Độ thông dụng của ${phrase} trong tiếng anh hiện đại là bao nhiêu (thang 1-100). Be concise. Using this format: **USAGE**: mức dộ - register`, 'Usage frequency'],
-    ['ety', `Giải thích ngắn gọn etymology của <${phrase}> sử dụng mẫu sau: **ETYMOLOGY**: etymology.`, 'Etymology'],
+[3 examples one each line starting with •, the keyword should be bold]
+${noHeading}`, 'Examples', 'EXAMPLE'],
+    ['use', `Độ thông dụng của ${phrase} trong tiếng anh hiện đại là bao nhiêu (thang 1-100). Be concise. Using this format: mức dộ - register. ${noHeading}`, 'Usage frequency', 'USAGE'],
+    ['ety', `Giải thích ngắn gọn etymology của <${phrase}>. Chỉ trả về phần etymology. ${noHeading}`, 'Etymology', 'ETYMOLOGY'],
   ];
-  items.forEach(([label, q, longLabel]) => {
+  items.forEach(([label, q, longLabel, heading]) => {
     addAction(label, label, longLabel, () => {
-      sendToLLM(q, longLabel + ': "' + phrase + '"', null, true);
+      sendToLLM(q, longLabel + ': "' + phrase + '"', null, true, heading);
     });
   });
 

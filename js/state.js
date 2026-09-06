@@ -63,6 +63,7 @@ const defaultSettings = {
   popupFontFamily: "ui-monospace, 'SF Mono', Menlo, monospace",
   popupFontSize: 16,
   popupLetterSpacing: -1,
+  popupWordSpacing: 0,
   textAlign: 'default',   // 'default' | 'left' | 'justify'
   padTop: 44,
   padBottom: 44,

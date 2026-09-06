@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=51';
+} from './state.js?v=52';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=51';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=51';
-import { scrollTocToCurrent } from './translate.js?v=51';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=51';
+} from './theme.js?v=52';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=52';
+import { scrollTocToCurrent } from './translate.js?v=52';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=52';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -494,6 +494,7 @@ export function initUI() {
   });
   bindSlider('popup-font-size', 'popupFontSize', 'px');
   bindSlider('popup-letter-spacing', 'popupLetterSpacing', 'px');
+  bindSlider('popup-word-spacing', 'popupWordSpacing', 'px');
 
   // ---- Layout: page mode (hidden on phones — they are always single page) ----
   bindSegmented('seg-layout', {

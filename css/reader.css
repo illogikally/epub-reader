@@ -83,6 +83,7 @@
   --popup-font-family: ui-monospace, 'SF Mono', Menlo, monospace;
   --popup-font-size: 16px;
   --popup-letter-spacing: -1px;
+  --popup-word-spacing: 0px;
   /* Slider track colors — Apple-style: filled portion uses fg, unfilled is faded */
   --slider-fill: rgba(0, 0, 0, 0.55);
   --slider-empty: rgba(0, 0, 0, 0.12);
@@ -1134,6 +1135,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   font-family: var(--popup-font-family);
   font-size: var(--popup-font-size);
   letter-spacing: var(--popup-letter-spacing);
+  word-spacing: var(--popup-word-spacing);
   flex: 1; overflow-y: auto; padding: 12px 14px 20px;
   overscroll-behavior-y: contain;
   white-space: pre-wrap; word-wrap: break-word;
@@ -1148,6 +1150,19 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 #popup-out .e { color: #c0392b; }
 #popup-out .sys { color: var(--chrome-fg); }
 #popup-out .meta { color: var(--chrome-fg); font-style: italic; font-size: 92%; }
+/* Section label above a follow-up action's answer (SYNONYM, ANTONYM, …).
+   The popup writes it, not the model — see sendToLLM's `heading` — so it
+   looks the same whether or not the model honoured the output format. */
+#popup-out .title {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 88%;
+  letter-spacing: 0.08em;
+  word-spacing: normal;
+  text-transform: uppercase;
+  margin-top: 8px;
+}
+#popup-out .title:first-child { margin-top: 0; }
 #popup-out ::selection { background: var(--selection); color: var(--selection-fg); }
 #popup-out .cursor::after {
   content: '\2588'; opacity: 0.5;
