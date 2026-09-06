@@ -9,7 +9,7 @@ This standing authorization covers all `git add` and `git commit` invocations in
 Workflow per modification:
 
 1. Make the edit.
-2. `git add <specific files you touched>` — never `git add -A` / `git add .` (don't sweep in unrelated files like the pre-existing dirty `chrome-extension/*` and `js/translate.js`).
+2. `git add <specific files you touched>` — never `git add -A` / `git add .` (the tree often carries unrelated dirty files; don't sweep them in). Note this is about *unrelated* files only: `chrome-extension/*` is a real, maintained part of this repo — see the two-copies section below — so stage it whenever you actually changed it.
 3. `git commit -m "<concise message>"` — match the existing terse style in `git log` (e.g. `save`, or a short imperative description of what changed).
 4. Move on.
 
