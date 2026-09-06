@@ -31,3 +31,33 @@ Do this as part of the same commit as the change itself — it's cheap (a consta
 ## Push straight to master
 
 When the user does ask for a push, and no other branch has been specified for the task, push straight to `master` — skip making a feature branch and skip opening a PR. Commit directly on `master` (or fast-forward it) and push there. Only use a separate branch when the user explicitly asks for one, or when a specific task setup designates one (e.g. a harness-assigned branch for a given session).
+
+## There are TWO copies of the translation feature — check both
+
+The select-text → LLM-lookup popup exists **twice**, as two independent implementations of the same feature. Neither imports the other; there is no shared module. A change to one is silently absent from the other unless it is ported by hand.
+
+| | Reader (the web app) | Chrome extension |
+|---|---|---|
+| Entry point | `js/translate.js` (~1000 lines) | `chrome-extension/js/content.js` (~650 lines) |
+| Styles | `css/reader.css` (`#popup`, `.action`, …) | `chrome-extension/css/content.css` (`#llm-popup`, `.llm-*`) |
+| Model registry | `js/state.js` (exported ES module) | `chrome-extension/js/models.js` (plain globals — content scripts aren't modules) |
+| Settings UI | Settings sheet in `index.html` | `chrome-extension/popup.html` + `js/popup.js` |
+| Storage | `settings` in `state.js` (localStorage + Dropbox sync) | `chrome.storage.local` |
+| Where it runs | inside the epub.js iframe, via `js/touchselect.js` (custom coarse-pointer selection) | any page, on the native `window.getSelection()` |
+
+What is duplicated, and therefore drifts: `streamSSE` / `streamOpenAI` / `llmStream`, `sendToLLM`, `popupWrite` / `renderMarkdown`, `showPopupAt` / `hidePopup` / outside-click handling, `extractContextFromRange`, `doLookup` and its meaning prompt, and `renderActionsBar` with the whole deep/syn/ant/ex/use/ety prompt set.
+
+Deliberate differences — do **not** "fix" these by making them match:
+
+* **Providers.** The reader is Groq-only (`GROQ_URL`, `GROQ_KEY_REF` in `state.js`). The extension speaks Groq *and* Gemini through a `PROVIDERS` table + `VENDORS` map (`streamOpenAI` / `streamGoogle`) in `models.js`/`content.js`.
+* **429 fallback.** The extension rotates to the next model in the list on a rate-limit error and persists that selection; the reader just surfaces the error.
+* **`deep` action.** The reader uses 1 sentence of context and injects the book's `creator`/`title` from epub metadata; the extension uses 3 sentences and has no book to draw metadata from.
+* **Spent actions.** The reader marks each action link one-shot (`spentActions`); the extension lets you click them repeatedly.
+* **Cache-busting.** The `?v=N` rule above applies only to the reader's `index.html` / `js/*.js`. The extension has no `?v=` — it's versioned by `chrome-extension/manifest.json` and reloaded from `chrome://extensions`.
+
+So, when asked to change lookup behaviour or prompt wording:
+
+1. Assume it means **both** unless the user names one. If the ask is genuinely reader-only (anything touching epub metadata, TOC, reading progress) or extension-only (Gemini, `chrome.storage`), say so.
+2. Grep for the thing you're editing across both trees before you start — e.g. `grep -rn 'ETYMOLOGY' js/ chrome-extension/` — so you find the second copy rather than assuming it doesn't exist.
+3. Port the change, adapting to the local idioms (ES import vs. global, `settings.x` vs. `chrome.storage.local`, `#popup` vs. `#llm-popup`).
+4. Commit the two edits separately (`Lookup prompt: …` then `extension: same lookup prompt rewrite as the reader`) — that's the existing style in `git log`, and it makes the port auditable.
