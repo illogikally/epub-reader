@@ -403,10 +403,29 @@ body.chrome-visible #chrome-wrap {
   pointer-events: auto;
 }
 
-/* Stack of full-width rows, bottom-right anchored (there's no dot to sit
-   above any more — a center tap/click on the book toggles this, see
-   js/reader.js). Capped and right-aligned so a wide desktop window doesn't
-   stretch them across the whole screen. */
+/* The dot — summoned by a center tap/click on the book (see js/reader.js),
+   and the only thing that opens the chrome rows. It is deliberately not
+   persistent: a center tap used to throw the whole dimmed control stack over
+   the page, which is a lot of screen for a gesture that is easy to trigger by
+   accident. z-index above #chrome-wrap so it stays clickable once the dimmer
+   is live. */
+#chrome-dot {
+  position: fixed; right: 19px; bottom: calc(19px + env(safe-area-inset-bottom, 0px)); z-index: 12;
+  width: 18px; height: 18px; border-radius: 50%; padding: 0; border: none;
+  background: var(--chrome-fg);
+  cursor: pointer;
+  /* Resting state is gone, not just transparent — visibility keeps it out of
+     the hit-testing while hidden, so it can't swallow a center tap. */
+  opacity: 0; visibility: hidden; transform: scale(0.6);
+  transition: opacity 0.15s, transform 0.15s, visibility 0.15s;
+}
+body.dot-visible #chrome-dot { opacity: 0.22; visibility: visible; transform: none; }
+body.dot-visible #chrome-dot:hover,
+body.dot-visible #chrome-dot:active,
+body.chrome-visible #chrome-dot { opacity: 0.5; }
+
+/* Stack of full-width rows, anchored above the dot. Capped and right-aligned
+   so a wide desktop window doesn't stretch them across the whole screen. */
 #chrome-controls {
   position: fixed; z-index: 10;
   right: 12px; bottom: calc(46px + env(safe-area-inset-bottom));
