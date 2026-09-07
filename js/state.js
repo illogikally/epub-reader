@@ -32,6 +32,9 @@ export const DEFAULT_MODEL_ID = 'groq-qwen3-8-27b';
 export const MAX_TOKENS = 1024;
 // Sentences of surrounding text sent with a lookup. Fixed — no longer a setting.
 export const CONTEXT_SENTENCES = 1;
+// Longest selection that may start a lookup. Past this a selection is simply
+// ignored: no popup, no LLM call. Checked on every path that starts one.
+export const MAX_SELECTION_CHARS = 100;
 
 // Font settings differ by device class (desktop vs. phone, see isPhoneUI
 // below) — a phone-sized font on phones, a desktop-sized one on desktops —

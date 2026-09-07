@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=55';
+} from './state.js?v=56';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=55';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=55';
-import { scrollTocToCurrent } from './translate.js?v=55';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=55';
+} from './theme.js?v=56';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=56';
+import { scrollTocToCurrent } from './translate.js?v=56';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=56';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');

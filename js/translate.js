@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=55';
+import { openBookFromDb } from './reader.js?v=56';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
-  MAX_TOKENS, CONTEXT_SENTENCES, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=55';
+  MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
+} from './state.js?v=56';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=55';
+} from './touchselect.js?v=56';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -692,7 +692,7 @@ function fireLookupForSelection(sel, doc, iframe, capturedRange) {
     phrase = sel.toString().trim();
     try { range = sel.getRangeAt(0); } catch { return; }
   }
-  if (!phrase || phrase.length > 100) return;
+  if (!phrase || phrase.length > MAX_SELECTION_CHARS) return;
 
   const rect = range.getBoundingClientRect();
   const ifrRect = iframe ? iframe.getBoundingClientRect() : { left: 0, top: 0 };
@@ -749,6 +749,7 @@ function lookupSelection(sel) {
   // on release, and this also stops a second gesture interrupting a live call.
   if (popupBusy || isPopupVisible()) return;
   if (!sel || !sel.text) return;
+  if (sel.text.length > MAX_SELECTION_CHARS) return;
 
   lastLookup = { phrase: sel.text, range: sel.range, doc: sel.doc };
 
