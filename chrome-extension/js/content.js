@@ -607,7 +607,7 @@ function fireLookupForSelection(sel, doc) {
   if (isPopupVisible()) return;
   if (!sel || sel.isCollapsed) return;
   const phrase = sel.toString().trim();
-  if (!phrase || phrase.length > 1000) return;
+  if (!phrase || phrase.length > 100) return;
 
   let range;
   try { range = sel.getRangeAt(0); } catch { return; }
