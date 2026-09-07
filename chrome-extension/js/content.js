@@ -15,6 +15,9 @@ let settings = {
 };
 
 const MAX_TOKENS = 1024;
+// Longest selection that may start a lookup. Past this the selection is simply
+// ignored: no popup, no LLM call. Same cap as the reader.
+const MAX_SELECTION_CHARS = 100;
 
 // Inject HTML
 const html = `
@@ -607,7 +610,7 @@ function fireLookupForSelection(sel, doc) {
   if (isPopupVisible()) return;
   if (!sel || sel.isCollapsed) return;
   const phrase = sel.toString().trim();
-  if (!phrase || phrase.length > 100) return;
+  if (!phrase || phrase.length > MAX_SELECTION_CHARS) return;
 
   let range;
   try { range = sel.getRangeAt(0); } catch { return; }
