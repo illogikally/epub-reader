@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=58';
+import { openBookFromDb } from './reader.js?v=59';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=58';
+} from './state.js?v=59';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=58';
+} from './touchselect.js?v=59';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -133,11 +133,12 @@ function renderMarkdown(text) {
   let h = escapeHtml(text);
   h = h.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>');
-  // A line opening with "· " is an attribute line of a syn answer (văn phong,
-  // sắc thái, gốc/khác) — drawn smaller so the headword and the example sentence
-  // stay dominant. Safe across the other answers: they bullet with "•", and the
-  // middot's older use as an inline separator never starts a line.
-  h = h.replace(/^· (.*)$/gm, '<span class="meta-line">· $1</span>');
+  // The tail of a syn headword line — "• **từ** · văn phong · sắc thái" — drawn
+  // smaller so the meaning line under it and the example sentence carry the
+  // entry. The `ex` answer also bullets with "•" and a bold keyword, but it runs
+  // straight into a sentence, so requiring " · " right after the bold keeps this
+  // off it.
+  h = h.replace(/^(• <strong>[^<]*<\/strong>)( · .*)$/gm, '$1<span class="attrs">$2</span>');
   return h;
 }
 
@@ -537,15 +538,11 @@ function renderActionsBar(phrase, context) {
 
 Định dạng đầu ra BẮT BUỘC — không thêm gì trước hay sau khối này:
 
-• **${phrase}**
-· văn phong: [trang trọng/trung tính/đời thường/lóng/chuyên ngành]
-· sắc thái: [tích cực/trung tính/tiêu cực]
-· gốc: [nét nghĩa trung tính của chính nó]
+• **${phrase}** · [văn phong] · [sắc thái]
+[nét nghĩa trung tính của chính nó]
   *[câu tiếng Anh dùng ${phrase} một cách điển hình]*
-• **[từ]**
-· văn phong: [trang trọng/trung tính/đời thường/lóng/chuyên ngành]
-· sắc thái: [tích cực/trung tính/tiêu cực]
-· khác: [đổi gì so với ${phrase}]
+• **[từ]** · [văn phong] · [sắc thái]
+[đổi gì so với ${phrase}]
   *[câu tiếng Anh chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
 **TRỤC**: [cả 5 từ xếp trên trục khác biệt chính, ngăn bằng dấu <]
 
@@ -553,12 +550,13 @@ Quy tắc:
 - Khối trên là bắt buộc và đầy đủ: yêu cầu "ngắn gọn" ở chỗ khác không được phép cắt bớt gạch đầu dòng hay bỏ trống ô nào.
 - Đúng 5 gạch đầu dòng, mỗi gạch bắt đầu bằng •, và "${phrase}" là gạch ĐẦU TIÊN, làm mốc so sánh cho 4 từ còn lại.
 - 4 từ còn lại xếp từ gần nghĩa nhất đến xa nhất.
-- Mỗi thuộc tính nằm trên MỘT DÒNG RIÊNG, mở đầu bằng "· " (dấu chấm giữa + khoảng trắng) — không gộp lên cùng dòng với từ, và không dùng "•" cho chúng ("•" chỉ dành cho 5 từ).
+- Dòng đầu mỗi mục đúng dạng "• **từ** · văn phong · sắc thái": CHỈ ghi giá trị, KHÔNG in nhãn "văn phong:"/"sắc thái:".
+- Dòng ngay dưới là phần nghĩa, viết như một câu bình thường — KHÔNG mở đầu bằng "gốc:", "khác:" hay bất kỳ nhãn nào.
 - [văn phong]: trang trọng / trung tính / đời thường / lóng / chuyên ngành.
 - [sắc thái]: tích cực / trung tính / tiêu cực.
-- "khác:" nêu ĐÚNG MỘT điểm khác cụ thể, và mỗi từ phải khác ở một điểm KHÁC NHAU — không lặp cùng một kiểu khác biệt cho hai từ.
+- Dòng nghĩa của 4 từ còn lại nêu ĐÚNG MỘT điểm khác cụ thể so với "${phrase}", và mỗi từ phải khác ở một điểm KHÁC NHAU — không lặp cùng một kiểu khác biệt cho hai từ.
 - CẤM mô tả chung chung kiểu "trang trọng hơn", "mạnh hơn", "ít dùng hơn" nếu không nói rõ: hơn ở chỗ nào, dùng trong tình huống nào, hay đi với từ nào.
-- Nếu một từ hay bị tưởng là thay thế được cho "${phrase}", mở phần "khác:" bằng "dễ nhầm:".
+- Nếu một từ hay bị tưởng là thay thế được cho "${phrase}", mở đầu dòng nghĩa của nó bằng "dễ nhầm:".
 - Ví dụ của 4 từ còn lại phải là câu mà CHỈ từ đó hợp: thay bằng "${phrase}" thì sai nghĩa hoặc nghe gượng, và phải nói rõ hỏng ở đâu sau dấu gạch.
 - Từ đồng nghĩa và câu ví dụ bằng TIẾNG ANH; mọi phần mô tả bằng TIẾNG VIỆT.
 - Câu ví dụ in nghiêng bằng đúng một cặp dấu sao: *như thế này*.
