@@ -198,6 +198,11 @@ function renderMarkdown(text) {
   let h = escapeHtml(text);
   h = h.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
   h = h.replace(/(^|[^*])\*([^*\n]+?)\*(?!\*)/g, '$1<em>$2</em>');
+  // A line opening with "· " is an attribute line of a syn answer (văn phong,
+  // sắc thái, gốc/khác) — drawn smaller so the headword and the example sentence
+  // stay dominant. Safe across the other answers: they bullet with "•", and the
+  // middot's older use as an inline separator never starts a line.
+  h = h.replace(/^· (.*)$/gm, '<span class="meta-line">· $1</span>');
   return h;
 }
 
@@ -492,9 +497,15 @@ function renderActionsBar(phrase, context) {
 
 Định dạng đầu ra BẮT BUỘC — không thêm gì trước hay sau khối này:
 
-• **${phrase}** — [văn phong] · [cường độ n/5] · [sắc thái] · gốc: [nét nghĩa trung tính của chính nó]
+• **${phrase}**
+· văn phong: [trang trọng/trung tính/đời thường/lóng/chuyên ngành]
+· sắc thái: [tích cực/trung tính/tiêu cực]
+· gốc: [nét nghĩa trung tính của chính nó]
   *[câu tiếng Anh dùng ${phrase} một cách điển hình]*
-• **[từ]** — [văn phong] · [cường độ n/5] · [sắc thái] · khác: [đổi gì so với ${phrase}]
+• **[từ]**
+· văn phong: [trang trọng/trung tính/đời thường/lóng/chuyên ngành]
+· sắc thái: [tích cực/trung tính/tiêu cực]
+· khác: [đổi gì so với ${phrase}]
   *[câu tiếng Anh chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
 **TRỤC**: [cả 5 từ xếp trên trục khác biệt chính, ngăn bằng dấu <]
 
@@ -502,8 +513,8 @@ Quy tắc:
 - Khối trên là bắt buộc và đầy đủ: yêu cầu "ngắn gọn" ở chỗ khác không được phép cắt bớt gạch đầu dòng hay bỏ trống ô nào.
 - Đúng 5 gạch đầu dòng, mỗi gạch bắt đầu bằng •, và "${phrase}" là gạch ĐẦU TIÊN, làm mốc so sánh cho 4 từ còn lại.
 - 4 từ còn lại xếp từ gần nghĩa nhất đến xa nhất.
+- Mỗi thuộc tính nằm trên MỘT DÒNG RIÊNG, mở đầu bằng "· " (dấu chấm giữa + khoảng trắng) — không gộp lên cùng dòng với từ, và không dùng "•" cho chúng ("•" chỉ dành cho 5 từ).
 - [văn phong]: trang trọng / trung tính / đời thường / lóng / chuyên ngành.
-- [cường độ n/5]: 1 nhẹ nhất, 5 mạnh nhất, chấm trên cùng một thang với "${phrase}".
 - [sắc thái]: tích cực / trung tính / tiêu cực.
 - "khác:" nêu ĐÚNG MỘT điểm khác cụ thể, và mỗi từ phải khác ở một điểm KHÁC NHAU — không lặp cùng một kiểu khác biệt cho hai từ.
 - CẤM mô tả chung chung kiểu "trang trọng hơn", "mạnh hơn", "ít dùng hơn" nếu không nói rõ: hơn ở chỗ nào, dùng trong tình huống nào, hay đi với từ nào.

@@ -141,6 +141,10 @@ html.llm-vert2k .llm-popup-content {
 #llm-popup-out .e { color: #c0392b; }
 #llm-popup-out .sys { color: var(--llm-chrome-fg); }
 #llm-popup-out .meta { color: var(--llm-chrome-fg); font-style: italic; font-size: 92%; }
+/* One attribute of a syn entry (văn phong, sắc thái, gốc/khác), each on its own
+   line — see the "· " pass in renderMarkdown. Smaller and dimmer so the headword
+   and the example sentence carry the line. */
+#llm-popup-out .meta-line { color: var(--llm-chrome-fg); font-size: 85%; }
 /* Section label above a follow-up action's answer (SYNONYM, ANTONYM, …).
    The popup writes it, not the model — see sendToLLM's `heading` — so it
    looks the same whether or not the model honoured the output format. */
