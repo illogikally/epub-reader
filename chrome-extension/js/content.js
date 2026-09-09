@@ -269,6 +269,7 @@ function hidePopup(clearSelection = false) {
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
+  spentActions.clear();          // new word — every action is available again
   popupForm.hidden = true;
   popupInput.value = '';
   lastLookup = null;
@@ -296,14 +297,23 @@ function handleOutsideClick(e) {
 // a mandatory `**SYNONYM**:` line — which meant the label was missing or
 // mangled whenever the model ignored the format. The popup owns it now, so the
 // prompts ask for the body alone.
-async function sendToLLM(text, metaLabel, followup, silent, heading) {
+// `actionKey` ties this answer back to the action link that started it, so a
+// second click on that (now spent) link scrolls to the answer instead of asking
+// the model for it all over again — see renderActionsBar / scrollToSpent.
+async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) {
   if (popupBusy) return;
   popupBusy = true;
+  const firstIndex = popupOut.children.length;
   if (!silent) {
     if (metaLabel) popupWrite('[' + metaLabel + ']\n', 'meta');
     popupWrite('> ' + text + '\n', 'u');
   }
   if (heading) popupWrite(heading, 'title');
+  // The heading is the first thing written and outlives the transient '...'
+  // spinner, so it is the anchor we scroll back to.
+  if (actionKey && spentActions.has(actionKey)) {
+    spentActions.set(actionKey, popupOut.children[firstIndex] || null);
+  }
   popupHistory.push({ role: 'user', content: text });
   popupInput.disabled = true;
 
@@ -417,6 +427,27 @@ async function sendToLLM(text, metaLabel, followup, silent, heading) {
   }
 }
 
+// An action that has already run keeps its answer in the transcript below, so a
+// second click scrolls to it rather than re-asking the model. Keyed by label,
+// mapped to the element its answer starts at; a map rather than a flag on the
+// element because renderActionsBar rebuilds the whole row from scratch on every
+// reply, which would otherwise hand back a fresh, unused-looking button.
+const spentActions = new Map();
+
+function markSpent(a) {
+  a.classList.add('used');
+}
+
+// Scrolls the transcript so a spent action's answer starts just below the top.
+function scrollToSpent(key) {
+  const el = spentActions.get(key);
+  if (!el || !el.isConnected) return;
+  const top = el.getBoundingClientRect().top
+            - popupOut.getBoundingClientRect().top
+            + popupOut.scrollTop;
+  popupOut.scrollTo({ top: Math.max(0, top - 4), behavior: 'smooth' });
+}
+
 function renderActionsBar(phrase, context) {
   popupActions.innerHTML = '';
   const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
@@ -432,14 +463,18 @@ function renderActionsBar(phrase, context) {
     a.className = 'action';
     a.textContent = 'deep';
     a.title = `Re-run with ${n} sentences of context`;
+    if (spentActions.has('deep')) markSpent(a);
     a.onclick = async (e) => {
       e.preventDefault();
+      if (spentActions.has('deep')) { scrollToSpent('deep'); return; }
       if (popupBusy || !lastLookup) return;
+      spentActions.set('deep', null);
+      markSpent(a);
       const context = extractContextFromRange(lastLookup.range, n);
       const prompt = `Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân. Nhiều nhất là 50 từ, viết liền mạch không xuống dòng:
       TỪ/CỤM TỪ: ${phrase}
       NGỮ CẢNH: ${context}`
-      sendToLLM(prompt, null, null, true, 'DEEP');
+      sendToLLM(prompt, null, null, true, 'DEEP', 'deep');
     };
     popupActions.appendChild(a);
   });
@@ -496,11 +531,14 @@ ${noHeading}`, 'Examples', 'EXAMPLE'],
     a.className = 'action';
     a.textContent = label;
     a.title = longLabel;
+    if (spentActions.has(label)) markSpent(a);
     a.onclick = (e) => {
       e.preventDefault();
+      if (spentActions.has(label)) { scrollToSpent(label); return; }
       if (popupBusy) return;
-      a.classList.add('used');
-      sendToLLM(q, longLabel + ': "' + phrase + '"', null, true, heading);
+      spentActions.set(label, null);
+      markSpent(a);
+      sendToLLM(q, longLabel + ': "' + phrase + '"', null, true, heading, label);
     };
     popupActions.appendChild(a);
   });
@@ -553,6 +591,7 @@ function doLookup(phrase, range, sentenceCount) {
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
+  spentActions.clear();          // new word — every action is available again
   popupForm.hidden = true;
 
   const is_a_word = phrase.trim().split(' ').length == 1
