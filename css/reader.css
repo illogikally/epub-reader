@@ -1143,11 +1143,10 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 .pop-actions a.action.used {
   opacity: 0.4;
 }
-/* Already run for this lookup — its answer is in the transcript below. */
+/* Already run for this lookup — its answer is in the transcript below, and
+   clicking scrolls down to it rather than re-running, so it stays clickable. */
 .pop-actions a.action.spent {
   opacity: 0.35;
-  pointer-events: none;
-  cursor: default;
 }
 
 #popup-out {

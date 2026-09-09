@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=56';
+import { openBookFromDb } from './reader.js?v=57';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=56';
+} from './state.js?v=57';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=56';
+} from './touchselect.js?v=57';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -321,14 +321,23 @@ export function attachOutsideClickToFrame(doc) {
 // a mandatory `**SYNONYM**:` line — which meant the label was missing or
 // mangled whenever the model ignored the format. The popup owns it now, so the
 // prompts ask for the body alone.
-async function sendToLLM(text, metaLabel, followup, silent, heading) {
+// `actionKey` ties this answer back to the action link that started it, so a
+// second click on that (now spent) link can scroll to the answer instead of
+// doing nothing — see addAction / scrollToSpent.
+async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) {
   if (popupBusy) return;
   popupBusy = true;
+  const firstIndex = popupOut.children.length;
   if (!silent) {
     if (metaLabel) popupWrite('[' + metaLabel + ']\n', 'meta');
     popupWrite('> ' + text + '\n', 'u');
   }
   if (heading) popupWrite(heading, 'title');
+  // The heading is the first thing written and outlives the transient '...'
+  // spinner, so it is the anchor we scroll back to.
+  if (actionKey && spentActions.has(actionKey)) {
+    spentActions.set(actionKey, popupOut.children[firstIndex] || null);
+  }
   popupHistory.push({ role: 'user', content: text });
   popupInput.disabled = true;
 
@@ -442,20 +451,30 @@ async function sendToLLM(text, metaLabel, followup, silent, heading) {
 }
 
 // An action is spent once it has been used: its answer is already in the
-// transcript below, so running it again only appends a duplicate. Tracked in a
-// set rather than on the element because renderActionsBar rebuilds the whole
-// row from scratch (today when a lookup's own reply lands), which would
-// otherwise hand back a fresh, clickable button. doLookup clears it when a new
-// word is looked up.
-const spentActions = new Set();
+// transcript below, so running it again only appends a duplicate — a second
+// click scrolls to that answer instead. Tracked in a map (key -> the element
+// its answer starts at) rather than on the element because renderActionsBar
+// rebuilds the whole row from scratch (today when a lookup's own reply lands),
+// which would otherwise hand back a fresh, clickable button. doLookup clears it
+// when a new word is looked up.
+const spentActions = new Map();
 
 function markSpent(a) {
   a.classList.add('used', 'spent');
-  a.setAttribute('aria-disabled', 'true');
+}
+
+// Scrolls the transcript so a spent action's answer starts just below the top.
+function scrollToSpent(key) {
+  const el = spentActions.get(key);
+  if (!el || !el.isConnected) return;
+  const top = el.getBoundingClientRect().top
+            - popupOut.getBoundingClientRect().top
+            + popupOut.scrollTop;
+  popupOut.scrollTo({ top: Math.max(0, top - 4), behavior: 'smooth' });
 }
 
 // Builds one action link. `key` identifies it across rebuilds; `run` fires on
-// the first click and never again.
+// the first click, and every later click scrolls to what that run produced.
 function addAction(key, label, title, run) {
   const a = document.createElement('a');
   a.href = '#';
@@ -465,8 +484,9 @@ function addAction(key, label, title, run) {
   if (spentActions.has(key)) markSpent(a);
   a.onclick = (e) => {
     e.preventDefault();
-    if (popupBusy || spentActions.has(key)) return;
-    spentActions.add(key);
+    if (spentActions.has(key)) { scrollToSpent(key); return; }
+    if (popupBusy) return;
+    spentActions.set(key, null);
     markSpent(a);
     run();
   };
@@ -497,7 +517,7 @@ function renderActionsBar(phrase, context) {
       TÁC PHẨM: ${bookMetadata.title}
       TỪ/CỤM TỪ: ${phrase}
       NGỮ CẢNH: ${context}`
-      sendToLLM(prompt, null, null, true, 'DEEP');
+      sendToLLM(prompt, null, null, true, 'DEEP', 'deep');
     });
   });
 
@@ -548,7 +568,7 @@ ${noHeading}`, 'Examples', 'EXAMPLE'],
   ];
   items.forEach(([label, q, longLabel, heading]) => {
     addAction(label, label, longLabel, () => {
-      sendToLLM(q, longLabel + ': "' + phrase + '"', null, true, heading);
+      sendToLLM(q, longLabel + ': "' + phrase + '"', null, true, heading, label);
     });
   });
 
