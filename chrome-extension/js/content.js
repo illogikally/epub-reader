@@ -107,7 +107,13 @@ async function* streamSSE(url, headers, body) {
       if (!dataLine) continue;
       const payload = dataLine.slice(5).trim();
       if (!payload || payload === '[DONE]') continue;
-      try { yield JSON.parse(payload); } catch {}
+      let obj;
+      try { obj = JSON.parse(payload); } catch { continue; }
+      // A provider that fails after the 200 reports it as an event in the
+      // stream. Skipping it used to end in '(no response)' with no way to fall
+      // through to the next model.
+      if (obj?.error) throw new Error(`stream error: ${obj.error.message || JSON.stringify(obj.error)}`.slice(0, 300));
+      yield obj;
     }
   }
 }
@@ -160,9 +166,7 @@ async function* streamGoogle(cfg, messages, system, apiKey) {
 
 const VENDORS = { openai: streamOpenAI, google: streamGoogle };
 
-async function* llmStream(messages, system) {
-  const cfg = currentModel(settings.models, settings.selectedModelId);
-  if (!cfg) throw new Error('no model configured — add one in Extension Settings');
+async function* llmStream(cfg, messages, system) {
   const provider = providerOf(cfg);
   const apiKey = (settings.apiKeys[provider.keyRef] || '').trim();
   if (!apiKey) throw new Error(`missing ${provider.keyRef} — paste it in Extension Settings`);
@@ -365,67 +369,50 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   }
 
   try {
-    // On a 429, fall through to the next model in the list and keep it
-    // selected — the list is user-editable, so its length is not a constant.
-    let attempts = 0;
-    while (attempts === 0 || attempts < settings.models.length) {
+    // Any failure falls through to the next model in the list, starting from
+    // the selected one: a 429, but also an overloaded or retired model, a
+    // model whose provider has no key, a request over the per-minute token cap
+    // (Groq sends that as 413, not 429), or an empty answer. The model that
+    // does answer becomes the selection, so the next lookup starts there. An
+    // error is shown only once every model has failed — one line per model.
+    // The swap itself is silent: which model ends up answering isn't something
+    // you can act on mid-lookup.
+    if (followup) renderActionsBar(followup.phrase, followup.context);
+    const models = settings.models.slice();   // onChanged may swap the list mid-loop
+    const first = Math.max(0, models.indexOf(currentModel(models, settings.selectedModelId)));
+    const failures = models.length ? [] : ['no model configured — add one in Extension Settings'];
+    for (let i = 0; i < models.length; i++) {
+      const cfg = models[(first + i) % models.length];
       try {
-        if (followup) renderActionsBar(followup.phrase, followup.context);
-        for await (const chunk of llmStream(popupHistory, `Đừng dùng bảng để format. Hãy trả lời ngắn gọn, súc tích`)) {
+        for await (const chunk of llmStream(cfg, popupHistory, `Đừng dùng bảng để format. Hãy trả lời ngắn gọn, súc tích`)) {
           ensureReply();
           reply += chunk;
           replyDiv.innerHTML = renderMarkdown(reply.trim());
           repositionPopup();
           scrollFollowReply();
         }
-        if (!reply) {
-          if (pending) pending.remove();
-          popupWrite('(no response)\n\n', 'e');
-          popupHistory.pop();
-        } else {
-          replyDiv.classList.remove('cursor');
-          popupHistory.push({ role: 'assistant', content: reply });
+        if (!reply) throw new Error('(no response)');
+        replyDiv.classList.remove('cursor');
+        popupHistory.push({ role: 'assistant', content: reply });
+        if (cfg.id !== settings.selectedModelId) {
+          settings.selectedModelId = cfg.id;
+          chrome.storage.local.set({ selectedModelId: cfg.id });
         }
-        break; // Success
-      } catch (err) {
-        const isRateLimit = err.message.includes('429') || err.message.toLowerCase().includes('rate limit');
-        if (isRateLimit && attempts < settings.models.length - 1) {
-          attempts++;
-          const cur = currentModel(settings.models, settings.selectedModelId);
-          const idx = settings.models.indexOf(cur);
-          const next = settings.models[(idx + 1) % settings.models.length];
-          settings.selectedModelId = next.id;
-          chrome.storage.local.set({ selectedModelId: settings.selectedModelId });
-
-          // Swap models silently — no "Rate limit. Trying X..." line. Which
-          // model ends up answering isn't something you can act on mid-lookup,
-          // and the notice pushed the actual answer down the transcript.
-          if (replyDiv) {
-            replyDiv.remove();
-            replyDiv = null;
-          }
-          // ensureReply() removes `pending` the moment the first chunk lands,
-          // so a model that started answering and then 429'd leaves nothing
-          // on screen. Put the plain spinner back for the retry.
-          if (!pending) pending = popupWrite('...', 'sys');
-          reply = '';
-          continue;
-        }
-
-        if (pending) pending.remove();
-        if (replyDiv && reply) {
-          replyDiv.classList.remove('cursor');
-          replyDiv.innerHTML = renderMarkdown(reply) + '\n';
-          popupHistory.push({ role: 'assistant', content: reply });
-        } else if (replyDiv) {
-          replyDiv.remove();
-          popupHistory.pop();
-        } else {
-          popupHistory.pop();
-        }
-        popupWrite('error: ' + err.message + '\n\n', 'e');
         break;
+      } catch (err) {
+        failures.push(`${cfg.model}: ${err.message}`);
+        // A model that started answering and then failed leaves a half reply;
+        // drop it, and put the plain spinner back (ensureReply removed it the
+        // moment the first chunk landed) for the next model.
+        if (replyDiv) { replyDiv.remove(); replyDiv = null; }
+        reply = '';
+        if (!pending) pending = popupWrite('...', 'sys');
       }
+    }
+    if (failures.length === Math.max(1, models.length)) {
+      if (pending) pending.remove();
+      popupHistory.pop();
+      popupWrite('error: ' + failures.join('\n') + '\n\n', 'e');
     }
   } finally {
     popupBusy = false;
