@@ -14,7 +14,7 @@ let settings = {
   apiKeys: { GEMINI_API_KEY: '', GROQ_API_KEY: '' },
 };
 
-const MAX_TOKENS = 1024;
+const MAX_TOKENS = 600;
 // Longest selection that may start a lookup. Past this the selection is simply
 // ignored: no popup, no LLM call. Same cap as the reader.
 const MAX_SELECTION_CHARS = 100;
