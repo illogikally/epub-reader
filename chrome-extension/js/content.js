@@ -443,12 +443,11 @@ function scrollToSpent(key) {
 
 function renderActionsBar(phrase, context) {
   popupActions.innerHTML = '';
-  const ctxNote = context && context !== phrase ? ' Context: "' + context + '".' : '';
-  const formatInstructions = 'Tuân thủ format sau 100%, không thay thế bất kì từ chữ gì trừ chữ trong [], văn bản trong [] là các chỉ dẫn, thay thế chúng cùng [] với các thông tin tương ứng';
+  const ctxNote = context && context !== phrase ? ` Context: "${context}".` : '';
 
   // The popup prints the section label itself (see sendToLLM's `heading`), so
   // a model that also prints one would double it up.
-  const noHeading = 'KHÔNG in tiêu đề hay nhãn phần (kiểu **SYNONYM**:) — chỉ trả về nội dung.';
+  const noHeading = 'Không in tiêu đề.';
 
   [3].forEach(n => {
     const a = document.createElement('a');
@@ -464,9 +463,7 @@ function renderActionsBar(phrase, context) {
       spentActions.set('deep', null);
       markSpent(a);
       const context = extractContextFromRange(lastLookup.range, n);
-      const prompt = `Hãy phân tích từ/cụm từ được đánh dấu dựa trên hiểu biết cá nhân. Nhiều nhất là 50 từ, viết liền mạch không xuống dòng:
-      TỪ/CỤM TỪ: ${phrase}
-      NGỮ CẢNH: ${context}`
+      const prompt = `Phân tích "${phrase}" theo hiểu biết của bạn, tối đa 50 từ, một đoạn liền. Ngữ cảnh: "${context}"`;
       sendToLLM(prompt, null, null, true, 'DEEP', 'deep');
     };
     popupActions.appendChild(a);
@@ -475,51 +472,30 @@ function renderActionsBar(phrase, context) {
   if (phrase.trim().split(' ').length > 1) return;
 
   // Synonyms are only worth listing if you can tell them apart, so every entry
-  // is forced onto the same three axes (register / intensity / connotation),
-  // has to name the ONE thing that shifts against the headword, and has to
-  // earn its place with a sentence the headword would be wrong in.
-  const synCtx = context && context !== phrase
-    ? `\n\nCâu chứa từ:\n"""\n${context}\n"""`
-    : '';
-  const synonymPrompt = `Nhiệm vụ: liệt kê 5 từ đồng nghĩa của <${phrase}>, đúng nét nghĩa mà nó mang ở đây.${synCtx}
-
-Định dạng đầu ra BẮT BUỘC — không thêm gì trước hay sau khối này:
-
+  // gets register + connotation, names the ONE thing that shifts against the
+  // headword, and earns its place with a sentence the headword would be wrong in.
+  // The "• **từ** · a · b" headword line is parsed by renderMarkdown — keep it.
+  const synCtx = context && context !== phrase ? `\nCâu: """${context}"""` : '';
+  const synonymPrompt = `Đồng nghĩa tiếng Anh của "${phrase}" theo nét nghĩa trong câu.${synCtx}
+Trả về đúng khối sau, đủ 5 mục (${phrase} trước, rồi 4 từ từ gần đến xa), không dòng trống, không thêm gì:
 • **${phrase}** · [văn phong] · [sắc thái]
-[nét nghĩa trung tính của chính nó]
-  *[câu tiếng Anh dùng ${phrase} một cách điển hình]*
+[nghĩa của nó]
+  *[câu ví dụ điển hình]*
 • **[từ]** · [văn phong] · [sắc thái]
-[đổi gì so với ${phrase}]
-  *[câu tiếng Anh chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
-**TRỤC**: [cả 5 từ xếp trên trục khác biệt chính, ngăn bằng dấu <]
-
-Quy tắc:
-- Khối trên là bắt buộc và đầy đủ: yêu cầu "ngắn gọn" ở chỗ khác không được phép cắt bớt gạch đầu dòng hay bỏ trống ô nào.
-- Đúng 5 gạch đầu dòng, mỗi gạch bắt đầu bằng •, và "${phrase}" là gạch ĐẦU TIÊN, làm mốc so sánh cho 4 từ còn lại.
-- 4 từ còn lại xếp từ gần nghĩa nhất đến xa nhất.
-- Dòng đầu mỗi mục đúng dạng "• **từ** · văn phong · sắc thái": CHỈ ghi giá trị, KHÔNG in nhãn "văn phong:"/"sắc thái:".
-- Dòng ngay dưới là phần nghĩa, viết như một câu bình thường — KHÔNG mở đầu bằng "gốc:", "khác:" hay bất kỳ nhãn nào.
-- [văn phong]: trang trọng / trung tính / đời thường / lóng / chuyên ngành.
-- [sắc thái]: tích cực / trung tính / tiêu cực.
-- Dòng nghĩa của 4 từ còn lại nêu ĐÚNG MỘT điểm khác cụ thể so với "${phrase}", và mỗi từ phải khác ở một điểm KHÁC NHAU — không lặp cùng một kiểu khác biệt cho hai từ.
-- CẤM mô tả chung chung kiểu "trang trọng hơn", "mạnh hơn", "ít dùng hơn" nếu không nói rõ: hơn ở chỗ nào, dùng trong tình huống nào, hay đi với từ nào.
-- Nếu một từ hay bị tưởng là thay thế được cho "${phrase}", mở đầu dòng nghĩa của nó bằng "dễ nhầm:".
-- Ví dụ của 4 từ còn lại phải là câu mà CHỈ từ đó hợp: thay bằng "${phrase}" thì sai nghĩa hoặc nghe gượng, và phải nói rõ hỏng ở đâu sau dấu gạch.
-- Từ đồng nghĩa và câu ví dụ bằng TIẾNG ANH; mọi phần mô tả bằng TIẾNG VIỆT.
-- Câu ví dụ in nghiêng bằng đúng một cặp dấu sao: *như thế này*.
-- Dòng **TRỤC** cuối cùng xếp cả 5 từ trên trục khác biệt chính (thường là cường độ), ví dụ: annoyed < angry < furious.
-- KHÔNG dùng bảng, KHÔNG chèn dòng trống giữa các gạch đầu dòng, KHÔNG mở bài hay kết luận.
-- ${noHeading}`;
+[một điểm khác cụ thể so với ${phrase}; mở đầu "dễ nhầm:" nếu hay bị dùng nhầm]
+  *[câu chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
+**TRỤC**: [5 từ xếp theo khác biệt chính, vd annoyed < angry < furious]
+- Văn phong: trang trọng/trung tính/đời thường/lóng/chuyên ngành; sắc thái: tích cực/trung tính/tiêu cực. Chỉ ghi giá trị, không nhãn.
+- Mỗi từ khác ở một điểm riêng; cấm "trang trọng hơn", "mạnh hơn" mà không nói hơn ở đâu.
+- Ví dụ tiếng Anh, mô tả tiếng Việt. ${noHeading}`;
 
   // [button label, prompt, tooltip, heading drawn above the answer]
   const items = [
     ['syn', synonymPrompt, 'Synonyms', 'SYNONYM'],
-    ['ant', `List a few antonyms of <${phrase}> in <${ctxNote}> using this format, ${formatInstructions}: [antonyms separated by comma]. Be concise. ${noHeading}`, 'Antonyms', 'ANTONYM'],
-    ['ex',  `Give 3 short example sentences using <${phrase}> with the same meaning as <${phrase}> in ${ctxNote}, make the examples as diverge as possible using this format, ${formatInstructions}:
-[3 examples one each line starting with •, the keyword should be bold]
-${noHeading}`, 'Examples', 'EXAMPLE'],
-    ['use', `Độ thông dụng của ${phrase} trong tiếng anh hiện đại là bao nhiêu (thang 1-100). Be concise. Using this format: mức dộ - register. ${noHeading}`, 'Usage frequency', 'USAGE'],
-    ['ety', `Giải thích ngắn gọn etymology của <${phrase}>. Chỉ trả về phần etymology. ${noHeading}`, 'Etymology', 'ETYMOLOGY'],
+    ['ant', `A few antonyms of "${phrase}".${ctxNote} Reply with only the words, comma-separated.`, 'Antonyms', 'ANTONYM'],
+    ['ex',  `3 short, varied example sentences using "${phrase}" in the same sense.${ctxNote} One per line starting with •, keyword in bold. Nothing else.`, 'Examples', 'EXAMPLE'],
+    ['use', `Độ thông dụng của "${phrase}" trong tiếng Anh hiện đại (thang 1-100). Chỉ trả về: [mức độ] - [văn phong].`, 'Usage frequency', 'USAGE'],
+    ['ety', `Từ nguyên của "${phrase}", ngắn gọn. ${noHeading}`, 'Etymology', 'ETYMOLOGY'],
   ];
   items.forEach(([label, q, longLabel, heading]) => {
     const a = document.createElement('a');
@@ -591,51 +567,17 @@ function doLookup(phrase, range, sentenceCount) {
   popupForm.hidden = true;
 
   const is_a_word = phrase.trim().split(' ').length == 1
-  const kind = is_a_word ? 'từ' : 'cụm';
-  const ctxBlock = local ? `
-
-Câu chứa ${kind}:
-"""
-${local}
-"""` : '';
-  const ctxRule = local
-    ? (is_a_word
-        ? `- Câu ngữ cảnh CHỈ dùng để chọn đúng nét nghĩa và đúng từ loại của từ khi từ có nhiều nghĩa — không phải để dịch.
-`
-        : `- Câu ngữ cảnh CHỈ dùng để chọn đúng nét nghĩa của cụm — không phải để dịch.
-`)
-    : '';
+  // The sentence only picks the sense (and part of speech) — it is not to be translated.
+  const ctxBlock = local ? `\nCâu (chỉ để chọn nét nghĩa, không dịch): """${local}"""` : '';
   const prompt = is_a_word
-    ? `Nhiệm vụ: Tra nghĩa của riêng từ **${phrase}**${local ? ' trong câu dưới đây' : ''}.${ctxBlock}
-
-Định dạng đầu ra BẮT BUỘC (chỉ đúng 1 dòng, không thêm bất kỳ nội dung nào khác):
-**${phrase}** /IPA/: Nghĩa
-
-Quy tắc:
-- Chỉ trả nghĩa của riêng từ "${phrase}". KHÔNG dịch câu, KHÔNG diễn giải câu, KHÔNG đưa chữ nào khác của câu vào phần Nghĩa.
-${ctxRule}- Nếu từ nằm trong một thành ngữ hay cụm cố định, VẪN chỉ trả nghĩa của riêng từ đó, KHÔNG trả nghĩa của cả thành ngữ.
-- Nghĩa: ngắn gọn như một mục từ điển (1-4 từ tiếng Việt); tối đa 2 nghĩa gần nhau, ngăn cách bằng dấu phẩy.
-- /IPA/: phiên âm IPA của từ "${phrase}" đúng với từ loại đã chọn.
-- KHÔNG thêm giải thích, tiêu đề, ví dụ, hay bất kỳ văn bản nào ngoài đúng 1 dòng trên.
-
-Ví dụ output hợp lệ:
-Câu "The bank was closed." — từ "bank" → **bank** /bæŋk/: ngân hàng
-Câu "We sat on the river bank." — từ "bank" → **bank** /bæŋk/: bờ, bờ sông
-Câu "Break a leg tonight!" — từ "leg" → **leg** /leɡ/: chân`
-    : `Nhiệm vụ: Tra nghĩa của riêng cụm **${phrase}**${local ? ' trong câu dưới đây' : ''}.${ctxBlock}
-
-Định dạng đầu ra BẮT BUỘC (chỉ đúng 1 dòng, không thêm bất kỳ nội dung nào khác):
-**${phrase}**: Nghĩa
-
-Quy tắc:
-- Chỉ trả nghĩa của riêng cụm "${phrase}". KHÔNG dịch cả câu, KHÔNG đưa phần nào của câu nằm ngoài cụm vào phần Nghĩa.
-${ctxRule}- Nếu cụm là thành ngữ hay cụm cố định, trả nghĩa thành ngữ của nó; nếu không, trả nghĩa sát nhất của cụm.
-- Nghĩa: ngắn gọn như một mục từ điển, KHÔNG phải một câu hoàn chỉnh.
-- KHÔNG thêm phiên âm, giải thích, tiêu đề, ví dụ, hay bất kỳ văn bản nào ngoài đúng 1 dòng trên.
-
-Ví dụ output hợp lệ:
-Câu "Break a leg tonight!" — cụm "break a leg" → **break a leg**: chúc may mắn
-Câu "She gave up smoking last year." — cụm "gave up" → **gave up**: từ bỏ, cai`
+    ? `Nghĩa tiếng Việt của riêng từ "${phrase}".${ctxBlock}
+Trả về đúng 1 dòng: **${phrase}** /IPA/: nghĩa
+- Nghĩa ngắn như từ điển (1-4 từ), tối đa 2 nghĩa ngăn bằng dấu phẩy; không lấy nghĩa cả thành ngữ chứa từ.
+- Không thêm gì khác. Vd câu "We sat on the river bank." → **bank** /bæŋk/: bờ, bờ sông`
+    : `Nghĩa tiếng Việt của riêng cụm "${phrase}".${ctxBlock}
+Trả về đúng 1 dòng: **${phrase}**: nghĩa
+- Nghĩa ngắn như từ điển, không phải câu; thành ngữ thì trả nghĩa thành ngữ.
+- Không phiên âm, không thêm gì khác. Vd **gave up**: từ bỏ, cai`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
   sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
 }
