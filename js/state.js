@@ -29,7 +29,7 @@ export const SEED_MODELS = [
   { id: 'groq-qwen3-8-27b',  model: 'qwen/qwen3.8-27b',    reasoning: 'none' },
 ];
 export const DEFAULT_MODEL_ID = 'groq-qwen3-8-27b';
-export const MAX_TOKENS = 1024;
+export const MAX_TOKENS = 600;
 // Sentences of surrounding text sent with a lookup. Fixed — no longer a setting.
 export const CONTEXT_SENTENCES = 1;
 // Longest selection that may start a lookup. Past this a selection is simply
