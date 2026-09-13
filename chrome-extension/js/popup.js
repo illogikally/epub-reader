@@ -12,6 +12,7 @@ const contextRange = document.getElementById('context-range');
 const contextVal = document.getElementById('context-val');
 const wordRange = document.getElementById('word-spacing-range');
 const wordVal = document.getElementById('word-spacing-val');
+const themeSelect = document.getElementById('theme-select');
 const keyGroq = document.getElementById('key-groq');
 const keyGemini = document.getElementById('key-gemini');
 
@@ -32,6 +33,16 @@ fillSelect(nmProvider, PROVIDERS);
 fillSelect(nmReasoning, REASONING_MODES);
 nmProvider.value = DEFAULT_PROVIDER;
 nmReasoning.value = DEFAULT_REASONING;
+
+// This panel wears the same theme it sets. content.js resolves 'auto' the same
+// way for the popup itself — see applyTheme() there.
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const mode = themeSelect.value;
+  const dark = mode === 'dark' || (mode !== 'light' && darkQuery.matches);
+  document.body.classList.toggle('theme-dark', dark);
+}
+darkQuery.addEventListener('change', applyTheme);
 
 function saveModels() {
   chrome.storage.local.set({ models, selectedModelId });
@@ -119,7 +130,7 @@ nmModel.addEventListener('keydown', e => {
 });
 
 // Load settings
-chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'apiKeys'], (res) => {
+chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'popupTheme', 'apiKeys'], (res) => {
   ({ models, selectedModelId } = readModelStore(res));
   renderModels();
   if (res.contextSentences !== undefined) {
@@ -129,6 +140,8 @@ chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpa
   const ws = res.popupWordSpacing === undefined ? 0 : res.popupWordSpacing;
   wordRange.value = ws;
   wordVal.textContent = ws + 'px';
+  themeSelect.value = res.popupTheme || 'auto';
+  applyTheme();
   if (res.apiKeys) {
     keyGroq.value = res.apiKeys.GROQ_API_KEY || '';
     keyGemini.value = res.apiKeys.GEMINI_API_KEY || '';
@@ -143,6 +156,11 @@ contextRange.addEventListener('input', () => {
 wordRange.addEventListener('input', () => {
   wordVal.textContent = wordRange.value + 'px';
   chrome.storage.local.set({ popupWordSpacing: parseFloat(wordRange.value) });
+});
+
+themeSelect.addEventListener('change', () => {
+  applyTheme();
+  chrome.storage.local.set({ popupTheme: themeSelect.value });
 });
 
 const saveKeys = () => {

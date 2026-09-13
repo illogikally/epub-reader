@@ -3,13 +3,44 @@
 <head>
   <meta charset="UTF-8">
   <style>
+    /* Same three-way Popup theme setting the translation popup uses — this
+       panel follows it too, so picking Dark doesn't leave a white sheet of
+       settings behind the dark popup. 'auto' is resolved to one of the two
+       classes in popup.js (matchMedia), never with a media query here. */
+    :root {
+      --bg: #faf6ef;
+      --fg: #2a2520;
+      --muted: #5a544c;
+      --field: #ffffff;
+      --line: rgba(0,0,0,0.1);
+      --line-soft: rgba(0,0,0,0.06);
+      --hover: rgba(0,0,0,0.03);
+      --danger: #b3261e;
+      --btn-bg: #2a2520;
+      --btn-fg: #faf6ef;
+    }
+    /* color-scheme so the native range thumb, the select menu and the
+       password reveal render dark too — CSS variables can't reach those. */
+    body.theme-dark {
+      color-scheme: dark;
+      --bg: #22201d;
+      --fg: #e8e3da;
+      --muted: #9a938a;
+      --field: #2c2a26;
+      --line: rgba(255,255,255,0.14);
+      --line-soft: rgba(255,255,255,0.08);
+      --hover: rgba(255,255,255,0.06);
+      --danger: #ef8a7e;
+      --btn-bg: #e8e3da;
+      --btn-fg: #22201d;
+    }
     body {
       width: 320px;
       padding: 16px;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       font-size: 14px;
-      background: #faf6ef;
-      color: #2a2520;
+      background: var(--bg);
+      color: var(--fg);
     }
     h2 {
       margin: 0 0 16px;
@@ -22,7 +53,7 @@
     .setting-label {
       display: block;
       font-size: 12px;
-      color: #5a544c;
+      color: var(--muted);
       margin-bottom: 6px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -30,9 +61,10 @@
     select, input {
       width: 100%;
       padding: 8px;
-      border: 1px solid rgba(0,0,0,0.1);
+      border: 1px solid var(--line);
       border-radius: 6px;
-      background: #fff;
+      background: var(--field);
+      color: var(--fg);
       font-size: 13px;
       box-sizing: border-box;
     }
@@ -49,21 +81,21 @@
     }
     .help-text {
       font-size: 11px;
-      color: #5a544c;
+      color: var(--muted);
       margin-top: 4px;
       line-height: 1.4;
     }
     /* ---- Model list: one row per model, click to select, x to remove ---- */
     .model-list {
-      border: 1px solid rgba(0,0,0,0.1);
+      border: 1px solid var(--line);
       border-radius: 6px;
-      background: #fff;
+      background: var(--field);
       overflow: hidden;
     }
     .model-row {
       display: flex;
       align-items: center;
-      border-top: 1px solid rgba(0,0,0,0.06);
+      border-top: 1px solid var(--line-soft);
     }
     .model-row:first-child { border-top: 0; }
     .model-pick {
@@ -81,7 +113,7 @@
       text-align: left;
       cursor: pointer;
     }
-    .model-pick:hover { background: rgba(0,0,0,0.03); }
+    .model-pick:hover { background: var(--hover); }
     /* A fixed-width tick gutter, so the names line up whether or not the
        row is the selected one. */
     .model-pick::before {
@@ -101,7 +133,7 @@
     .model-pick .tag {
       flex: none;
       font-size: 10px;
-      color: #5a544c;
+      color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 0.04em;
       white-space: nowrap;
@@ -112,23 +144,23 @@
       padding: 8px 0;
       border: 0;
       background: none;
-      color: #5a544c;
+      color: var(--muted);
       font: inherit;
       font-size: 15px;
       line-height: 1;
       cursor: pointer;
     }
-    .model-del:hover { color: #b3261e; }
+    .model-del:hover { color: var(--danger); }
     .model-empty {
       padding: 8px;
       font-size: 12px;
-      color: #5a544c;
+      color: var(--muted);
     }
     /* ---- Add-model form ---- */
     details.add-model { margin-top: 8px; }
     details.add-model > summary {
       font-size: 12px;
-      color: #5a544c;
+      color: var(--muted);
       cursor: pointer;
       list-style: none;
       padding: 2px 0;
@@ -145,16 +177,16 @@
     .add-form label {
       display: block;
       font-size: 11px;
-      color: #5a544c;
+      color: var(--muted);
       margin-bottom: 4px;
     }
     .add-btn {
       grid-column: 1 / -1;
       padding: 8px;
-      border: 1px solid rgba(0,0,0,0.1);
+      border: 1px solid var(--line);
       border-radius: 6px;
-      background: #2a2520;
-      color: #faf6ef;
+      background: var(--btn-bg);
+      color: var(--btn-fg);
       font: inherit;
       font-size: 13px;
       cursor: pointer;
@@ -163,7 +195,7 @@
       grid-column: 1 / -1;
       margin: 0;
       font-size: 11px;
-      color: #b3261e;
+      color: var(--danger);
     }
   </style>
 </head>
@@ -214,6 +246,16 @@
     </label>
     <input type="range" id="word-spacing-range" min="-2" max="20" step="0.5">
     <div class="help-text">Extra space between words in the translation popup.</div>
+  </div>
+
+  <div class="setting">
+    <label class="setting-label" for="theme-select">Popup theme</label>
+    <select id="theme-select">
+      <option value="auto">Auto — follow the system</option>
+      <option value="light">Light</option>
+      <option value="dark">Dark</option>
+    </select>
+    <div class="help-text">Colors of the translation popup, on every page.</div>
   </div>
 
   <div class="setting">

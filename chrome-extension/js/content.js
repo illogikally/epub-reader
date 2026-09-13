@@ -11,6 +11,9 @@ let settings = {
   // Popup word spacing, in px — set from the slider in the extension popup.
   // The reader has the same setting under Settings → Lookup Popup.
   popupWordSpacing: 0,
+  // 'auto' | 'light' | 'dark' — set from Popup theme in the extension popup.
+  // The reader has no equivalent: its popup takes the book's own theme colors.
+  popupTheme: 'auto',
   apiKeys: { GEMINI_API_KEY: '', GROQ_API_KEY: '' },
 };
 
@@ -66,6 +69,21 @@ window.addEventListener('resize', applyFontMode);
 function applyWordSpacing() {
   container.style.setProperty('--llm-word-spacing', settings.popupWordSpacing + 'px');
 }
+
+// Theme, same container-scoped reasoning as above: the palette lives on our
+// wrapper, never on the page's :root. 'auto' is resolved here rather than with
+// a prefers-color-scheme block in the CSS so the stylesheet carries the dark
+// palette exactly once; the listener keeps auto honest if the OS flips while
+// the page is open.
+const darkQuery = matchMedia('(prefers-color-scheme: dark)');
+function applyTheme() {
+  const dark = settings.popupTheme === 'dark'
+    || (settings.popupTheme !== 'light' && darkQuery.matches);
+  container.classList.toggle('llm-theme-dark', dark);
+  container.classList.toggle('llm-theme-light', !dark);
+}
+applyTheme();
+darkQuery.addEventListener('change', applyTheme);
 
 const $ = id => document.getElementById(id);
 const popup = $('llm-popup');
@@ -610,14 +628,16 @@ function fireLookupForSelection(sel, doc) {
 }
 
 // Initializing
-chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'apiKeys'], (res) => {
+chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'popupTheme', 'apiKeys'], (res) => {
   const store = readModelStore(res);
   settings.models = store.models;
   settings.selectedModelId = store.selectedModelId;
   if (res.contextSentences !== undefined) settings.contextSentences = res.contextSentences;
   if (res.popupWordSpacing !== undefined) settings.popupWordSpacing = res.popupWordSpacing;
+  if (res.popupTheme !== undefined) settings.popupTheme = res.popupTheme;
   if (res.apiKeys !== undefined) settings.apiKeys = res.apiKeys;
   applyWordSpacing();
+  applyTheme();
 });
 
 chrome.storage.onChanged.addListener((changes) => {
@@ -627,6 +647,10 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.popupWordSpacing) {
     settings.popupWordSpacing = changes.popupWordSpacing.newValue;
     applyWordSpacing();
+  }
+  if (changes.popupTheme) {
+    settings.popupTheme = changes.popupTheme.newValue;
+    applyTheme();
   }
   if (changes.apiKeys) settings.apiKeys = changes.apiKeys.newValue;
 });

@@ -1,4 +1,10 @@
-:root {
+/* Light palette. It lives on :root as the fallback for the moment before
+   applyTheme() runs; the popup really reads these names off .llm-theme-light
+   / .llm-theme-dark, which content.js puts on our own container. `auto` is
+   resolved to one of those two in JS (matchMedia), so there is exactly one
+   dark palette here and no media query duplicating it. */
+:root,
+.llm-theme-light {
   --llm-bg: #dfdfdf;
   --llm-fg: #000;
   --llm-chrome-fg: #5a544c;
@@ -7,10 +13,29 @@
   --llm-accent: #8a6d3b;
   --llm-surface-soft: rgba(0, 0, 0, 0.06);
   --llm-surface-soft-hover: rgba(0, 0, 0, 0.12);
+  --llm-error: #c0392b;
+  --llm-shadow: 0 14px 50px rgba(0, 0, 0, 0.18);
   /* Popup word spacing — set from the Word spacing slider in the extension
      popup by applyWordSpacing() in content.js; this is only the fallback
      before that first runs. */
   --llm-word-spacing: 0px;
+}
+
+/* Dark palette. The accent and the error red are lightened rather than reused:
+   #8a6d3b and #c0392b both sink into a dark card. The shadow is heavier because
+   a dark card on a dark page has no edge contrast of its own — the hairline
+   border (--llm-border) is what separates it. */
+.llm-theme-dark {
+  --llm-bg: #22201d;
+  --llm-fg: #e8e3da;
+  --llm-chrome-fg: #9a938a;
+  --llm-chrome-hover: #f2ede4;
+  --llm-border: rgba(255, 255, 255, 0.14);
+  --llm-accent: #d7b075;
+  --llm-surface-soft: rgba(255, 255, 255, 0.09);
+  --llm-surface-soft-hover: rgba(255, 255, 255, 0.16);
+  --llm-error: #ef8a7e;
+  --llm-shadow: 0 14px 50px rgba(0, 0, 0, 0.55);
 }
 
 [hidden] { display: none !important; }
@@ -37,7 +62,7 @@
   background: var(--llm-bg);
   color: var(--llm-fg);
   border-radius: 12px;
-  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.18), 0 0 0 1px var(--llm-border);
+  box-shadow: var(--llm-shadow), 0 0 0 1px var(--llm-border);
   letter-spacing: -1px;
   overflow: hidden;
   font-family: consolas, menlo, ui-monospace, monospace !important;
@@ -137,7 +162,7 @@ html.llm-vert2k .llm-popup-content {
 #llm-popup-out em { color: var(--llm-accent); font-style: italic; }
 #llm-popup-out .u { color: var(--llm-accent); }
 #llm-popup-out .a { color: var(--llm-fg); cursor: text; }
-#llm-popup-out .e { color: #c0392b; }
+#llm-popup-out .e { color: var(--llm-error); }
 #llm-popup-out .sys { color: var(--llm-chrome-fg); }
 #llm-popup-out .meta { color: var(--llm-chrome-fg); font-style: italic; font-size: 92%; }
 /* The văn phong · sắc thái pair trailing a syn headword — see the "• **từ** · …"
