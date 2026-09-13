@@ -27,7 +27,7 @@
    border (--llm-border) is what separates it. */
 .llm-theme-dark {
   --llm-bg: #22201d;
-  --llm-fg: #fff;
+  --llm-fg: #eee;
   --llm-chrome-fg: #9a938a;
   --llm-chrome-hover: #f2ede4;
   --llm-border: rgba(255, 255, 255, 0.14);
