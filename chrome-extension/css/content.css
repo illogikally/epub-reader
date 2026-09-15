@@ -91,14 +91,18 @@ html.llm-vert2k .llm-popup-content {
   pointer-events: none;
 }
 
+/* Clip the half of the rotated square that sits inside the card, so it never
+   paints over the text; the extra 2px keeps the border shadow. */
 #llm-popup.pos-above .llm-popup-arrow {
   bottom: -7px;
   box-shadow: 1px 1px 0 var(--llm-border);
+  clip-path: polygon(calc(100% + 2px) -2px, calc(100% + 2px) calc(100% + 2px), -2px calc(100% + 2px));
 }
 
 #llm-popup.pos-below .llm-popup-arrow {
   top: -7px;
   box-shadow: -1px -1px 0 var(--llm-border);
+  clip-path: polygon(-2px -2px, calc(100% + 2px) -2px, -2px calc(100% + 2px));
 }
 
 #llm-popup .pop-bar {
