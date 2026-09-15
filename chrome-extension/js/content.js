@@ -87,6 +87,7 @@ darkQuery.addEventListener('change', applyTheme);
 
 const $ = id => document.getElementById(id);
 const popup = $('llm-popup');
+const popupContent = popup.querySelector('.llm-popup-content');
 const popupOut = $('llm-popup-out');
 const popupForm = $('llm-popup-form');
 const popupInput = $('llm-popup-input');
@@ -232,8 +233,10 @@ function renderMarkdown(text) {
 function repositionPopup(customRect) {
   if (!isPopupVisible() || !lastLookup) return;
   const rect = customRect || lastLookup.range.getBoundingClientRect();
+  // A range whose nodes the page re-rendered away measures as all zeros; hold
+  // the popup where it is rather than flinging it to the corner.
+  if (!rect.width && !rect.height && !rect.top && !rect.left) return;
   const W = popup.offsetWidth || 420;
-  const H = popup.offsetHeight;
   const margin = 12;
   const gap = 12;
 
@@ -253,23 +256,51 @@ function repositionPopup(customRect) {
   let left = selCenterX - W / 2;
   left = Math.max(margin, Math.min(window.innerWidth - W - margin, left));
 
-  // Clamp to the viewport only while the word itself is on screen; once it
-  // scrolls off, the popup goes with it instead of pinning to the edge.
-  const onScreen = rect.bottom > 0 && rect.top < window.innerHeight;
-  let top;
-  if (placeAbove) {
-    top = rect.top - H - gap;
-    if (onScreen && top < margin) top = margin;
-  } else {
-    top = rect.bottom + gap;
+  // No clamping to the viewport: the popup stays glued to the word even when
+  // that carries it off screen. A clamp pinned it to the top edge, covering the
+  // word as soon as the word scrolled up. Instead, room is guaranteed when the
+  // popup opens (customRect is only passed then): its height is capped to the
+  // space on its side, so a streaming answer can't grow it past the edge.
+  if (customRect) {
+    const avail = placeAbove
+      ? rect.top - gap - margin
+      : window.innerHeight - rect.bottom - gap - margin;
+    popupContent.style.maxHeight = `min(60vh, 480px, ${Math.max(120, avail)}px)`;
   }
+  const top = placeAbove ? rect.top - popup.offsetHeight - gap : rect.bottom + gap;
 
-  popup.style.left = (left + window.scrollX) + 'px';
-  popup.style.top = (top + window.scrollY) + 'px';
+  placePopup(left, top);
 
   let arrowX = selCenterX - left;
   arrowX = Math.max(20, Math.min(W - 20, arrowX));
   popup.style.setProperty('--arrow-x', arrowX + 'px');
+}
+
+// Moves the popup so its box lands at viewport (x, y). It measures where the
+// popup actually is instead of assuming left/top + scrollX/Y maps onto the
+// viewport — that broke on pages with a positioned or transformed <body>, and
+// on pages that scroll <body> instead of the window. Writes only on a real
+// mismatch, so plain window scrolling (which already carries the absolutely
+// positioned popup along with the page) causes no writes and cannot wiggle.
+function placePopup(x, y) {
+  const box = popup.getBoundingClientRect();
+  const dx = x - box.left;
+  const dy = y - box.top;
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
+  popup.style.left = ((parseFloat(popup.style.left) || 0) + dx) + 'px';
+  popup.style.top = ((parseFloat(popup.style.top) || 0) + dy) + 'px';
+}
+
+// While the popup is open, re-place it every frame. Scroll events alone
+// missed too much: inner scrollers, <body> scrollers, smooth-scroll libraries
+// that move content with transforms, and layout shifts all move the word.
+// placePopup() makes an idle frame two rect reads and no writes.
+let followFrame = 0;
+function followSelection() {
+  followFrame = 0;
+  if (!isPopupVisible()) return;
+  repositionPopup();
+  followFrame = requestAnimationFrame(followSelection);
 }
 
 function showPopupAt(rect) {
@@ -279,11 +310,15 @@ function showPopupAt(rect) {
     popup.style.visibility = 'hidden';
     popup.style.opacity = '0';
     popup.classList.add('visible');
+    // Known origin for placePopup()'s first measurement.
+    popup.style.left = '0px';
+    popup.style.top = '0px';
     // Force a layout reflow so offsetHeight is populated
     void popup.offsetHeight;
   }
-  
+
   repositionPopup(rect);
+  if (!followFrame) followFrame = requestAnimationFrame(followSelection);
 
   if (wasHidden) {
     // Now that it's positioned, make it visible. 
@@ -667,25 +702,6 @@ $('llm-popup-toggle-input').addEventListener('click', () => {
 document.addEventListener('mousedown',  handleOutsideClick);
 document.addEventListener('touchstart', handleOutsideClick, { passive: true });
 document.addEventListener('pointerdown', handleOutsideClick);
-
-// Follow the selection inside inner scroll containers. Capture phase, because
-// scroll doesn't bubble. Window scrolling is skipped on purpose: the popup is
-// in page coordinates, so the browser already moves it in step with the page,
-// and repositioning from JS on top of that is what made it wiggle. Scrolling
-// inside the popup's own output is ignored too.
-let repositionFrame = 0;
-function scheduleReposition(e) {
-  if (!isPopupVisible() || repositionFrame) return;
-  const t = e && e.type === 'scroll' ? e.target : null;
-  if (t === document || t === document.documentElement || t === document.body) return;
-  if (t instanceof Node && popup.contains(t)) return;
-  repositionFrame = requestAnimationFrame(() => {
-    repositionFrame = 0;
-    repositionPopup();
-  });
-}
-document.addEventListener('scroll', scheduleReposition, { capture: true, passive: true });
-window.addEventListener('resize', scheduleReposition);
 
 popupForm.addEventListener('submit', e => {
   e.preventDefault();

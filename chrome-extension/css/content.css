@@ -44,8 +44,8 @@
 #llm-popup {
   all: initial;
   /* Page coordinates, so window scrolling carries the popup natively — a fixed
-     popup moved from JS lags the compositor by a frame and wiggles. Inner
-     scroll containers are followed from JS instead (scheduleReposition). */
+     popup moved from JS lags the compositor by a frame and wiggles. Everything
+     else is corrected per frame from JS (followSelection / placePopup). */
   position: absolute;
   width: 420px;
   max-width: calc(100vw - 24px);
