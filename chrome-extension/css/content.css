@@ -43,7 +43,9 @@
 /* Translation popup — theme-aware, no fade on close */
 #llm-popup {
   all: initial;
-  position: absolute;
+  /* Viewport coordinates: repositionPopup() re-reads the selection rect on every
+     scroll, including inner scroll containers the page coordinates never saw. */
+  position: fixed;
   width: 420px;
   max-width: calc(100vw - 24px);
   z-index: 2147483647;

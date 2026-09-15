@@ -232,36 +232,40 @@ function renderMarkdown(text) {
 function repositionPopup(customRect) {
   if (!isPopupVisible() || !lastLookup) return;
   const rect = customRect || lastLookup.range.getBoundingClientRect();
-  const W = 420;
+  const W = popup.offsetWidth || 420;
   const H = popup.offsetHeight;
   const margin = 12;
   const gap = 12;
 
   const selCenterX = rect.left + rect.width / 2;
   const selCenterY = rect.top + rect.height / 2;
-  
-  const placeAbove = selCenterY > window.innerHeight / 2;
-  
+
+  // Pick the side once, when the popup opens. Re-deciding on every scroll made
+  // it jump across the word as the word crossed the viewport midpoint.
+  if (lastLookup.placeAbove === undefined) {
+    lastLookup.placeAbove = selCenterY > window.innerHeight / 2;
+  }
+  const placeAbove = lastLookup.placeAbove;
+
   popup.classList.toggle('pos-above', placeAbove);
   popup.classList.toggle('pos-below', !placeAbove);
 
   let left = selCenterX - W / 2;
   left = Math.max(margin, Math.min(window.innerWidth - W - margin, left));
-  
+
+  // Clamp to the viewport only while the word itself is on screen; once it
+  // scrolls off, the popup goes with it instead of pinning to the edge.
+  const onScreen = rect.bottom > 0 && rect.top < window.innerHeight;
   let top;
   if (placeAbove) {
     top = rect.top - H - gap;
-    if (top < margin) top = margin;
+    if (onScreen && top < margin) top = margin;
   } else {
     top = rect.bottom + gap;
-    if (top + H > window.innerHeight - margin) {
-      top = Math.max(margin, window.innerHeight - H - margin);
-      if (top < rect.bottom + gap) top = rect.bottom + gap;
-    }
   }
-  
-  popup.style.left = (left + window.scrollX) + 'px';
-  popup.style.top = (top + window.scrollY) + 'px';
+
+  popup.style.left = left + 'px';
+  popup.style.top = top + 'px';
 
   let arrowX = selCenterX - left;
   arrowX = Math.max(20, Math.min(W - 20, arrowX));
@@ -663,6 +667,21 @@ $('llm-popup-toggle-input').addEventListener('click', () => {
 document.addEventListener('mousedown',  handleOutsideClick);
 document.addEventListener('touchstart', handleOutsideClick, { passive: true });
 document.addEventListener('pointerdown', handleOutsideClick);
+
+// Follow the selection. Capture phase, because scroll doesn't bubble — this is
+// what catches inner scroll containers, not just the window. One update per
+// frame; scrolling inside the popup's own output is ignored.
+let repositionFrame = 0;
+function scheduleReposition(e) {
+  if (!isPopupVisible() || repositionFrame) return;
+  if (e && e.target instanceof Node && popup.contains(e.target)) return;
+  repositionFrame = requestAnimationFrame(() => {
+    repositionFrame = 0;
+    repositionPopup();
+  });
+}
+document.addEventListener('scroll', scheduleReposition, { capture: true, passive: true });
+window.addEventListener('resize', scheduleReposition);
 
 popupForm.addEventListener('submit', e => {
   e.preventDefault();
