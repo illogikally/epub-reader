@@ -264,8 +264,8 @@ function repositionPopup(customRect) {
     top = rect.bottom + gap;
   }
 
-  popup.style.left = left + 'px';
-  popup.style.top = top + 'px';
+  popup.style.left = (left + window.scrollX) + 'px';
+  popup.style.top = (top + window.scrollY) + 'px';
 
   let arrowX = selCenterX - left;
   arrowX = Math.max(20, Math.min(W - 20, arrowX));
@@ -668,13 +668,17 @@ document.addEventListener('mousedown',  handleOutsideClick);
 document.addEventListener('touchstart', handleOutsideClick, { passive: true });
 document.addEventListener('pointerdown', handleOutsideClick);
 
-// Follow the selection. Capture phase, because scroll doesn't bubble — this is
-// what catches inner scroll containers, not just the window. One update per
-// frame; scrolling inside the popup's own output is ignored.
+// Follow the selection inside inner scroll containers. Capture phase, because
+// scroll doesn't bubble. Window scrolling is skipped on purpose: the popup is
+// in page coordinates, so the browser already moves it in step with the page,
+// and repositioning from JS on top of that is what made it wiggle. Scrolling
+// inside the popup's own output is ignored too.
 let repositionFrame = 0;
 function scheduleReposition(e) {
   if (!isPopupVisible() || repositionFrame) return;
-  if (e && e.target instanceof Node && popup.contains(e.target)) return;
+  const t = e && e.type === 'scroll' ? e.target : null;
+  if (t === document || t === document.documentElement || t === document.body) return;
+  if (t instanceof Node && popup.contains(t)) return;
   repositionFrame = requestAnimationFrame(() => {
     repositionFrame = 0;
     repositionPopup();

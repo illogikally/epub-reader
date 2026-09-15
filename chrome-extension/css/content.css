@@ -43,9 +43,10 @@
 /* Translation popup — theme-aware, no fade on close */
 #llm-popup {
   all: initial;
-  /* Viewport coordinates: repositionPopup() re-reads the selection rect on every
-     scroll, including inner scroll containers the page coordinates never saw. */
-  position: fixed;
+  /* Page coordinates, so window scrolling carries the popup natively — a fixed
+     popup moved from JS lags the compositor by a frame and wiggles. Inner
+     scroll containers are followed from JS instead (scheduleReposition). */
+  position: absolute;
   width: 420px;
   max-width: calc(100vw - 24px);
   z-index: 2147483647;
@@ -94,17 +95,19 @@ html.llm-vert2k .llm-popup-content {
 }
 
 /* Clip the half of the rotated square that sits inside the card, so it never
-   paints over the text; the extra 2px keeps the border shadow. */
+   paints over the text. The cut sits ~2px inside the card edge (into the
+   padding) so no antialiased seam shows between triangle and card; the extra
+   2px on the outer points keeps the border shadow. */
 #llm-popup.pos-above .llm-popup-arrow {
   bottom: -7px;
   box-shadow: 1px 1px 0 var(--llm-border);
-  clip-path: polygon(calc(100% + 2px) -2px, calc(100% + 2px) calc(100% + 2px), -2px calc(100% + 2px));
+  clip-path: polygon(calc(100% + 2px) -5px, calc(100% + 2px) calc(100% + 2px), -5px calc(100% + 2px));
 }
 
 #llm-popup.pos-below .llm-popup-arrow {
   top: -7px;
   box-shadow: -1px -1px 0 var(--llm-border);
-  clip-path: polygon(-2px -2px, calc(100% + 2px) -2px, -2px calc(100% + 2px));
+  clip-path: polygon(-2px -2px, calc(100% + 5px) -2px, -2px calc(100% + 5px));
 }
 
 #llm-popup .pop-bar {
