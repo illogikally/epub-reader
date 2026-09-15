@@ -1079,17 +1079,19 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   pointer-events: none;
 }
 /* The rotated square straddles the popup edge; clip away the half that sits
-   inside the card, otherwise it paints over the text (z-index 1). The clip
-   runs along the diagonal and reaches 2px past the box to keep the border. */
+   inside the card, otherwise it paints over the text (z-index 1). The cut
+   sits ~2px inside the card edge, into the padding: cutting exactly on the
+   edge left an antialiased seam between triangle and card. The outer points
+   reach 2px past the box to keep the border shadow. */
 #popup.pos-above .popup-arrow {
   bottom: -7px;
   box-shadow: 1px 1px 0 var(--border);
-  clip-path: polygon(calc(100% + 2px) -2px, calc(100% + 2px) calc(100% + 2px), -2px calc(100% + 2px));
+  clip-path: polygon(calc(100% + 2px) -5px, calc(100% + 2px) calc(100% + 2px), -5px calc(100% + 2px));
 }
 #popup.pos-below .popup-arrow {
   top: -7px;
   box-shadow: -1px -1px 0 var(--border);
-  clip-path: polygon(-2px -2px, calc(100% + 2px) -2px, -2px calc(100% + 2px));
+  clip-path: polygon(-2px -2px, calc(100% + 5px) -2px, -2px calc(100% + 5px));
 }
 #popup.mobile .popup-arrow { display: none; }
 
