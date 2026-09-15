@@ -43,10 +43,17 @@
 /* Translation popup — theme-aware, no fade on close */
 #llm-popup {
   all: initial;
-  /* Page coordinates, so window scrolling carries the popup natively — a fixed
-     popup moved from JS lags the compositor by a frame and wiggles. Everything
-     else is corrected per frame from JS (followSelection / placePopup). */
-  position: absolute;
+  /* Stuck to the selected word with CSS anchor positioning: anchorPopup() in
+     content.js makes the element holding the word the anchor and sets the
+     --llm-* offsets once; from then on the browser keeps the card attached
+     through any scroll, with nothing repositioning it from JS. It's shown as a
+     manual popover, so it sits in the top layer (all: initial above also
+     clears the UA popover inset/margin/border). Hidden while the anchor is
+     scrolled out of view, rather than floating over unrelated content. */
+  position: fixed;
+  position-anchor: --llm-translator-anchor;
+  position-visibility: anchors-visible;
+  left: calc(anchor(left) + var(--llm-dx, 0px));
   width: 420px;
   max-width: calc(100vw - 24px);
   z-index: 2147483647;
@@ -58,6 +65,15 @@
 
 #llm-popup.visible {
   display: flex;
+}
+
+/* Vertical side, relative to the anchor element's top edge. Above is set by
+   `bottom`, so a streaming answer grows the card upward, away from the word. */
+#llm-popup.pos-below {
+  top: calc(anchor(top) + var(--llm-word-bottom, 0px) + 12px);
+}
+#llm-popup.pos-above {
+  bottom: calc(anchor(top) - var(--llm-word-top, 0px) + 12px);
 }
 
 .llm-popup-content {

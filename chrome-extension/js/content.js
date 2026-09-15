@@ -24,7 +24,7 @@ const MAX_SELECTION_CHARS = 100;
 
 // Inject HTML
 const html = `
-  <div id="llm-popup">
+  <div id="llm-popup" popover="manual">
     <div class="llm-popup-arrow"></div>
     <div class="llm-popup-content">
       <div class="pop-bar">
@@ -213,7 +213,6 @@ function popupWrite(text, cls, opts) {
   if (!opts || opts.scroll !== false) {
     popupOut.scrollTop = popupOut.scrollHeight;
   }
-  repositionPopup();
   return div;
 }
 
@@ -230,109 +229,78 @@ function renderMarkdown(text) {
   return h;
 }
 
-function repositionPopup(customRect) {
-  if (!isPopupVisible() || !lastLookup) return;
-  const rect = customRect || lastLookup.range.getBoundingClientRect();
-  // A range whose nodes the page re-rendered away measures as all zeros; hold
-  // the popup where it is rather than flinging it to the corner.
-  if (!rect.width && !rect.height && !rect.top && !rect.left) return;
+// The popup is attached to the selected word by CSS anchor positioning, so
+// the browser itself keeps it there through every scroll — window, <body>,
+// inner scroll containers — with no JS running while it does. JS runs once,
+// here, when the popup opens: the element holding the word becomes the anchor
+// (a temporary inline anchor-name, restored on close — the page's DOM is left
+// alone), and where the word sits inside that element's box goes into custom
+// properties that the CSS offsets from anchor() by.
+const ANCHOR_NAME = '--llm-translator-anchor';
+let anchorEl = null;
+let anchorPrevName = '';
+
+function anchorPopup(rect) {
+  releaseAnchor();
+  let el = lastLookup && lastLookup.range.startContainer;
+  if (el && el.nodeType !== Node.ELEMENT_NODE) el = el.parentElement;
+  // display:contents has no box to anchor to.
+  while (el && el.parentElement && getComputedStyle(el).display === 'contents') {
+    el = el.parentElement;
+  }
+  if (!el) return;
+  anchorEl = el;
+  anchorPrevName = el.style.getPropertyValue('anchor-name');
+  el.style.setProperty('anchor-name', ANCHOR_NAME, 'important');
+
+  const box = el.getBoundingClientRect();
   const W = popup.offsetWidth || 420;
   const margin = 12;
   const gap = 12;
+  const wordCx = rect.left + rect.width / 2;
 
-  const selCenterX = rect.left + rect.width / 2;
-  const selCenterY = rect.top + rect.height / 2;
-
-  // Pick the side once, when the popup opens. Re-deciding on every scroll made
-  // it jump across the word as the word crossed the viewport midpoint.
-  if (lastLookup.placeAbove === undefined) {
-    lastLookup.placeAbove = selCenterY > window.innerHeight / 2;
-  }
-  const placeAbove = lastLookup.placeAbove;
-
+  const placeAbove = rect.top + rect.height / 2 > window.innerHeight / 2;
   popup.classList.toggle('pos-above', placeAbove);
   popup.classList.toggle('pos-below', !placeAbove);
 
-  let left = selCenterX - W / 2;
-  left = Math.max(margin, Math.min(window.innerWidth - W - margin, left));
+  // Cap the height to the room on the chosen side, so a streaming answer
+  // can't grow the card past the viewport edge.
+  const avail = placeAbove
+    ? rect.top - gap - margin
+    : window.innerHeight - rect.bottom - gap - margin;
+  popupContent.style.maxHeight = `min(60vh, 480px, ${Math.max(120, avail)}px)`;
 
-  // No clamping to the viewport: the popup stays glued to the word even when
-  // that carries it off screen. A clamp pinned it to the top edge, covering the
-  // word as soon as the word scrolled up. Instead, room is guaranteed when the
-  // popup opens (customRect is only passed then): its height is capped to the
-  // space on its side, so a streaming answer can't grow it past the edge.
-  if (customRect) {
-    const avail = placeAbove
-      ? rect.top - gap - margin
-      : window.innerHeight - rect.bottom - gap - margin;
-    popupContent.style.maxHeight = `min(60vh, 480px, ${Math.max(120, avail)}px)`;
-  }
-  const top = placeAbove ? rect.top - popup.offsetHeight - gap : rect.bottom + gap;
-
-  placePopup(left, top);
-
-  let arrowX = selCenterX - left;
-  arrowX = Math.max(20, Math.min(W - 20, arrowX));
-  popup.style.setProperty('--arrow-x', arrowX + 'px');
+  const left = Math.max(margin, Math.min(window.innerWidth - W - margin, wordCx - W / 2));
+  popup.style.setProperty('--llm-dx', (left - box.left) + 'px');
+  popup.style.setProperty('--llm-word-top', (rect.top - box.top) + 'px');
+  popup.style.setProperty('--llm-word-bottom', (rect.bottom - box.top) + 'px');
+  popup.style.setProperty('--arrow-x', Math.max(20, Math.min(W - 20, wordCx - left)) + 'px');
 }
 
-// Moves the popup so its box lands at viewport (x, y). It measures where the
-// popup actually is instead of assuming left/top + scrollX/Y maps onto the
-// viewport — that broke on pages with a positioned or transformed <body>, and
-// on pages that scroll <body> instead of the window. Writes only on a real
-// mismatch, so plain window scrolling (which already carries the absolutely
-// positioned popup along with the page) causes no writes and cannot wiggle.
-function placePopup(x, y) {
-  const box = popup.getBoundingClientRect();
-  const dx = x - box.left;
-  const dy = y - box.top;
-  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) return;
-  popup.style.left = ((parseFloat(popup.style.left) || 0) + dx) + 'px';
-  popup.style.top = ((parseFloat(popup.style.top) || 0) + dy) + 'px';
-}
-
-// While the popup is open, re-place it every frame. Scroll events alone
-// missed too much: inner scrollers, <body> scrollers, smooth-scroll libraries
-// that move content with transforms, and layout shifts all move the word.
-// placePopup() makes an idle frame two rect reads and no writes.
-let followFrame = 0;
-function followSelection() {
-  followFrame = 0;
-  if (!isPopupVisible()) return;
-  repositionPopup();
-  followFrame = requestAnimationFrame(followSelection);
+function releaseAnchor() {
+  if (!anchorEl) return;
+  if (anchorPrevName) anchorEl.style.setProperty('anchor-name', anchorPrevName);
+  else anchorEl.style.removeProperty('anchor-name');
+  anchorEl = null;
+  anchorPrevName = '';
 }
 
 function showPopupAt(rect) {
-  const wasHidden = !isPopupVisible();
-  if (wasHidden) {
-    // Start invisible but with display:flex so we can measure it
-    popup.style.visibility = 'hidden';
-    popup.style.opacity = '0';
+  if (!isPopupVisible()) {
     popup.classList.add('visible');
-    // Known origin for placePopup()'s first measurement.
-    popup.style.left = '0px';
-    popup.style.top = '0px';
-    // Force a layout reflow so offsetHeight is populated
-    void popup.offsetHeight;
+    // Top layer: page transforms and overflow clipping can't reach it.
+    try { popup.showPopover(); } catch {}
   }
-
-  repositionPopup(rect);
-  if (!followFrame) followFrame = requestAnimationFrame(followSelection);
-
-  if (wasHidden) {
-    // Now that it's positioned, make it visible. 
-    // Opacity transition is handled by CSS if desired, 
-    // or we just snap it on.
-    popup.style.visibility = 'visible';
-    popup.style.opacity = '1';
-  }
+  // Synchronous, so the card is anchored before the browser ever paints it.
+  anchorPopup(rect);
 }
 
 let lastCloseTime = 0;
 function hidePopup(clearSelection = false) {
   if (!isPopupVisible()) return;
   popup.classList.remove('visible');
+  try { popup.hidePopover(); } catch {}
+  releaseAnchor();
   popupHistory.length = 0;
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
@@ -445,7 +413,6 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
           ensureReply();
           reply += chunk;
           replyDiv.innerHTML = renderMarkdown(reply.trim());
-          repositionPopup();
           scrollFollowReply();
         }
         if (!reply) throw new Error('(no response)');
