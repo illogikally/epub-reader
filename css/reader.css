@@ -1078,13 +1078,18 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   z-index: 1;
   pointer-events: none;
 }
+/* The rotated square straddles the popup edge; clip away the half that sits
+   inside the card, otherwise it paints over the text (z-index 1). The clip
+   runs along the diagonal and reaches 2px past the box to keep the border. */
 #popup.pos-above .popup-arrow {
   bottom: -7px;
   box-shadow: 1px 1px 0 var(--border);
+  clip-path: polygon(calc(100% + 2px) -2px, calc(100% + 2px) calc(100% + 2px), -2px calc(100% + 2px));
 }
 #popup.pos-below .popup-arrow {
   top: -7px;
   box-shadow: -1px -1px 0 var(--border);
+  clip-path: polygon(-2px -2px, calc(100% + 2px) -2px, -2px calc(100% + 2px));
 }
 #popup.mobile .popup-arrow { display: none; }
 
