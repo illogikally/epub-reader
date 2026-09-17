@@ -1276,6 +1276,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
     width: 100vw;
     max-width: 100vw;
     max-height: 95vh;
+    /* Floor the sheet so a one-line meaning still comes up as a sheet rather
+       than a sliver, and so it doesn't visibly grow as the answer streams in. */
+    min-height: 20vh;
     border-radius: 8px 8px 0 0;
     box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
     /* Slide up from the bottom edge. `display` can't be transitioned, so the
