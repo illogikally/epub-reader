@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=64';
+import { openBookFromDb } from './reader.js?v=65';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=64';
+} from './state.js?v=65';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=64';
+} from './touchselect.js?v=65';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -421,6 +421,12 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   }
 
   try {
+    // Up front, not after the reply lands: the action row is the popup's main
+    // affordance, and hiding it until the meaning arrives made it flash in late
+    // (and never appear at all on an error). Rendering it here also fixes the
+    // sheet's height before the first token, so it stops growing under a tap.
+    // Clicking one mid-stream is a no-op — addAction bails on popupBusy.
+    if (followup) renderActionsBar(followup.phrase, followup.context);
     for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables. Be concise`)) {
       ensureReply();
       reply += chunk;
@@ -435,7 +441,6 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     } else {
       replyDiv.classList.remove('cursor');
       popupHistory.push({ role: 'assistant', content: reply });
-      if (followup) renderActionsBar(followup.phrase, followup.context);
     }
   } catch (err) {
     if (pending) pending.remove();
