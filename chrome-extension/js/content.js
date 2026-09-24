@@ -507,7 +507,7 @@ Trả về đúng khối sau, đủ 5 mục (${phrase} trước, rồi 4 từ t�
   *[câu ví dụ điển hình]*
 • **[từ]** · [văn phong] · [sắc thái]
 [một điểm khác cụ thể so với ${phrase}; mở đầu "dễ nhầm:" nếu hay bị dùng nhầm]
-  *[câu chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
+  *[câu chỉ hợp với từ này]*
 - Văn phong: trang trọng/trung tính/đời thường/lóng/chuyên ngành; sắc thái: tích cực/trung tính/tiêu cực. Chỉ ghi giá trị, không nhãn.
 - Mỗi từ khác ở một điểm riêng; cấm "trang trọng hơn", "mạnh hơn" mà không nói hơn ở đâu.
 - Ví dụ tiếng Anh, mô tả tiếng Việt. ${noHeading}`;
