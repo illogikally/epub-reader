@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=66';
+import { openBookFromDb } from './reader.js?v=67';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=66';
+} from './state.js?v=67';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=66';
+} from './touchselect.js?v=67';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -538,7 +538,7 @@ Trả về đúng khối sau, đủ 5 mục (${phrase} trước, rồi 4 từ t�
   *[câu ví dụ điển hình]*
 • **[từ]** · [văn phong] · [sắc thái]
 [một điểm khác cụ thể so với ${phrase}; mở đầu "dễ nhầm:" nếu hay bị dùng nhầm]
-  *[câu chỉ hợp với từ này]* — thay bằng "${phrase}" thì [hỏng ở đâu]
+  *[câu chỉ hợp với từ này]*
 - Văn phong: trang trọng/trung tính/đời thường/lóng/chuyên ngành; sắc thái: tích cực/trung tính/tiêu cực. Chỉ ghi giá trị, không nhãn.
 - Mỗi từ khác ở một điểm riêng; cấm "trang trọng hơn", "mạnh hơn" mà không nói hơn ở đâu.
 - Ví dụ tiếng Anh, mô tả tiếng Việt. ${noHeading}`;
