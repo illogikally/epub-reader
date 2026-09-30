@@ -604,18 +604,18 @@ function renderActionsBar(phrase, context) {
     const a = document.createElement('a');
     a.href = '#';
     a.className = 'action';
-    a.textContent = 'deep';
+    a.textContent = 'more';
     a.title = `Re-run with ${n} sentences of context`;
-    if (spentActions.has('deep')) markSpent(a);
+    if (spentActions.has('more')) markSpent(a);
     a.onclick = async (e) => {
       e.preventDefault();
-      if (spentActions.has('deep')) { scrollToSpent('deep'); return; }
+      if (spentActions.has('more')) { scrollToSpent('more'); return; }
       if (popupBusy || !lastLookup) return;
-      spentActions.set('deep', null);
+      spentActions.set('more', null);
       markSpent(a);
       const context = extractContextFromRange(lastLookup.range, n);
       const prompt = `Phân tích "${phrase}" theo hiểu biết của bạn, tối đa 50 từ, một đoạn liền. Ngữ cảnh: "${context}"`;
-      sendToLLM(prompt, null, null, true, 'DEEP', 'deep');
+      sendToLLM(prompt, null, null, true, 'MORE', 'more');
     };
     popupActions.appendChild(a);
   });
