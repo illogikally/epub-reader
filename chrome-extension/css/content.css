@@ -151,20 +151,34 @@ html.llm-vert2k .llm-popup-content {
 }
 .llm-pop-actions::-webkit-scrollbar { display: none; }
 
-.llm-pop-actions a.action {
+/* The action links are plain <a>s in the host page's DOM, so the page's own
+   link styles reach them — a site's `#content a:hover { color: red }` outranks
+   these selectors on specificity and turned the hover red. The colours and
+   decoration are !important so every state matches the reader's popup
+   whatever the page says about links. */
+.llm-pop-actions a.action,
+.llm-pop-actions a.action:link,
+.llm-pop-actions a.action:visited {
   flex-shrink: 0;
   padding: 4px 9px;
   border-radius: 6px;
   font-size: 12px;
-  color: var(--llm-chrome-fg);
-  text-decoration: none;
+  color: var(--llm-chrome-fg) !important;
+  background: transparent !important;
+  text-decoration: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  outline: none;
   white-space: nowrap;
   cursor: pointer;
   transition: background 0.12s ease, color 0.12s ease;
 }
-.llm-pop-actions a.action:hover {
-  background: var(--llm-surface-soft);
-  color: var(--llm-fg);
+.llm-pop-actions a.action:hover,
+.llm-pop-actions a.action:focus-visible,
+.llm-pop-actions a.action:active {
+  background: var(--llm-surface-soft) !important;
+  color: var(--llm-fg) !important;
+  text-decoration: none !important;
 }
 .llm-pop-actions a.action.used {
   opacity: 0.4;
