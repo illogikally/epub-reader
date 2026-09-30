@@ -1177,8 +1177,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 #popup-out .meta { color: var(--chrome-fg); font-style: italic; font-size: 92%; }
 /* The văn phong · sắc thái pair trailing a syn headword — see the "• **từ** · …"
    pass in renderMarkdown. Smaller and dimmer so the meaning line below it reads
-   as the body text of the entry. */
-#popup-out .attrs { color: var(--chrome-fg); font-size: 85%; }
+   as the body text of the entry. Dimmed with opacity, not --chrome-fg:
+   applyChromeTheme() sets that to the theme's --fg, so it isn't grey here. */
+#popup-out .attrs { opacity: 0.55; font-size: 85%; }
 /* Section label above a follow-up action's answer (SYNONYM, ANTONYM, …).
    The popup writes it, not the model — see sendToLLM's `heading` — so it
    looks the same whether or not the model honoured the output format. */
