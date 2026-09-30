@@ -216,6 +216,52 @@ function popupWrite(text, cls, opts) {
   return div;
 }
 
+// Reveals streamed text at a steady pace instead of in the lumps the network
+// hands it over in — one read often carries several SSE events, so writing
+// each chunk straight to the DOM made the answer jump a block at a time.
+// Received text goes into a buffer; each animation frame shows a slice of the
+// backlog (a fraction of it, so a big burst catches up quickly and a trickle
+// still moves a character a frame). end() resolves once everything received
+// has been shown; cancel() stops without showing the rest.
+function smoothStream(onFrame) {
+  let target = '';
+  let shown = 0;
+  let raf = 0;
+  let done = false;
+  let resolveEnd;
+  const ended = new Promise(r => { resolveEnd = r; });
+  function tick() {
+    raf = 0;
+    const backlog = target.length - shown;
+    if (backlog > 0) {
+      shown += Math.max(1, Math.ceil(backlog / (done ? 4 : 10)));
+      // Don't cut a surrogate pair (emoji) in half.
+      const c = target.charCodeAt(shown - 1);
+      if (c >= 0xd800 && c <= 0xdbff && shown < target.length) shown++;
+      onFrame(target.slice(0, shown));
+    }
+    if (shown < target.length) raf = requestAnimationFrame(tick);
+    else if (done) resolveEnd();
+  }
+  return {
+    push(text) {
+      target += text;
+      if (!raf) raf = requestAnimationFrame(tick);
+    },
+    end() {
+      done = true;
+      if (!raf) tick();
+      return ended;
+    },
+    cancel() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      done = true;
+      resolveEnd();
+    },
+  };
+}
+
 function renderMarkdown(text) {
   let h = escapeHtml(text);
   h = h.replace(/\*\*([^*\n]+?)\*\*/g, '<strong>$1</strong>');
@@ -355,6 +401,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   let pending = popupWrite('...', 'sys');
   let replyDiv = null;
   let reply = '';
+  let smoother = null;
 
   let expectedScrollTop = -1;
   let userInterrupted = false;
@@ -367,6 +414,10 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     replyDiv.classList.add('cursor');
     expectedScrollTop = -1;
     userInterrupted = false;
+    smoother = smoothStream(shown => {
+      replyDiv.innerHTML = renderMarkdown(shown.trim());
+      scrollFollowReply();
+    });
   }
 
   function scrollFollowReply() {
@@ -412,10 +463,10 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
         for await (const chunk of llmStream(cfg, popupHistory, `Đừng dùng bảng để format. Hãy trả lời ngắn gọn, súc tích`)) {
           ensureReply();
           reply += chunk;
-          replyDiv.innerHTML = renderMarkdown(reply.trim());
-          scrollFollowReply();
+          smoother.push(chunk);
         }
         if (!reply) throw new Error('(no response)');
+        await smoother.end();
         replyDiv.classList.remove('cursor');
         popupHistory.push({ role: 'assistant', content: reply });
         if (cfg.id !== settings.selectedModelId) {
@@ -428,6 +479,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
         // A model that started answering and then failed leaves a half reply;
         // drop it, and put the plain spinner back (ensureReply removed it the
         // moment the first chunk landed) for the next model.
+        if (smoother) { smoother.cancel(); smoother = null; }
         if (replyDiv) { replyDiv.remove(); replyDiv = null; }
         reply = '';
         if (!pending) pending = popupWrite('...', 'sys');
