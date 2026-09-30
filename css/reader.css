@@ -1186,7 +1186,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 #popup-out .title {
   color: var(--accent);
   font-weight: 700;
-  font-size: 88%;
+  /* Relative to the popup's font size, so it tracks the slider, and a step
+     above the body text so it reads as a heading. */
+  font-size: 1.15em;
   letter-spacing: 0.08em;
   word-spacing: normal;
   text-transform: uppercase;
