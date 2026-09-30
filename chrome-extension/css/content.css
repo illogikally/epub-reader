@@ -214,7 +214,9 @@ html.llm-vert2k .llm-popup-content {
 #llm-popup-out .title {
   color: var(--llm-accent);
   font-weight: 700;
-  font-size: 88%;
+  /* Relative to the popup's font size, so it tracks the slider, and a step
+     above the body text so it reads as a heading. */
+  font-size: 1.15em;
   letter-spacing: 0.08em;
   word-spacing: normal;
   text-transform: uppercase;
