@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=69';
+} from './state.js?v=70';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=69';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=69';
-import { scrollTocToCurrent } from './translate.js?v=69';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=69';
+} from './theme.js?v=70';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=70';
+import { scrollTocToCurrent } from './translate.js?v=70';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=70';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -214,6 +214,15 @@ const FONTS = [
   ["'Helvetica Neue', Helvetica, Arial, sans-serif", 'Helvetica'],
   ["ui-monospace, 'SF Mono', Menlo, monospace", 'Mono'],
 ].map(([value, label]) => ({ value, label, style: `font-family:${value}` }));
+
+// The lookup popup offers the book fonts plus Consolas, which is bundled
+// (css/consola*.ttf, @font-face in reader.css) and preloaded at boot by
+// main.js so it is ready before the first popup opens.
+const POPUP_FONTS = [
+  ...FONTS,
+  ...[["'Consolas', ui-monospace, 'SF Mono', Menlo, monospace", 'Consolas']]
+    .map(([value, label]) => ({ value, label, style: `font-family:${value}` })),
+];
 
 // ============================================================
 // Slider bindings — every helper calls updateSliderFill on init + on input
@@ -488,7 +497,7 @@ export function initUI() {
 
   // ---- Lookup popup: its own font, independent of the book's ----
   bindSelectRow('sel-popup-font', {
-    options: FONTS,
+    options: POPUP_FONTS,
     get: () => settings.popupFontFamily,
     set: v => { settings.popupFontFamily = v; applyAll(); },
   });

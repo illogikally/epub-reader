@@ -36,11 +36,11 @@ import {
   dbGet, dbDelete, dbAllIds, makeBookId,
   clearProgress,
   allTombstones, clearTombstone,
-} from './state.js?v=69';
-import * as dbx from './dropbox.js?v=69';
-import { addBookFromBuffer, renderLibrary } from './library.js?v=69';
-import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=69';
-import { dbg } from './debug.js?v=69';
+} from './state.js?v=70';
+import * as dbx from './dropbox.js?v=70';
+import { addBookFromBuffer, renderLibrary } from './library.js?v=70';
+import { refreshSettingsUI, showSettingsModal, bindDisclosure } from './ui.js?v=70';
+import { dbg } from './debug.js?v=70';
 
 const MANIFEST_NAME = '.reader-sync.json';
 // Past this, Dropbox wants a chunked upload session. An EPUB that big is a

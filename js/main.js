@@ -2,14 +2,14 @@
 // Bootstrap. Wires modules together in the correct order.
 // ============================================================
 
-import { applyChromeTheme } from './theme.js?v=69';
-import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=69';
-import { openBookFromDb, initReaderEvents } from './reader.js?v=69';
-import { initTranslateEvents } from './translate.js?v=69';
-import { initUI } from './ui.js?v=69';
-import { initSyncUI, initDropboxSettings, requestSync } from './sync.js?v=69';
-import { dbGet } from './state.js?v=69';
-import { syncDebugPanel } from './debug.js?v=69';
+import { applyChromeTheme } from './theme.js?v=70';
+import { renderLibrary, initLibraryEvents, setBookOpener } from './library.js?v=70';
+import { openBookFromDb, initReaderEvents } from './reader.js?v=70';
+import { initTranslateEvents } from './translate.js?v=70';
+import { initUI } from './ui.js?v=70';
+import { initSyncUI, initDropboxSettings, requestSync } from './sync.js?v=70';
+import { dbGet } from './state.js?v=70';
+import { syncDebugPanel } from './debug.js?v=70';
 
 // 0. Debug panel first, so anything that fails during the wiring below is
 //    visible on a phone instead of silent. No-op unless debug is enabled.
@@ -17,6 +17,17 @@ syncDebugPanel();
 
 // 1. Initial CSS (theme variables on :root)
 applyChromeTheme();
+
+// 1b. Fetch the bundled Consolas faces now rather than when a popup first
+//     draws in it — a @font-face only downloads once text needs it, so the
+//     first lookup used to render in the fallback and then swap mid-answer.
+//     Fire-and-forget: a failed load just leaves the fallback in place.
+if (document.fonts) {
+  for (const face of ['16px Consolas', 'bold 16px Consolas',
+                      'italic 16px Consolas', 'italic bold 16px Consolas']) {
+    document.fonts.load(face).catch(() => {});
+  }
+}
 
 // 2. Wire library (and let it know how to open books — avoids circular import)
 setBookOpener(openBookFromDb);
