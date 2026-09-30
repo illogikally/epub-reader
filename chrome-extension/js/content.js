@@ -199,6 +199,12 @@ async function* llmStream(cfg, messages, system) {
 // ============================================================
 const popupHistory = [];
 let popupBusy = false;
+
+// The streaming reply's height/scroll follower — see sendToLLM. Module-level
+// so a new reply, or closing the popup, can stop one still settling.
+const FOLLOW_EASE = 0.3;
+let kickFollow = () => {};
+let stopFollow = () => {};
 let lastLookup = null;
 
 function isPopupVisible() {
@@ -253,6 +259,9 @@ function smoothStream(onFrame) {
       if (!raf) tick();
       return ended;
     },
+    get settled() {
+      return done && shown >= target.length;
+    },
     cancel() {
       if (raf) cancelAnimationFrame(raf);
       raf = 0;
@@ -260,6 +269,17 @@ function smoothStream(onFrame) {
       resolveEnd();
     },
   };
+}
+
+// A reply cut off mid-stream can end inside **bold** or *italic*. Rendered
+// as is, the asterisks show until the closing pair arrives and then vanish,
+// shifting the rest of the line; closing them early draws the word styled
+// from its first letter instead.
+function closeDanglingMarkdown(text) {
+  let t = text.replace(/\*+$/, '');
+  if ((t.match(/\*\*/g) || []).length % 2) t += '**';
+  else if ((t.replace(/\*\*/g, '').match(/\*/g) || []).length % 2) t += '*';
+  return t;
 }
 
 function renderMarkdown(text) {
@@ -348,6 +368,7 @@ function hidePopup(clearSelection = false) {
   try { popup.hidePopover(); } catch {}
   releaseAnchor();
   popupHistory.length = 0;
+  stopFollow();
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
   spentActions.clear();          // new word — every action is available again
@@ -403,6 +424,12 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   let reply = '';
   let smoother = null;
 
+  // Both the card's height and the scroll position are eased toward where the
+  // content wants them rather than set outright: set outright, every new line
+  // landed as a jump (the card grew a whole line-height in one frame, or, once
+  // at full height, the transcript scrolled by one). One rAF loop
+  // (startFollow) does both until they settle, then hands the height back to
+  // CSS.
   let expectedScrollTop = -1;
   let userInterrupted = false;
   const SCROLL_TOLERANCE = 5;
@@ -414,34 +441,80 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     replyDiv.classList.add('cursor');
     expectedScrollTop = -1;
     userInterrupted = false;
+    startFollow(replyDiv, () => smoother.settled);
     smoother = smoothStream(shown => {
-      replyDiv.innerHTML = renderMarkdown(shown.trim());
-      scrollFollowReply();
+      replyDiv.innerHTML = renderMarkdown(closeDanglingMarkdown(shown.trim()));
+      kickFollow();
     });
   }
 
-  function scrollFollowReply() {
-    if (userInterrupted || !replyDiv) return;
-    requestAnimationFrame(() => {
-      if (userInterrupted || !replyDiv) return;
-      try {
-        if (expectedScrollTop >= 0
-            && Math.abs(popupOut.scrollTop - expectedScrollTop) > SCROLL_TOLERANCE) {
-          userInterrupted = true;
-          return;
-        }
+  function followStep(el) {
+    if (!el.isConnected) return false;
+    let moving = false;
+
+    // Height: what CSS alone would give, then a step toward it.
+    const held = popupContent.style.height;
+    popupContent.style.height = '';
+    const natural = popupContent.getBoundingClientRect().height;
+    popupContent.style.height = held;
+    const current = popupContent.getBoundingClientRect().height;
+    let eased = natural;
+    if (Math.abs(natural - current) > 0.5) {
+      eased = current + (natural - current) * FOLLOW_EASE;
+      moving = true;
+    }
+    popupContent.style.height = eased + 'px';
+
+    if (!userInterrupted) {
+      if (expectedScrollTop >= 0
+          && Math.abs(popupOut.scrollTop - expectedScrollTop) > SCROLL_TOLERANCE) {
+        userInterrupted = true;
+      } else {
         const containerRect = popupOut.getBoundingClientRect();
-        const replyRect = replyDiv.getBoundingClientRect();
+        const replyRect = el.getBoundingClientRect();
         const replyTopOffset = replyRect.top - containerRect.top + popupOut.scrollTop;
-        const maxScroll = popupOut.scrollHeight - popupOut.clientHeight;
+        // Max scroll once the height has caught up, not at this frame's
+        // height: scrolling into the lag would pull the text up only to let
+        // it drop back as the height arrives.
+        const maxScroll = popupOut.scrollHeight - popupOut.clientHeight - (natural - eased);
         const target = Math.min(
           Math.max(0, maxScroll),
           Math.max(0, replyTopOffset - 4),
         );
-        popupOut.scrollTop = target;
+        const from = popupOut.scrollTop;
+        if (Math.abs(target - from) > 0.5) {
+          popupOut.scrollTop = from + (target - from) * FOLLOW_EASE;
+          moving = true;
+        } else {
+          popupOut.scrollTop = target;
+        }
         expectedScrollTop = popupOut.scrollTop;
-      } catch {}
-    });
+      }
+    }
+    return moving;
+  }
+
+  // One follow loop for the whole popup, not one per reply: the previous
+  // reply's loop may still be settling when the next one starts.
+  function startFollow(el, isSettled) {
+    stopFollow();
+    let raf = 0;
+    const tick = () => {
+      raf = 0;
+      const moving = followStep(el);
+      if (!el.isConnected || (!moving && isSettled())) { stopFollow(); return; }
+      // Idle while streaming with nothing new: the next revealed frame kicks
+      // it again.
+      if (moving) raf = requestAnimationFrame(tick);
+    };
+    kickFollow = () => { if (!raf) raf = requestAnimationFrame(tick); };
+    stopFollow = () => {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      popupContent.style.height = '';
+      kickFollow = () => {};
+      stopFollow = () => {};
+    };
   }
 
   try {
@@ -467,6 +540,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
         }
         if (!reply) throw new Error('(no response)');
         await smoother.end();
+        kickFollow();   // let the height/scroll settle and hand height back to CSS
         replyDiv.classList.remove('cursor');
         popupHistory.push({ role: 'assistant', content: reply });
         if (cfg.id !== settings.selectedModelId) {
@@ -480,6 +554,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
         // drop it, and put the plain spinner back (ensureReply removed it the
         // moment the first chunk landed) for the next model.
         if (smoother) { smoother.cancel(); smoother = null; }
+        stopFollow();
         if (replyDiv) { replyDiv.remove(); replyDiv = null; }
         reply = '';
         if (!pending) pending = popupWrite('...', 'sys');
@@ -636,6 +711,7 @@ function doLookup(phrase, range, sentenceCount) {
   const local = context && context !== phrase ? context : '';
 
   popupHistory.length = 0;
+  stopFollow();
   popupOut.innerHTML = '';
   popupActions.innerHTML = '';
   spentActions.clear();          // new word — every action is available again
