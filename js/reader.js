@@ -15,19 +15,19 @@
 
 import {
   settings, runtime, $, dbGet, dbPut, getProgress, setProgress, isCoarsePointer,
-} from './state.js?v=71';
-import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=71';
+} from './state.js?v=72';
+import { applyBookTheme, injectBookStyle, alignToLineGrid } from './theme.js?v=72';
 import {
   hidePopup, isPopupVisible,
   attachSelectionHandler, attachOutsideClickToFrame,
   stopBubble,
   buildToc, setTocPosition, markTocCurrent, readingProgress,
-} from './translate.js?v=71';
-import { renderLibrary } from './library.js?v=71';
+} from './translate.js?v=72';
+import { renderLibrary } from './library.js?v=72';
 import {
   initTouchSelection, clearTouchSelection, onBookSwipe, onBookTap,
-} from './touchselect.js?v=71';
-import { dbg } from './debug.js?v=71';
+} from './touchselect.js?v=72';
+import { dbg } from './debug.js?v=72';
 
 const library = $('library');
 const reader = $('reader');

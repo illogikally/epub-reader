@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=71';
+import { openBookFromDb } from './reader.js?v=72';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=71';
+} from './state.js?v=72';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=71';
+} from './touchselect.js?v=72';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -645,14 +645,14 @@ function renderActionsBar(phrase, context) {
   // a model that also prints one would double it up.
   const noHeading = 'Không in tiêu đề.';
 
-  // deep — re-run the lookup as a literary/historical analysis
+  // more — re-run the lookup as a literary/historical analysis
   [1].forEach(n => {
-    addAction('deep', 'deep', `Re-run with ${n} sentences of context`, async () => {
+    addAction('more', 'more', `Re-run with ${n} sentences of context`, async () => {
       if (!lastLookup) return;
       const context = extractContextFromRange(lastLookup.range, n);
       const { creator, title } = await runtime.book.loaded.metadata;
       const prompt = `Với góc nhìn văn học, sử học, phân tích "${phrase}" trong "${title}" (${creator}), tối đa 50 từ. Ngữ cảnh: "${context}"`;
-      sendToLLM(prompt, null, null, true, 'DEEP', 'deep');
+      sendToLLM(prompt, null, null, true, 'MORE', 'more');
     });
   });
 
