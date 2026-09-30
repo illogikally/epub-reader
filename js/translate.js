@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=67';
+import { openBookFromDb } from './reader.js?v=68';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=67';
+} from './state.js?v=68';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=67';
+} from './touchselect.js?v=68';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -127,6 +127,52 @@ function popupWrite(text, cls, opts) {
     popupOut.scrollTop = popupOut.scrollHeight;
   }
   return div;
+}
+
+// Reveals streamed text at a steady pace instead of in the lumps the network
+// hands it over in — one read often carries several SSE events, so writing
+// each chunk straight to the DOM made the answer jump a block at a time.
+// Received text goes into a buffer; each animation frame shows a slice of the
+// backlog (a fraction of it, so a big burst catches up quickly and a trickle
+// still moves a character a frame). end() resolves once everything received
+// has been shown; cancel() stops without showing the rest.
+function smoothStream(onFrame) {
+  let target = '';
+  let shown = 0;
+  let raf = 0;
+  let done = false;
+  let resolveEnd;
+  const ended = new Promise(r => { resolveEnd = r; });
+  function tick() {
+    raf = 0;
+    const backlog = target.length - shown;
+    if (backlog > 0) {
+      shown += Math.max(1, Math.ceil(backlog / (done ? 4 : 10)));
+      // Don't cut a surrogate pair (emoji) in half.
+      const c = target.charCodeAt(shown - 1);
+      if (c >= 0xd800 && c <= 0xdbff && shown < target.length) shown++;
+      onFrame(target.slice(0, shown));
+    }
+    if (shown < target.length) raf = requestAnimationFrame(tick);
+    else if (done) resolveEnd();
+  }
+  return {
+    push(text) {
+      target += text;
+      if (!raf) raf = requestAnimationFrame(tick);
+    },
+    end() {
+      done = true;
+      if (!raf) tick();
+      return ended;
+    },
+    cancel() {
+      if (raf) cancelAnimationFrame(raf);
+      raf = 0;
+      done = true;
+      resolveEnd();
+    },
+  };
 }
 
 function renderMarkdown(text) {
@@ -350,6 +396,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   let pending = popupWrite('...', 'sys');
   let replyDiv = null;
   let reply = '';
+  let smoother = null;
 
   // Capped auto-scroll while the reply streams in.
   //   target = min(scrollHeight - clientHeight, replyTop - 4)
@@ -370,6 +417,11 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     replyDiv.classList.add('cursor');
     expectedScrollTop = -1;
     userInterrupted = false;
+    smoother = smoothStream(shown => {
+      replyDiv.innerHTML = renderMarkdown(shown.trim());
+      scrollFollowReply();
+      preventPopupOutOfView();
+    });
   }
 
   function scrollFollowReply() {
@@ -430,10 +482,9 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     for await (const chunk of llmStream(popupHistory, `I'm in a tight space right now so don't format using tables. Be concise`)) {
       ensureReply();
       reply += chunk;
-      replyDiv.innerHTML = renderMarkdown(reply.trim());
-      scrollFollowReply();
-      preventPopupOutOfView()
+      smoother.push(chunk);
     }
+    if (smoother) await smoother.end();
     if (!reply) {
       if (pending) pending.remove();
       popupWrite('(no response)\n\n', 'e');
@@ -443,6 +494,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
       popupHistory.push({ role: 'assistant', content: reply });
     }
   } catch (err) {
+    if (smoother) smoother.cancel();
     if (pending) pending.remove();
     if (replyDiv && reply) {
       replyDiv.classList.remove('cursor');
