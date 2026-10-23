@@ -22,5 +22,11 @@
       "js": ["js/models.js", "js/content.js"],
       "css": ["css/content.css"]
     }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["fonts/*"],
+      "matches": ["<all_urls>"]
+    }
   ]
 }

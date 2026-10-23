@@ -63,6 +63,21 @@ function applyFontMode() {
 applyFontMode();
 window.addEventListener('resize', applyFontMode);
 
+// Preload New Spirit for section headers via FontFace buffer so page CSP doesn't block it
+try {
+  fetch(chrome.runtime.getURL('fonts/NewSpirit-SemiBoldCondensed.otf'))
+    .then(r => r.arrayBuffer())
+    .then(buf => {
+      const f1 = new FontFace('New Spirit', buf, { weight: '600 700' });
+      const f2 = new FontFace('New Spirit Condensed', buf, { weight: '600 700' });
+      return Promise.all([f1.load(), f2.load()]);
+    })
+    .then(fonts => {
+      fonts.forEach(f => document.fonts.add(f));
+    })
+    .catch(() => {});
+} catch (_) {}
+
 // Set on our own container rather than the page's <html>, so nothing of ours
 // leaks into the host page. `all: initial` on #llm-popup doesn't reset custom
 // properties, so it still reaches #llm-popup-out.
