@@ -1231,7 +1231,10 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 #popup-out::-webkit-scrollbar { display: none; } /* Safari, Chrome */
 
 #popup-out strong { color: var(--fg); font-weight: 600; }
-#popup-out em { color: #888888; font-style: italic; }
+#popup-out em { color: var(--accent); font-style: italic; }
+#popup-out .syn em,
+#popup-out .syn-ex,
+#popup-out .syn-ex em { color: #888888; font-style: italic; }
 #popup-out .ex { color: #888888; }
 #popup-out .ex strong { color: var(--fg); font-weight: 600; }
 body.dark-chrome #popup-out .ex strong { color: #ffffff; }

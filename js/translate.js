@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=83';
+import { openBookFromDb } from './reader.js?v=84';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=83';
+} from './state.js?v=84';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=83';
+} from './touchselect.js?v=84';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -205,6 +205,9 @@ function renderMarkdown(text) {
   // straight into a sentence, so requiring " · " right after the bold keeps this
   // off it.
   h = h.replace(/^(• <strong>[^<]*<\/strong>)( · .*)$/gm, '$1<span class="attrs">$2</span>');
+  // The example sentence in a syn entry: indented and wrapped in *...* (rendered as <em>).
+  // Tagged with .syn-ex so only synonym examples are greyed out without affecting other italics.
+  h = h.replace(/^(\s*<em>[^\n]+?<\/em>\s*)$/gm, '<span class="syn-ex">$1</span>');
   return h;
 }
 
@@ -549,7 +552,9 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey, 
   function ensureReply() {
     if (replyDiv) return;
     if (pending) { pending.remove(); pending = null; }
-    const cls = (actionKey === 'ex' || heading === 'EXAMPLE') ? 'a ex' : 'a';
+    let cls = 'a';
+    if (actionKey === 'syn' || heading === 'SYNONYM') cls += ' syn';
+    if (actionKey === 'ex' || heading === 'EXAMPLE') cls += ' ex';
     replyDiv = popupWrite('', cls, { scroll: false });
     replyDiv.classList.add('cursor');
     expectedScrollTop = -1;
