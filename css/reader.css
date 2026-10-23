@@ -1162,7 +1162,8 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   letter-spacing: var(--popup-letter-spacing);
   word-spacing: var(--popup-word-spacing);
   flex: 1; overflow-y: auto;
-  margin-top: 8px; padding: 0 14px 20px;
+  margin-top: 8px; margin-bottom: 12px;
+  padding: 0 14px;
   overscroll-behavior-y: contain;
   white-space: pre-wrap; word-wrap: break-word;
   scrollbar-width: none; /* Firefox */
@@ -1309,7 +1310,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
     padding: 6px 11px;
     font-size: 13px;
   }
-  #popup.mobile #popup-out { margin-top: 6px; padding: 0 14px 14px; }
+  #popup.mobile #popup-out { margin-top: 6px; margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 0 14px; }
   #popup.mobile #popup-form { padding: 10px 12px; }
   #popup.mobile #popup-form input { font-size: 16px; } /* prevents iOS zoom */
 
