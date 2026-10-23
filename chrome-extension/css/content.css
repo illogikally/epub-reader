@@ -186,9 +186,12 @@ html.llm-vert2k .llm-popup-content {
 #llm-popup-out {
   flex: 1;
   overflow-y: auto;
-  margin-bottom: 12px;
-  padding: 10px 14px 0;
-  border-radius: 8px;
+  overflow-x: hidden;
+  margin: 0 10px 12px 10px;
+  padding: 8px 4px 0 4px;
+  border-radius: 12px;
+  -webkit-clip-path: inset(0 round 12px);
+  clip-path: inset(0 round 12px);
   font-size: 15px;
   word-spacing: var(--llm-word-spacing);
   white-space: pre-wrap;
