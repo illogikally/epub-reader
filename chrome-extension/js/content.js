@@ -573,7 +573,8 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey, 
   function ensureReply() {
     if (replyDiv) return;
     if (pending) { pending.remove(); pending = null; }
-    replyDiv = popupWrite('', 'a', { scroll: false });
+    const cls = (actionKey === 'ex' || heading === 'EXAMPLE') ? 'a ex' : 'a';
+    replyDiv = popupWrite('', cls, { scroll: false });
     replyDiv.classList.add('cursor');
     expectedScrollTop = -1;
     userInterrupted = false;

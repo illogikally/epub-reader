@@ -262,7 +262,10 @@ html.llm-vert2k .llm-popup-content {
 #llm-popup-out::-webkit-scrollbar { display: none; }
 
 #llm-popup-out strong { color: var(--llm-fg); font-weight: 600; }
-#llm-popup-out em { color: var(--llm-accent); font-style: italic; }
+#llm-popup-out em { color: var(--llm-chrome-fg, #888888); font-style: italic; }
+#llm-popup-out .ex { color: var(--llm-chrome-fg, #888888); }
+#llm-popup-out .ex strong { color: var(--llm-fg); font-weight: 600; }
+.llm-theme-light #llm-popup-out .ex strong { color: #1c1c1c; }
 #llm-popup-out .u { color: var(--llm-accent); }
 #llm-popup-out .a { color: var(--llm-fg); cursor: text; }
 #llm-popup-out .e { color: var(--llm-error); }
@@ -277,7 +280,7 @@ html.llm-vert2k .llm-popup-content {
    looks the same whether or not the model honoured the output format. */
 #llm-popup-out .title {
   font-family: 'New Spirit', 'New Spirit Condensed', Georgia, serif;
-  color: var(--llm-accent);
+  color: #ffffff;
   font-weight: 600;
   /* Relative to the popup's font size, so it tracks the slider, and a step
      above the body text so it reads as a heading. */
@@ -288,6 +291,7 @@ html.llm-vert2k .llm-popup-content {
   margin-top: 8px;
 }
 #llm-popup-out .title:first-child { margin-top: 0; }
+.llm-theme-light #llm-popup-out .title { color: #1c1c1c; }
 #llm-popup-out .cursor::after {
   content: '\2588';
   opacity: 0.5;
@@ -300,24 +304,26 @@ html.llm-vert2k .llm-popup-content {
   gap: 8px;
   align-items: center;
   padding: 6px 12px;
-  border-top: 1px solid var(--llm-border);
 }
 #llm-popup-form .prompt { color: var(--llm-accent); }
-#llm-popup-form input {
+#llm-popup-form input,
+#llm-popup-form input:focus,
+#llm-popup-form input:focus-visible,
+#llm-popup-input,
+#llm-popup-input:focus,
+#llm-popup-input:focus-visible {
   flex: 1;
   background: transparent;
   color: var(--llm-fg);
-  border: none;
+  border: none !important;
   font: inherit;
-  outline: none;
-  box-shadow: none;
+  outline: none !important;
+  outline-width: 0 !important;
+  box-shadow: none !important;
+  -webkit-tap-highlight-color: transparent !important;
   margin: 0;
   padding: 0;
   line-height: 20px;
-}
-#llm-popup-form input:focus {
-  outline: none;
-  box-shadow: none;
 }
 #llm-popup-form input:disabled { opacity: 0.5; }
 
