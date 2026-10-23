@@ -1162,9 +1162,12 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   letter-spacing: var(--popup-letter-spacing);
   word-spacing: var(--popup-word-spacing);
   flex: 1; overflow-y: auto;
-  margin-bottom: 12px;
-  padding: 10px 14px 0;
-  border-radius: 8px;
+  overflow-x: hidden;
+  margin: 0 10px 12px 10px;
+  padding: 8px 4px 0 4px;
+  border-radius: 12px;
+  -webkit-clip-path: inset(0 round 12px);
+  clip-path: inset(0 round 12px);
   overscroll-behavior-y: contain;
   white-space: pre-wrap; word-wrap: break-word;
   scrollbar-width: none; /* Firefox */
@@ -1311,7 +1314,13 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
     padding: 6px 11px;
     font-size: 13px;
   }
-  #popup.mobile #popup-out { margin-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); padding: 10px 14px 0; border-radius: 8px; }
+  #popup.mobile #popup-out {
+    margin: 0 10px calc(12px + env(safe-area-inset-bottom, 0px)) 10px;
+    padding: 8px 4px 0 4px;
+    border-radius: 12px;
+    -webkit-clip-path: inset(0 round 12px);
+    clip-path: inset(0 round 12px);
+  }
   #popup.mobile #popup-form { padding: 10px 12px; }
   #popup.mobile #popup-form input { font-size: 16px; } /* prevents iOS zoom */
 
