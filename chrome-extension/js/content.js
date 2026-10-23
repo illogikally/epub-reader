@@ -8,6 +8,7 @@ let settings = {
   models: [],
   selectedModelId: null,
   contextSentences: 1,
+  popupFontSize: 15,
   // Popup word spacing, in px — set from the slider in the extension popup.
   // The reader has the same setting under Settings → Lookup Popup.
   popupWordSpacing: 0,
@@ -81,6 +82,9 @@ try {
 // Set on our own container rather than the page's <html>, so nothing of ours
 // leaks into the host page. `all: initial` on #llm-popup doesn't reset custom
 // properties, so it still reaches #llm-popup-out.
+function applyFontSize() {
+  container.style.setProperty('--llm-font-size', (settings.popupFontSize || 15) + 'px');
+}
 function applyWordSpacing() {
   container.style.setProperty('--llm-word-spacing', settings.popupWordSpacing + 'px');
 }
@@ -449,41 +453,37 @@ async function fetchOxfordIpa(word) {
     } catch (e) {}
   }
 
-  // 2. Direct fetch fallback
+  // 2. Fast US IPA fallback (Datamuse - CORS enabled)
   try {
     const ctrl = new AbortController();
     const id = setTimeout(() => ctrl.abort(), 2500);
-    const res = await fetch(targetUrl, { signal: ctrl.signal });
+    const dmUrl = `https://api.datamuse.com/words?sp=${encodeURIComponent(clean)}&qe=sp&md=r&ipa=1`;
+    const res = await fetch(dmUrl, { signal: ctrl.signal });
     clearTimeout(id);
     if (res.ok) {
-      const html = await res.text();
-      const ipa = extractIpa(html);
-      if (ipa) {
-        ipaCache.set(clean, ipa);
-        return ipa;
-      }
-    }
-  } catch (e) {}
-
-  // 3. CORS proxy fallback
-  try {
-    const ctrl = new AbortController();
-    const id = setTimeout(() => ctrl.abort(), 3500);
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-    const res = await fetch(proxyUrl, { signal: ctrl.signal });
-    clearTimeout(id);
-    if (res.ok) {
-      const html = await res.text();
-      const ipa = extractIpa(html);
-      if (ipa) {
-        ipaCache.set(clean, ipa);
-        return ipa;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].word?.toLowerCase() === clean) {
+        for (const tag of (data[0].tags || [])) {
+          if (tag.startsWith('ipa_pron:')) {
+            const raw = tag.slice(9).trim();
+            const ipa = raw.startsWith('/') ? raw : `/${raw}/`;
+            ipaCache.set(clean, ipa);
+            return ipa;
+          }
+        }
       }
     }
   } catch (e) {}
 
   return null;
 }
+
+// Bridge Oxford IPA requests from web pages (e.g. Reader app on github.io)
+window.addEventListener('message', async (e) => {
+  if (e.source !== window || !e.data || e.data.type !== 'READER_FETCH_OXFORD_IPA') return;
+  const ipa = await fetchOxfordIpa(e.data.word);
+  window.postMessage({ type: 'READER_OXFORD_IPA_RESULT', requestId: e.data.requestId, word: e.data.word, ipa }, '*');
+});
 
 function cleanMeaning(text, phrase) {
   if (!text) return '';
@@ -911,14 +911,16 @@ function fireLookupForSelection(sel, doc) {
 }
 
 // Initializing
-chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'popupTheme', 'apiKeys'], (res) => {
+chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupFontSize', 'popupWordSpacing', 'popupTheme', 'apiKeys'], (res) => {
   const store = readModelStore(res);
   settings.models = store.models;
   settings.selectedModelId = store.selectedModelId;
   if (res.contextSentences !== undefined) settings.contextSentences = res.contextSentences;
+  if (res.popupFontSize !== undefined) settings.popupFontSize = res.popupFontSize;
   if (res.popupWordSpacing !== undefined) settings.popupWordSpacing = res.popupWordSpacing;
   if (res.popupTheme !== undefined) settings.popupTheme = res.popupTheme;
   if (res.apiKeys !== undefined) settings.apiKeys = res.apiKeys;
+  applyFontSize();
   applyWordSpacing();
   applyTheme();
 });
@@ -927,6 +929,10 @@ chrome.storage.onChanged.addListener((changes) => {
   if (changes.models) settings.models = normaliseModels(changes.models.newValue);
   if (changes.selectedModelId) settings.selectedModelId = changes.selectedModelId.newValue;
   if (changes.contextSentences) settings.contextSentences = changes.contextSentences.newValue;
+  if (changes.popupFontSize) {
+    settings.popupFontSize = changes.popupFontSize.newValue;
+    applyFontSize();
+  }
   if (changes.popupWordSpacing) {
     settings.popupWordSpacing = changes.popupWordSpacing.newValue;
     applyWordSpacing();

@@ -252,7 +252,7 @@ html.llm-vert2k .llm-popup-content {
   border-radius: 12px;
   -webkit-clip-path: inset(0 round 12px);
   clip-path: inset(0 round 12px);
-  font-size: 15px;
+  font-size: var(--llm-font-size, 15px);
   word-spacing: var(--llm-word-spacing);
   white-space: pre-wrap;
   word-wrap: break-word;

@@ -10,6 +10,8 @@ const nmError = document.getElementById('nm-error');
 const nmAdd = document.getElementById('nm-add');
 const contextRange = document.getElementById('context-range');
 const contextVal = document.getElementById('context-val');
+const fontSizeRange = document.getElementById('font-size-range');
+const fontSizeVal = document.getElementById('font-size-val');
 const wordRange = document.getElementById('word-spacing-range');
 const wordVal = document.getElementById('word-spacing-val');
 const themeSelect = document.getElementById('theme-select');
@@ -130,13 +132,16 @@ nmModel.addEventListener('keydown', e => {
 });
 
 // Load settings
-chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpacing', 'popupTheme', 'apiKeys'], (res) => {
+chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupFontSize', 'popupWordSpacing', 'popupTheme', 'apiKeys'], (res) => {
   ({ models, selectedModelId } = readModelStore(res));
   renderModels();
   if (res.contextSentences !== undefined) {
     contextRange.value = res.contextSentences;
     contextVal.textContent = res.contextSentences;
   }
+  const fs = res.popupFontSize === undefined ? 15 : res.popupFontSize;
+  fontSizeRange.value = fs;
+  fontSizeVal.textContent = fs + 'px';
   const ws = res.popupWordSpacing === undefined ? 0 : res.popupWordSpacing;
   wordRange.value = ws;
   wordVal.textContent = ws + 'px';
@@ -151,6 +156,11 @@ chrome.storage.local.get([...MODEL_STORE_KEYS, 'contextSentences', 'popupWordSpa
 contextRange.addEventListener('input', () => {
   contextVal.textContent = contextRange.value;
   chrome.storage.local.set({ contextSentences: parseInt(contextRange.value) });
+});
+
+fontSizeRange.addEventListener('input', () => {
+  fontSizeVal.textContent = fontSizeRange.value + 'px';
+  chrome.storage.local.set({ popupFontSize: parseFloat(fontSizeRange.value) });
 });
 
 wordRange.addEventListener('input', () => {
