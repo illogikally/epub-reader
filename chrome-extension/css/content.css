@@ -262,7 +262,10 @@ html.llm-vert2k .llm-popup-content {
 #llm-popup-out::-webkit-scrollbar { display: none; }
 
 #llm-popup-out strong { color: var(--llm-fg); font-weight: 600; }
-#llm-popup-out em { color: var(--llm-chrome-fg, #888888); font-style: italic; }
+#llm-popup-out em { color: var(--llm-accent); font-style: italic; }
+#llm-popup-out .syn em,
+#llm-popup-out .syn-ex,
+#llm-popup-out .syn-ex em { color: var(--llm-chrome-fg, #888888); font-style: italic; }
 #llm-popup-out .ex { color: var(--llm-chrome-fg, #888888); }
 #llm-popup-out .ex strong { color: var(--llm-fg); font-weight: 600; }
 .llm-theme-light #llm-popup-out .ex strong { color: #1c1c1c; }
