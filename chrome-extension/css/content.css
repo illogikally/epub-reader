@@ -131,7 +131,6 @@ html.llm-vert2k .llm-popup-content {
   align-items: center;
   gap: 4px;
   padding: 6px 8px;
-  border-bottom: 1px solid var(--llm-border);
   font-size: 11px;
 }
 
