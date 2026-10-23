@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=82';
+import { openBookFromDb } from './reader.js?v=83';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=82';
+} from './state.js?v=83';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=82';
+} from './touchselect.js?v=83';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -549,7 +549,8 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey, 
   function ensureReply() {
     if (replyDiv) return;
     if (pending) { pending.remove(); pending = null; }
-    replyDiv = popupWrite('', 'a', { scroll: false });
+    const cls = (actionKey === 'ex' || heading === 'EXAMPLE') ? 'a ex' : 'a';
+    replyDiv = popupWrite('', cls, { scroll: false });
     replyDiv.classList.add('cursor');
     expectedScrollTop = -1;
     userInterrupted = false;

@@ -1231,7 +1231,10 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 #popup-out::-webkit-scrollbar { display: none; } /* Safari, Chrome */
 
 #popup-out strong { color: var(--fg); font-weight: 600; }
-#popup-out em { color: var(--accent); font-style: italic; }
+#popup-out em { color: #888888; font-style: italic; }
+#popup-out .ex { color: #888888; }
+#popup-out .ex strong { color: var(--fg); font-weight: 600; }
+body.dark-chrome #popup-out .ex strong { color: #ffffff; }
 #popup-out .u { color: var(--accent); }
 #popup-out .a { color: var(--fg); cursor: text; }
 #popup-out .e { color: #c0392b; }
@@ -1247,7 +1250,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
    looks the same whether or not the model honoured the output format. */
 #popup-out .title {
   font-family: 'New Spirit', 'New Spirit Condensed', Georgia, serif;
-  color: var(--accent);
+  color: #ffffff;
   font-weight: 600;
   /* Relative to the popup's font size, so it tracks the slider, and a step
      above the body text so it reads as a heading. */
@@ -1258,6 +1261,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   margin-top: 8px;
 }
 #popup-out .title:first-child { margin-top: 0; }
+body:not(.dark-chrome) #popup-out .title { color: #1c1c1c; }
 #popup-out ::selection { background: var(--selection); color: var(--selection-fg); }
 #popup-out .cursor::after {
   content: '\2588'; opacity: 0.5;
@@ -1267,12 +1271,19 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
 
 #popup-form {
   display: flex; gap: 8px; align-items: center;
-  padding: 8px 12px; border-top: 1px solid var(--border);
+  padding: 8px 12px;
 }
 #popup-form .prompt { color: var(--accent); }
-#popup-form input {
+#popup-form input,
+#popup-form input:focus,
+#popup-form input:focus-visible,
+#popup-input,
+#popup-input:focus,
+#popup-input:focus-visible {
   flex: 1; background: transparent; color: var(--fg);
-  border: none; font: inherit; outline: none;
+  border: none !important; font: inherit; outline: none !important;
+  outline-width: 0 !important;
+  box-shadow: none !important;
 }
 #popup-form input:disabled { opacity: 0.5; }
 
