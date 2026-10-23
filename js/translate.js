@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=84';
+import { openBookFromDb } from './reader.js?v=85';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=84';
+} from './state.js?v=85';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=84';
+} from './touchselect.js?v=85';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -390,7 +390,7 @@ export function attachOutsideClickToFrame(doc) {
 }
 
 // ============================================================
-// Oxford US IPA fetcher
+// US IPA fetcher (Oxford via extension bridge, with CORS-safe US IPA fallback)
 // ============================================================
 const ipaCache = new Map();
 
@@ -400,15 +400,7 @@ export async function fetchOxfordIpa(word) {
   if (!clean) return null;
   if (ipaCache.has(clean)) return ipaCache.get(clean);
 
-  const targetUrl = `https://www.oxfordlearnersdictionaries.com/search/english/direct/?q=${encodeURIComponent(clean)}`;
-  const extractIpa = (html) => {
-    if (!html) return null;
-    const m = html.match(/class=["']phons_n_am["'][^>]*>[\s\S]*?<span class=["']phon["']>([^<]+)<\/span>/i)
-           || html.match(/class=["']phon["']>([^<]+)<\/span>/i);
-    return m ? m[1].trim() : null;
-  };
-
-  const fetchWithTimeout = async (url, ms = 4000) => {
+  const fetchWithTimeout = async (url, ms = 3000) => {
     const ctrl = new AbortController();
     const id = setTimeout(() => ctrl.abort(), ms);
     try {
@@ -421,29 +413,49 @@ export async function fetchOxfordIpa(word) {
     }
   };
 
-  // Try direct fetch first
-  try {
-    const res = await fetchWithTimeout(targetUrl, 2500);
-    if (res.ok) {
-      const html = await res.text();
-      const ipa = extractIpa(html);
-      if (ipa) {
-        ipaCache.set(clean, ipa);
-        return ipa;
+  // 1. If the Chrome extension is active on this page, ask its background worker
+  // to fetch the real Oxford Learner's Dictionary entry (bypasses CORS using host_permissions)
+  if (typeof window !== 'undefined' && window.postMessage) {
+    try {
+      const extIpa = await new Promise((resolve) => {
+        const requestId = Math.random().toString(36).slice(2);
+        const timer = setTimeout(() => {
+          window.removeEventListener('message', onMsg);
+          resolve(null);
+        }, 500);
+        function onMsg(e) {
+          if (e.data && e.data.type === 'READER_OXFORD_IPA_RESULT' && e.data.requestId === requestId) {
+            clearTimeout(timer);
+            window.removeEventListener('message', onMsg);
+            resolve(e.data.ipa || null);
+          }
+        }
+        window.addEventListener('message', onMsg);
+        window.postMessage({ type: 'READER_FETCH_OXFORD_IPA', requestId, word: clean }, '*');
+      });
+      if (extIpa) {
+        ipaCache.set(clean, extIpa);
+        return extIpa;
       }
-    }
-  } catch (e) {}
+    } catch (e) {}
+  }
 
-  // Fallback via CORS proxy (for browser environments)
+  // 2. Direct fetch to Oxford on github.io gets blocked by CORS on Oxford's 302 redirect.
+  // We use the fast, reliable, CORS-enabled Datamuse US IPA API as the native web fallback.
   try {
-    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-    const res = await fetchWithTimeout(proxyUrl, 4000);
+    const dmUrl = `https://api.datamuse.com/words?sp=${encodeURIComponent(clean)}&qe=sp&md=r&ipa=1`;
+    const res = await fetchWithTimeout(dmUrl, 2500);
     if (res.ok) {
-      const html = await res.text();
-      const ipa = extractIpa(html);
-      if (ipa) {
-        ipaCache.set(clean, ipa);
-        return ipa;
+      const data = await res.json();
+      if (Array.isArray(data) && data.length > 0 && data[0].word?.toLowerCase() === clean) {
+        for (const tag of (data[0].tags || [])) {
+          if (tag.startsWith('ipa_pron:')) {
+            const raw = tag.slice(9).trim();
+            const ipa = raw.startsWith('/') ? raw : `/${raw}/`;
+            ipaCache.set(clean, ipa);
+            return ipa;
+          }
+        }
       }
     }
   } catch (e) {}
