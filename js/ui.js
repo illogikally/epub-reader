@@ -12,13 +12,13 @@ import {
   $, settings, runtime, persistSettings, attachPullToDismiss,
   GROQ_KEY_REF, REASONING_MODES, DEFAULT_REASONING,
   allModels, addModel, removeModel,
-} from './state.js?v=80';
+} from './state.js?v=81';
 import {
   applyChromeTheme, applyAll, updateSliderFill, applyBookStyle,
-} from './theme.js?v=80';
-import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=80';
-import { scrollTocToCurrent } from './translate.js?v=80';
-import { syncDebugPanel, APP_VERSION } from './debug.js?v=80';
+} from './theme.js?v=81';
+import { closeBook, createRendition, hideChrome, relayoutViewer } from './reader.js?v=81';
+import { scrollTocToCurrent } from './translate.js?v=81';
+import { syncDebugPanel, APP_VERSION } from './debug.js?v=81';
 
 const overlay = $('overlay');
 const tocDrawer = $('toc-drawer');
@@ -215,13 +215,15 @@ const FONTS = [
   ["ui-monospace, 'SF Mono', Menlo, monospace", 'Mono'],
 ].map(([value, label]) => ({ value, label, style: `font-family:${value}` }));
 
-// The lookup popup offers the book fonts plus Consolas, which is bundled
-// (css/consola*.ttf, @font-face in reader.css) and preloaded at boot by
-// main.js so it is ready before the first popup opens.
+// The lookup popup offers the book fonts plus Consolas and New Spirit, which are bundled
+// (@font-face in reader.css) and preloaded at boot by
+// main.js so they are ready before the first popup opens.
 const POPUP_FONTS = [
   ...FONTS,
-  ...[["'Consolas', ui-monospace, 'SF Mono', Menlo, monospace", 'Consolas']]
-    .map(([value, label]) => ({ value, label, style: `font-family:${value}` })),
+  ...[
+    ["'Consolas', ui-monospace, 'SF Mono', Menlo, monospace", 'Consolas'],
+    ["'New Spirit', 'New Spirit Condensed', Georgia, serif", 'New Spirit'],
+  ].map(([value, label]) => ({ value, label, style: `font-family:${value}` })),
 ];
 
 // ============================================================

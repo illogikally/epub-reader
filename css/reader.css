@@ -57,6 +57,62 @@
   font-display: swap;
   src: url('./Seravek-Medium.otf') format('opentype');
 }
+@font-face {
+  font-family: 'New Spirit';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-RegularCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-MediumCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-SemiBoldCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-SemiBoldCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit Condensed';
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-RegularCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit Condensed';
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-MediumCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit Condensed';
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-SemiBoldCondensed.otf') format('opentype');
+}
+@font-face {
+  font-family: 'New Spirit Condensed';
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  src: url('./NewSpirit-SemiBoldCondensed.otf') format('opentype');
+}
 
 /* ============================================================
    Theme variables
@@ -1190,8 +1246,9 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
    The popup writes it, not the model — see sendToLLM's `heading` — so it
    looks the same whether or not the model honoured the output format. */
 #popup-out .title {
+  font-family: 'New Spirit', 'New Spirit Condensed', Georgia, serif;
   color: var(--accent);
-  font-weight: 700;
+  font-weight: 600;
   /* Relative to the popup's font size, so it tracks the slider, and a step
      above the body text so it reads as a heading. */
   font-size: 1.15em;
