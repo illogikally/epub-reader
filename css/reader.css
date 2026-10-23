@@ -1252,7 +1252,7 @@ body.chrome-visible .chrome-row:nth-last-child(n+5) { transition-delay: 280ms; }
   /* Relative to the popup's font size, so it tracks the slider, and a step
      above the body text so it reads as a heading. */
   font-size: 1.15em;
-  letter-spacing: 0.08em;
+  letter-spacing: -.02em;
   word-spacing: normal;
   text-transform: uppercase;
   margin-top: 8px;
