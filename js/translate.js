@@ -11,16 +11,16 @@
 //   * Popup closing is instant (CSS uses display:none/flex, no fade).
 // ============================================================
 
-import { openBookFromDb } from './reader.js?v=75';
+import { openBookFromDb } from './reader.js?v=76';
 import {
   $, escapeHtml, settings, runtime,
   currentModel, GROQ_URL, GROQ_KEY_REF,
   MAX_TOKENS, CONTEXT_SENTENCES, MAX_SELECTION_CHARS, attachPullToDismiss, isCoarsePointer, isPhoneUI,
-} from './state.js?v=75';
+} from './state.js?v=76';
 import {
   onSelectionSettled, onBookTap,
   getTouchSelection, clearTouchSelection,
-} from './touchselect.js?v=75';
+} from './touchselect.js?v=76';
 
 const popupWrapper = $('popup-wrapper')
 const popup = $('popup');
@@ -387,6 +387,77 @@ export function attachOutsideClickToFrame(doc) {
 }
 
 // ============================================================
+// Oxford US IPA fetcher
+// ============================================================
+const ipaCache = new Map();
+
+export async function fetchOxfordIpa(word) {
+  if (!word) return null;
+  const clean = word.toLowerCase().trim().replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, '');
+  if (!clean) return null;
+  if (ipaCache.has(clean)) return ipaCache.get(clean);
+
+  const targetUrl = `https://www.oxfordlearnersdictionaries.com/search/english/direct/?q=${encodeURIComponent(clean)}`;
+  const extractIpa = (html) => {
+    if (!html) return null;
+    const m = html.match(/class=["']phons_n_am["'][^>]*>[\s\S]*?<span class=["']phon["']>([^<]+)<\/span>/i)
+           || html.match(/class=["']phon["']>([^<]+)<\/span>/i);
+    return m ? m[1].trim() : null;
+  };
+
+  const fetchWithTimeout = async (url, ms = 4000) => {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), ms);
+    try {
+      const res = await fetch(url, { signal: ctrl.signal });
+      clearTimeout(id);
+      return res;
+    } catch (e) {
+      clearTimeout(id);
+      throw e;
+    }
+  };
+
+  // Try direct fetch first
+  try {
+    const res = await fetchWithTimeout(targetUrl, 2500);
+    if (res.ok) {
+      const html = await res.text();
+      const ipa = extractIpa(html);
+      if (ipa) {
+        ipaCache.set(clean, ipa);
+        return ipa;
+      }
+    }
+  } catch (e) {}
+
+  // Fallback via CORS proxy (for browser environments)
+  try {
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const res = await fetchWithTimeout(proxyUrl, 4000);
+    if (res.ok) {
+      const html = await res.text();
+      const ipa = extractIpa(html);
+      if (ipa) {
+        ipaCache.set(clean, ipa);
+        return ipa;
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function cleanMeaning(text, phrase) {
+  if (!text) return '';
+  const cleanWord = phrase.trim().replace(/^[^a-zA-Z0-9'-]+|[^a-zA-Z0-9'-]+$/g, '') || phrase.trim();
+  const esc = cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let cleaned = text.replace(new RegExp('^\\s*(?:\\*{1,2}' + esc + '\\*{1,2}|' + esc + ')\\s*(?:\\/[^\\/]+\\/)?\\s*[:\\-–—]?\\s*', 'i'), '');
+  cleaned = cleaned.replace(/^\s*[:\-–—]\s*/, '');
+  return cleaned;
+}
+
+// ============================================================
 // LLM call + UI flow
 // ============================================================
 // `heading` is the section label the popup draws above the answer (SYNONYM,
@@ -397,7 +468,7 @@ export function attachOutsideClickToFrame(doc) {
 // `actionKey` ties this answer back to the action link that started it, so a
 // second click on that (now spent) link can scroll to the answer instead of
 // doing nothing — see addAction / scrollToSpent.
-async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) {
+async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey, ipaPromise) {
   if (popupBusy) return;
   popupBusy = true;
   const firstIndex = popupOut.children.length;
@@ -418,6 +489,42 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   let replyDiv = null;
   let reply = '';
   let smoother = null;
+  let currentShown = '';
+
+  let ipa = null;
+  let ipaPending = !!ipaPromise;
+  if (ipaPromise) {
+    ipaPromise.then(res => {
+      ipa = res;
+      ipaPending = false;
+      if (replyDiv && smoother) updateStreamDisplay();
+    }).catch(() => {
+      ipaPending = false;
+      if (replyDiv && smoother) updateStreamDisplay();
+    });
+  }
+
+  function formatReplyText(rawText) {
+    if (!ipaPromise || !followup?.phrase) return rawText;
+    const displayWord = followup.phrase.trim().replace(/^[^a-zA-Z0-9'-]+|[^a-zA-Z0-9'-]+$/g, '') || followup.phrase.trim();
+    const cleaned = cleanMeaning(rawText, followup.phrase);
+    let prefix = '';
+    if (ipa) {
+      prefix = `**${displayWord}** ${ipa}: `;
+    } else if (ipaPending) {
+      prefix = `**${displayWord}** /.../: `;
+    } else {
+      prefix = `**${displayWord}**: `;
+    }
+    return prefix + cleaned;
+  }
+
+  function updateStreamDisplay() {
+    if (!replyDiv) return;
+    const textToRender = formatReplyText(currentShown);
+    replyDiv.innerHTML = renderMarkdown(closeDanglingMarkdown(textToRender.trim()));
+    kickFollow();
+  }
 
   // Auto-follow while the reply streams in.
   //   scroll target = min(max scroll, replyTop - 4)
@@ -448,8 +555,8 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     userInterrupted = false;
     startFollow(replyDiv, () => smoother.settled);
     smoother = smoothStream(shown => {
-      replyDiv.innerHTML = renderMarkdown(closeDanglingMarkdown(shown.trim()));
-      kickFollow();
+      currentShown = shown;
+      updateStreamDisplay();
     });
   }
 
@@ -562,13 +669,19 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
       await smoother.end();
       kickFollow();   // let the height/scroll settle and hand height back to CSS
     }
+    if (ipaPromise) {
+      try { ipa = await ipaPromise; } catch {}
+      ipaPending = false;
+    }
     if (!reply) {
       if (pending) pending.remove();
       popupWrite('(no response)\n\n', 'e');
       popupHistory.pop();
     } else {
       replyDiv.classList.remove('cursor');
-      popupHistory.push({ role: 'assistant', content: reply });
+      const finalContent = formatReplyText(reply);
+      replyDiv.innerHTML = renderMarkdown(finalContent.trim());
+      popupHistory.push({ role: 'assistant', content: finalContent });
     }
   } catch (err) {
     if (smoother) smoother.cancel();
@@ -576,8 +689,13 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     if (pending) pending.remove();
     if (replyDiv && reply) {
       replyDiv.classList.remove('cursor');
-      replyDiv.innerHTML = renderMarkdown(reply) + '\n';
-      popupHistory.push({ role: 'assistant', content: reply });
+      if (ipaPromise) {
+        try { ipa = await ipaPromise; } catch {}
+        ipaPending = false;
+      }
+      const finalContent = formatReplyText(reply);
+      replyDiv.innerHTML = renderMarkdown(finalContent) + '\n';
+      popupHistory.push({ role: 'assistant', content: finalContent });
     } else if (replyDiv) {
       replyDiv.remove();
       popupHistory.pop();
@@ -764,20 +882,21 @@ export function doLookup(phrase, range, sentenceCount) {
   spentActions.clear();          // new word — every action is available again
   popupForm.hidden = true;
 
-  const is_a_word = phrase.trim().split(' ').length == 1
+  const is_a_word = phrase.trim().split(/\s+/).length === 1;
   // The sentence only picks the sense (and part of speech) — it is not to be translated.
   const ctxBlock = local ? `\nCâu (chỉ để chọn nét nghĩa, không dịch): """${local}"""` : '';
   const prompt = is_a_word
     ? `Nghĩa tiếng Việt của riêng từ "${phrase}".${ctxBlock}
-Trả về đúng 1 dòng: **${phrase}** /IPA/: nghĩa
+Trả về đúng 1 dòng: nghĩa
 - Nghĩa ngắn như từ điển (1-4 từ), tối đa 2 nghĩa ngăn bằng dấu phẩy; không lấy nghĩa cả thành ngữ chứa từ.
-- Không thêm gì khác. Vd câu "We sat on the river bank." → **bank** /bæŋk/: bờ, bờ sông`
+- Không thêm gì khác. Vd câu "We sat on the river bank." → bờ, bờ sông`
     : `Nghĩa tiếng Việt của riêng cụm "${phrase}".${ctxBlock}
 Trả về đúng 1 dòng: **${phrase}**: nghĩa
 - Nghĩa ngắn như từ điển, không phải câu; thành ngữ thì trả nghĩa thành ngữ.
 - Không phiên âm, không thêm gì khác. Vd **gave up**: từ bỏ, cai`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
-  sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
+  const ipaPromise = is_a_word ? fetchOxfordIpa(phrase) : null;
+  sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true, null, null, ipaPromise);
 }
 
 // capturedRange: pre-cloned Range from pointerdown — used on mobile where iOS
