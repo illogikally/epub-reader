@@ -392,6 +392,91 @@ function handleOutsideClick(e) {
 }
 
 // ============================================================
+// Oxford US IPA fetcher
+// ============================================================
+const ipaCache = new Map();
+
+async function fetchOxfordIpa(word) {
+  if (!word) return null;
+  const clean = word.toLowerCase().trim().replace(/^[^a-z0-9'-]+|[^a-z0-9'-]+$/gi, '');
+  if (!clean) return null;
+  if (ipaCache.has(clean)) return ipaCache.get(clean);
+
+  const targetUrl = `https://www.oxfordlearnersdictionaries.com/search/english/direct/?q=${encodeURIComponent(clean)}`;
+  const extractIpa = (html) => {
+    if (!html) return null;
+    const m = html.match(/class=["']phons_n_am["'][^>]*>[\s\S]*?<span class=["']phon["']>([^<]+)<\/span>/i)
+           || html.match(/class=["']phon["']>([^<]+)<\/span>/i);
+    return m ? m[1].trim() : null;
+  };
+
+  // 1. Try Chrome background service worker first (bypasses CORS using host permissions)
+  if (typeof chrome !== 'undefined' && chrome.runtime?.sendMessage) {
+    try {
+      const resp = await new Promise((resolve) => {
+        const timer = setTimeout(() => resolve(null), 3500);
+        chrome.runtime.sendMessage({ action: 'fetchOxfordHtml', url: targetUrl }, res => {
+          clearTimeout(timer);
+          if (chrome.runtime.lastError || !res) resolve(null);
+          else resolve(res);
+        });
+      });
+      if (resp?.html) {
+        const ipa = extractIpa(resp.html);
+        if (ipa) {
+          ipaCache.set(clean, ipa);
+          return ipa;
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 2. Direct fetch fallback
+  try {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), 2500);
+    const res = await fetch(targetUrl, { signal: ctrl.signal });
+    clearTimeout(id);
+    if (res.ok) {
+      const html = await res.text();
+      const ipa = extractIpa(html);
+      if (ipa) {
+        ipaCache.set(clean, ipa);
+        return ipa;
+      }
+    }
+  } catch (e) {}
+
+  // 3. CORS proxy fallback
+  try {
+    const ctrl = new AbortController();
+    const id = setTimeout(() => ctrl.abort(), 3500);
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+    const res = await fetch(proxyUrl, { signal: ctrl.signal });
+    clearTimeout(id);
+    if (res.ok) {
+      const html = await res.text();
+      const ipa = extractIpa(html);
+      if (ipa) {
+        ipaCache.set(clean, ipa);
+        return ipa;
+      }
+    }
+  } catch (e) {}
+
+  return null;
+}
+
+function cleanMeaning(text, phrase) {
+  if (!text) return '';
+  const cleanWord = phrase.trim().replace(/^[^a-zA-Z0-9'-]+|[^a-zA-Z0-9'-]+$/g, '') || phrase.trim();
+  const esc = cleanWord.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  let cleaned = text.replace(new RegExp('^\\s*(?:\\*{1,2}' + esc + '\\*{1,2}|' + esc + ')\\s*(?:\\/[^\\/]+\\/)?\\s*[:\\-–—]?\\s*', 'i'), '');
+  cleaned = cleaned.replace(/^\s*[:\-–—]\s*/, '');
+  return cleaned;
+}
+
+// ============================================================
 // LLM call + UI flow
 // ============================================================
 // `heading` is the section label the popup draws above the answer (SYNONYM,
@@ -402,7 +487,7 @@ function handleOutsideClick(e) {
 // `actionKey` ties this answer back to the action link that started it, so a
 // second click on that (now spent) link scrolls to the answer instead of asking
 // the model for it all over again — see renderActionsBar / scrollToSpent.
-async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) {
+async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey, ipaPromise) {
   if (popupBusy) return;
   popupBusy = true;
   const firstIndex = popupOut.children.length;
@@ -423,6 +508,42 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
   let replyDiv = null;
   let reply = '';
   let smoother = null;
+  let currentShown = '';
+
+  let ipa = null;
+  let ipaPending = !!ipaPromise;
+  if (ipaPromise) {
+    ipaPromise.then(res => {
+      ipa = res;
+      ipaPending = false;
+      if (replyDiv && smoother) updateStreamDisplay();
+    }).catch(() => {
+      ipaPending = false;
+      if (replyDiv && smoother) updateStreamDisplay();
+    });
+  }
+
+  function formatReplyText(rawText) {
+    if (!ipaPromise || !followup?.phrase) return rawText;
+    const displayWord = followup.phrase.trim().replace(/^[^a-zA-Z0-9'-]+|[^a-zA-Z0-9'-]+$/g, '') || followup.phrase.trim();
+    const cleaned = cleanMeaning(rawText, followup.phrase);
+    let prefix = '';
+    if (ipa) {
+      prefix = `**${displayWord}** ${ipa}: `;
+    } else if (ipaPending) {
+      prefix = `**${displayWord}** /.../: `;
+    } else {
+      prefix = `**${displayWord}**: `;
+    }
+    return prefix + cleaned;
+  }
+
+  function updateStreamDisplay() {
+    if (!replyDiv) return;
+    const textToRender = formatReplyText(currentShown);
+    replyDiv.innerHTML = renderMarkdown(closeDanglingMarkdown(textToRender.trim()));
+    kickFollow();
+  }
 
   // Both the card's height and the scroll position are eased toward where the
   // content wants them rather than set outright: set outright, every new line
@@ -443,8 +564,8 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
     userInterrupted = false;
     startFollow(replyDiv, () => smoother.settled);
     smoother = smoothStream(shown => {
-      replyDiv.innerHTML = renderMarkdown(closeDanglingMarkdown(shown.trim()));
-      kickFollow();
+      currentShown = shown;
+      updateStreamDisplay();
     });
   }
 
@@ -542,7 +663,13 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
         await smoother.end();
         kickFollow();   // let the height/scroll settle and hand height back to CSS
         replyDiv.classList.remove('cursor');
-        popupHistory.push({ role: 'assistant', content: reply });
+        if (ipaPromise) {
+          try { ipa = await ipaPromise; } catch {}
+          ipaPending = false;
+        }
+        const finalContent = formatReplyText(reply);
+        replyDiv.innerHTML = renderMarkdown(finalContent.trim());
+        popupHistory.push({ role: 'assistant', content: finalContent });
         if (cfg.id !== settings.selectedModelId) {
           settings.selectedModelId = cfg.id;
           chrome.storage.local.set({ selectedModelId: cfg.id });
@@ -557,6 +684,7 @@ async function sendToLLM(text, metaLabel, followup, silent, heading, actionKey) 
         stopFollow();
         if (replyDiv) { replyDiv.remove(); replyDiv = null; }
         reply = '';
+        currentShown = '';
         if (!pending) pending = popupWrite('...', 'sys');
       }
     }
@@ -717,20 +845,21 @@ function doLookup(phrase, range, sentenceCount) {
   spentActions.clear();          // new word — every action is available again
   popupForm.hidden = true;
 
-  const is_a_word = phrase.trim().split(' ').length == 1
+  const is_a_word = phrase.trim().split(/\s+/).length === 1;
   // The sentence only picks the sense (and part of speech) — it is not to be translated.
   const ctxBlock = local ? `\nCâu (chỉ để chọn nét nghĩa, không dịch): """${local}"""` : '';
   const prompt = is_a_word
     ? `Nghĩa tiếng Việt của riêng từ "${phrase}".${ctxBlock}
-Trả về đúng 1 dòng: **${phrase}** /IPA/: nghĩa
+Trả về đúng 1 dòng: nghĩa
 - Nghĩa ngắn như từ điển (1-4 từ), tối đa 2 nghĩa ngăn bằng dấu phẩy; không lấy nghĩa cả thành ngữ chứa từ.
-- Không thêm gì khác. Vd câu "We sat on the river bank." → **bank** /bæŋk/: bờ, bờ sông`
+- Không thêm gì khác. Vd câu "We sat on the river bank." → bờ, bờ sông`
     : `Nghĩa tiếng Việt của riêng cụm "${phrase}".${ctxBlock}
 Trả về đúng 1 dòng: **${phrase}**: nghĩa
 - Nghĩa ngắn như từ điển, không phải câu; thành ngữ thì trả nghĩa thành ngữ.
 - Không phiên âm, không thêm gì khác. Vd **gave up**: từ bỏ, cai`
   const ctxLabel = sentenceCount > 1 ? ` (ctx: ${sentenceCount})` : '';
-  sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true);
+  const ipaPromise = is_a_word ? fetchOxfordIpa(phrase) : null;
+  sendToLLM(prompt, `meaning: "${phrase}"${ctxLabel}`, { phrase, context: local }, true, null, null, ipaPromise);
 }
 
 function fireLookupForSelection(sel, doc) {
